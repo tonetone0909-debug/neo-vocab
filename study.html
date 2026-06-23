@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="assets/app.css">
 <script src="assets/config.js"></script>
 <script src="assets/auth.js"></script>
+<script src="assets/shell.js"></script>
 <script src="assets/ui.js"></script>
 </head>
 <body>
@@ -50,7 +51,9 @@
       <button class="back-btn" id="btn-back">← 돌아가기</button>
       <span class="detail-chip" id="detail-chip"></span>
     </div>
-    <div class="flashcard" id="detail-card">
+    <div class="flashcard" id="detail-card" data-swipe-card>
+      <div class="swipe-signal know">✓ 외웠어요</div>
+      <div class="swipe-signal hard">↻ 헷갈려요</div>
       <div class="fc-term" id="d-term"></div>
       <span class="fc-pos" id="d-pos"></span>
       <div class="tts-row" id="d-tts"></div>
@@ -66,7 +69,7 @@
 
 <nav class="tabbar">
   <a href="index.html"><span class="ic">🏠</span>홈</a>
-  <a href="study.html?deck=practical" class="on"><span class="ic">🃏</span>어휘</a>
+  <a href="study.html?deck=practical" class="on"><span class="ic">📝</span>어휘</a>
   <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
   <a href="progress.html"><span class="ic">📊</span>성취</a>
 </nav>
@@ -83,6 +86,7 @@
   const deckName = params.get("deck") || "practical";
   const dayParam = params.get("day");
   const termParam = params.get("term");
+  const reviewMode = params.get("mode") === "review";
   const stack = [];
   let curEntry = null;
   let seqIdx = -1;   // position in dayItems for next-word navigation
@@ -198,8 +202,12 @@
   function showEntry(e) {
     curEntry = e;
     NEO_STORE.markViewed(e.skill, e.deck, e.lemma);   // opened = 확인한 단어
-    // hide "다음 단어" when not in a day sequence (e.g. ?term deep-link)
-    $("btn-next").classList.toggle("hidden", !(dayParam && seqIdx >= 0));
+    // reset swipe transform/signals from a previous card
+    const card = $("detail-card");
+    card.style.transition = ""; card.style.transform = "";
+    card.querySelectorAll(".swipe-signal").forEach(s => s.style.opacity = 0);
+    // hide "다음 단어" when not in a day/review sequence (e.g. ?term deep-link)
+    $("btn-next").classList.toggle("hidden", !((dayParam || reviewMode) && seqIdx >= 0));
     $("daylist").classList.add("hidden"); $("wordview").classList.add("hidden"); $("detail").classList.remove("hidden");
     $("detail").dataset.lemma = e.lemma;
     $("d-term").textContent = e.term;
@@ -218,6 +226,7 @@
   function back() {
     const prev = stack.pop();
     if (prev && prev.type === "term") openTerm(prev.lemma, false);
+    else if (reviewMode) showReview();
     else if (dayParam) showWordList();
     else showGrid();
   }
@@ -231,12 +240,30 @@
   // advance to the next word in the day sequence (or finish → list)
   function nextWord() {
     stack.length = 0;
-    if (dayParam && seqIdx >= 0 && seqIdx + 1 < dayItems.length) {
+    if ((dayParam || reviewMode) && seqIdx >= 0 && seqIdx + 1 < dayItems.length) {
       seqIdx += 1;
       openEntry(dayItems[seqIdx], { type: "list" });
+    } else if (reviewMode) {
+      showReview();
     } else if (dayParam) {
       showWordList();
     } else { showGrid(); }
+  }
+
+  // ---- TODAY REVIEW (mode=review) ----
+  function showReview() {
+    dayItems = NEO_STORE.dueReview()
+      .filter(it => it.deck === "practical" || it.deck === "academic")
+      .map(it => NEO_DECK.byLemma(it.lemma)).filter(Boolean);
+    $("daylist").classList.add("hidden"); $("detail").classList.add("hidden"); $("wordview").classList.remove("hidden");
+    $("crumb").textContent = "오늘 복습";
+    $("day-chip").textContent = "오늘 복습";
+    $("to-grid").href = "index.html"; $("to-grid").textContent = "← 홈";
+    $("day-reset").classList.add("hidden");
+    $("day-quiz").classList.add("hidden");
+    if (!dayItems.length) {
+      $("wordlist").innerHTML = '<div class="center-state"><div class="big">🎉</div><p>오늘 복습할 단어가 없어요.<br>새 Day를 학습하면 복습이 쌓여요.</p></div>';
+    } else { renderWordList(); }
   }
 
   // events
@@ -261,8 +288,47 @@
     if (!$("detail").classList.contains("hidden") && (e.key === "Escape" || e.key === "Backspace")) back();
   });
 
+  // ---- 카드 채점 스와이프 (틴더식) ----
+  (function initSwipe() {
+    const card = $("detail-card"); if (!card) return;
+    const know = card.querySelector(".swipe-signal.know");
+    const hard = card.querySelector(".swipe-signal.hard");
+    let sx = 0, sy = 0, dx = 0, dragging = false, decided = false, horiz = false;
+    card.addEventListener("pointerdown", e => {
+      if (e.target.closest("button, a, input, .tts-btn, .syn, .deriv")) return;  // 탭 인터랙션 보존
+      dragging = true; decided = false; horiz = false; sx = e.clientX; sy = e.clientY; dx = 0;
+      card.style.transition = "none";
+    });
+    card.addEventListener("pointermove", e => {
+      if (!dragging) return;
+      const mx = e.clientX - sx, my = e.clientY - sy;
+      if (!decided) {
+        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        decided = true; horiz = Math.abs(mx) > Math.abs(my);
+        if (horiz) { try { card.setPointerCapture(e.pointerId); } catch (x) {} }
+      }
+      if (!horiz) { dragging = false; return; }   // 세로 제스처 → 스크롤에 양보
+      dx = mx;
+      card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
+      const t = Math.min(1, Math.abs(dx) / 90);
+      know.style.opacity = dx > 0 ? t : 0;
+      hard.style.opacity = dx < 0 ? t : 0;
+    });
+    function endDrag() {
+      if (!dragging) return; dragging = false;
+      card.style.transition = "transform .18s ease";
+      if (dx > 90) { card.style.transform = "translateX(520px) rotate(18deg)"; mark(true); }
+      else if (dx < -90) { card.style.transform = "translateX(-520px) rotate(-18deg)"; mark(false); }
+      else { card.style.transform = ""; know.style.opacity = 0; hard.style.opacity = 0; }
+      dx = 0;
+    }
+    card.addEventListener("pointerup", endDrag);
+    card.addEventListener("pointercancel", endDrag);
+  })();
+
   // init
   if (termParam) { openTerm(termParam, true); }
+  else if (reviewMode) showReview();
   else if (dayParam) showWordList();
   else showGrid();
 })();

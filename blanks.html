@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="assets/app.css">
 <script src="assets/config.js"></script>
 <script src="assets/auth.js"></script>
+<script src="assets/shell.js"></script>
 <script src="assets/ui.js"></script>
 </head>
 <body>
@@ -51,7 +52,9 @@
       <button class="back-btn" id="btn-back">← 돌아가기</button>
       <span class="detail-chip" id="detail-chip">빈칸</span>
     </div>
-    <div class="flashcard">
+    <div class="flashcard" id="detail-card" data-swipe-card>
+      <div class="swipe-signal know">✓ 외웠어요</div>
+      <div class="swipe-signal hard">↻ 헷갈려요</div>
       <div class="blank-reveal" id="d-blank"></div>
       <div id="d-body"></div>
       <div class="actions" style="margin-top:16px;">
@@ -65,7 +68,7 @@
 
 <nav class="tabbar">
   <a href="index.html"><span class="ic">🏠</span>홈</a>
-  <a href="study.html?deck=practical" class="on"><span class="ic">🃏</span>어휘</a>
+  <a href="study.html?deck=practical" class="on"><span class="ic">📝</span>어휘</a>
   <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
   <a href="progress.html"><span class="ic">📊</span>성취</a>
 </nav>
@@ -191,6 +194,8 @@
     curCard = card;
     card.words.forEach(w => NEO_STORE.markViewed("reading", "ctest", w.lemma));   // opened = 확인한 단어
     $("daylist").classList.add("hidden"); $("cardview").classList.add("hidden"); $("detail").classList.remove("hidden");
+    const dc = $("detail-card"); dc.style.transition = ""; dc.style.transform = "";
+    dc.querySelectorAll(".swipe-signal").forEach(s => s.style.opacity = 0);
     $("d-blank").innerHTML = slots(card.blankView);
     const body = $("d-body"); body.innerHTML = "";
     card.words.forEach(w => body.appendChild(wordSection(w)));
@@ -230,6 +235,44 @@
     });
   });
   document.addEventListener("keydown", e => { if (!$("detail").classList.contains("hidden") && (e.key==="Escape"||e.key==="Backspace")) back(); });
+
+  // ---- 카드 채점 스와이프 (틴더식) ----
+  (function initSwipe() {
+    const card = $("detail-card"); if (!card) return;
+    const know = card.querySelector(".swipe-signal.know");
+    const hard = card.querySelector(".swipe-signal.hard");
+    let sx = 0, sy = 0, dx = 0, dragging = false, decided = false, horiz = false;
+    card.addEventListener("pointerdown", e => {
+      if (e.target.closest("button, a, input, .tts-btn, .syn, .deriv")) return;
+      dragging = true; decided = false; horiz = false; sx = e.clientX; sy = e.clientY; dx = 0;
+      card.style.transition = "none";
+    });
+    card.addEventListener("pointermove", e => {
+      if (!dragging) return;
+      const mx = e.clientX - sx, my = e.clientY - sy;
+      if (!decided) {
+        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        decided = true; horiz = Math.abs(mx) > Math.abs(my);
+        if (horiz) { try { card.setPointerCapture(e.pointerId); } catch (x) {} }
+      }
+      if (!horiz) { dragging = false; return; }
+      dx = mx;
+      card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
+      const t = Math.min(1, Math.abs(dx) / 90);
+      know.style.opacity = dx > 0 ? t : 0;
+      hard.style.opacity = dx < 0 ? t : 0;
+    });
+    function endDrag() {
+      if (!dragging) return; dragging = false;
+      card.style.transition = "transform .18s ease";
+      if (dx > 90) { card.style.transform = "translateX(520px) rotate(18deg)"; mark(true); }
+      else if (dx < -90) { card.style.transform = "translateX(-520px) rotate(-18deg)"; mark(false); }
+      else { card.style.transform = ""; know.style.opacity = 0; hard.style.opacity = 0; }
+      dx = 0;
+    }
+    card.addEventListener("pointerup", endDrag);
+    card.addEventListener("pointercancel", endDrag);
+  })();
 
   if (dayParam) showCardList(); else showGrid();
 })();

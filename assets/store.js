@@ -108,5 +108,18 @@
 
   function reset() { save({}); }
 
-  window.NEO_STORE = { get, record, isDue, deckStats, setStatus, markViewed, allByStatus, statusCounts, resetItems, reset, todayNum };
+  // 오늘 복습 대상 — 이미 학습했고(box>=1) 복습 시점이 도래한 항목만 (미학습 신규 제외)
+  function dueReview() {
+    const db = load(); const t = todayNum(); const out = [];
+    for (const k in db) {
+      const v = db[k]; if (!v || !v.box) continue;
+      if ((v.dueDay || 0) <= t) {
+        const [skill, deck, ...rest] = k.split(":");
+        out.push({ skill, deck, lemma: rest.join(":") });
+      }
+    }
+    return out;
+  }
+
+  window.NEO_STORE = { get, record, isDue, deckStats, setStatus, markViewed, allByStatus, statusCounts, resetItems, reset, todayNum, dueReview };
 })();

@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="assets/app.css">
 <script src="assets/config.js"></script>
 <script src="assets/auth.js"></script>
+<script src="assets/shell.js"></script>
 </head>
 <body>
 
@@ -26,6 +27,14 @@
   <div class="kicker">VOCAB TRAINER</div>
   <h1 class="title-kr">토플 단어,<br>NEO VOCAB으로 씹어먹어요</h1>
   <p class="lead">합본 어휘를 Day로 나눠서. 파생어·동의어·예문·미/영 발음까지 한 번에.</p>
+
+  <a class="today-review" id="review-card" href="study.html?mode=review">
+    <div>
+      <div class="tr-k">TODAY · 오늘 복습</div>
+      <div class="tr-t" id="tr-title">복습할 단어를 확인해요</div>
+    </div>
+    <div class="tr-n" id="tr-count">0</div>
+  </a>
 
   <div class="deck-grid">
     <a class="deck-card acid" href="study.html?deck=practical">
@@ -58,7 +67,7 @@
 
 <nav class="tabbar">
   <a href="index.html" class="on"><span class="ic">🏠</span>홈</a>
-  <a href="study.html?deck=practical"><span class="ic">🃏</span>어휘</a>
+  <a href="study.html?deck=practical"><span class="ic">📝</span>어휘</a>
   <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
   <a href="progress.html"><span class="ic">📊</span>성취</a>
 </nav>
@@ -83,6 +92,13 @@
   const bw = bd.reduce((n,d)=>n+d.count,0);
   document.getElementById("st-blanks").innerHTML = `<b>${bw}</b>단어 · <b>${bd.length}</b> Day`;
   document.getElementById("st-quiz").innerHTML = `실용·학술·빈칸 · Day별`;
+  // 오늘 복습 (실용+학술 SRS due)
+  const due = NEO_STORE.dueReview().filter(it => it.deck === "practical" || it.deck === "academic");
+  const n = due.length;
+  document.getElementById("tr-count").textContent = n;
+  const rc = document.getElementById("review-card");
+  if (n > 0) { document.getElementById("tr-title").textContent = `${n}개, 지금 복습해요`; }
+  else { document.getElementById("tr-title").textContent = "오늘은 복습할 단어가 없어요"; rc.classList.add("empty"); }
   if ("serviceWorker" in navigator) window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js").catch(()=>{});
     let reloaded = false;

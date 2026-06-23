@@ -382,6 +382,75 @@ button { font-family: inherit; cursor: pointer; }
 .npc-tip img { width: 34px; height: 34px; flex: 0 0 auto; }
 .npc-tip .b { font-size: 13px; line-height: 1.55; font-weight: 600; }
 
+/* ---------- Today review banner (home) ---------- */
+.today-review {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 18px; padding: 16px 18px; background: var(--neo-acid); color: #0A0A0A;
+  border: 3px solid var(--neo-ink); border-radius: 8px; box-shadow: var(--sh-2);
+}
+.today-review:active { transform: translate(2px,2px); box-shadow: var(--sh-1); }
+.today-review.empty { background: var(--neo-card); color: var(--neo-ink); }
+.today-review .tr-k { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; }
+.today-review .tr-t { font-family: var(--font-display-kr); font-size: 20px; margin-top: 3px; }
+.today-review .tr-n { font-family: var(--font-display); font-size: 40px; line-height: 1; flex: 0 0 auto; }
+
+/* ---------- Dark theme fixes (brand-colored surfaces keep readable text) ---------- */
+html[data-theme="dark"] .chip.on,
+html[data-theme="dark"] .btn-grind,
+html[data-theme="dark"] .btn-acid,
+html[data-theme="dark"] .stat-card.acid,
+html[data-theme="dark"] .stat-card.grind,
+html[data-theme="dark"] .day-card.all,
+html[data-theme="dark"] .day-card.done,
+html[data-theme="dark"] .wordrow.known,
+html[data-theme="dark"] .blankrow.known,
+html[data-theme="dark"] .qm-btn,
+html[data-theme="dark"] .listen-play,
+html[data-theme="dark"] .q-word,
+html[data-theme="dark"] .choice.correct,
+html[data-theme="dark"] .choice.wrong,
+html[data-theme="dark"] .review-row.ok,
+html[data-theme="dark"] .review-row.no,
+html[data-theme="dark"] .ctest-input.ok,
+html[data-theme="dark"] .ctest-input.no,
+html[data-theme="dark"] .quiz-input.ok,
+html[data-theme="dark"] .quiz-input.no,
+html[data-theme="dark"] .char-box.ok,
+html[data-theme="dark"] .char-box.no,
+html[data-theme="dark"] .inline-blank.ok,
+html[data-theme="dark"] .inline-blank.no { color: #0A0A0A; }
+/* their nested muted/colored text too */
+html[data-theme="dark"] .day-card.done .dcount,
+html[data-theme="dark"] .wordrow.known .wmean,
+html[data-theme="dark"] .review-row.ok .ra,
+html[data-theme="dark"] .review-row.no .ra { color: #2A2A2A; }
+
+/* blue-filled controls keep light text */
+html[data-theme="dark"] .btn-blaze,
+html[data-theme="dark"] .day-quiz-cta,
+html[data-theme="dark"] .blankrow .bcount,
+html[data-theme="dark"] .deck-card .num,
+html[data-theme="dark"] .fmt-btn .fnum { color: #FBFBF7; }
+
+/* theme toggle (injected by shell.js into .topbar) */
+.theme-toggle {
+  margin-left: 8px; flex: 0 0 auto; width: 36px; height: 36px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 17px;
+  background: var(--neo-card); border: 3px solid var(--neo-ink); border-radius: 999px; box-shadow: var(--sh-1);
+}
+.theme-toggle:active { transform: translate(1px,1px); box-shadow: none; }
+.crumb + .theme-toggle { margin-left: 8px; }
+
+/* ---------- Tinder-style grade swipe (card detail) ---------- */
+.flashcard { touch-action: pan-y; position: relative; }
+.swipe-signal {
+  position: absolute; top: 16px; padding: 6px 14px; border: 3px solid var(--neo-ink); border-radius: 999px;
+  font-weight: 900; font-size: 15px; box-shadow: var(--sh-1); opacity: 0; pointer-events: none;
+  transition: opacity .08s linear; z-index: 5; color: #0A0A0A;
+}
+.swipe-signal.know { right: 16px; background: var(--neo-grind); transform: rotate(8deg); }
+.swipe-signal.hard { left: 16px; background: var(--neo-hot); transform: rotate(-8deg); }
+
 @media (min-width: 600px) {
   .deck-grid { grid-template-columns: 1fr; }
 }
