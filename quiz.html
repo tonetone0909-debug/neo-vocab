@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Quick Quiz · NEO VOCAB</title>
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="assets/config.js"></script>
+<script src="assets/auth.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="dot"></span>NEO VOCAB</a>
+  <span class="crumb" id="crumb">QUICK QUIZ</span>
+</div>
+
+<main class="app">
+  <!-- HUB -->
+  <div id="hub">
+    <div class="kicker">QUICK QUIZ</div>
+    <h1 class="title-kr" style="font-size:clamp(30px,8vw,44px);">퀴즈로<br>점검해봐요</h1>
+    <div class="deck-grid" style="margin-top:20px;">
+      <a class="deck-card acid" href="quiz.html?mode=practical"><span class="num">1</span><span class="kicker" style="margin-left:8px;">PRACTICAL</span><div class="dt">실용어휘 Quiz</div><div class="dd">Day별 · 4지선다 + 듣고 타이핑</div></a>
+      <a class="deck-card accent" href="quiz.html?mode=academic"><span class="num">2</span><span class="kicker" style="margin-left:8px;">ACADEMIC</span><div class="dt">학술어휘 Quiz</div><div class="dd">Day별 · 4지선다 + 듣고 타이핑</div></a>
+      <a class="deck-card" href="ctest.html"><span class="num">3</span><span class="kicker" style="margin-left:8px;">READING TASK1</span><div class="dt">빈칸어휘 Quiz</div><div class="dd">Day별 · 빈칸에 바로 타이핑</div></a>
+    </div>
+  </div>
+
+  <!-- DAY GRID -->
+  <div id="daylist" class="hidden">
+    <div class="detail-head"><a class="back-btn" href="quiz.html">← Quiz 홈</a><span class="detail-chip" id="day-deck"></span></div>
+    <div class="day-grid" id="day-grid"></div>
+  </div>
+
+  <!-- FORMAT CHOOSER -->
+  <div id="fmtview" class="hidden">
+    <div class="detail-head"><a class="back-btn" id="fmt-back">← 뒤로</a><span class="detail-chip" id="fmt-chip"></span></div>
+    <div class="section-kr">양식을 골라봐요</div>
+    <div class="fmt-grid" id="fmt-grid"></div>
+  </div>
+
+  <!-- QUIZ SESSION -->
+  <div id="quizview" class="hidden">
+    <div class="detail-head">
+      <a class="back-btn" id="quiz-back">← 양식</a>
+      <button class="back-btn" id="btn-review" style="background:var(--neo-acid);">채점·Review ▶</button>
+    </div>
+    <div class="progress-row"><span id="pos">0 / 0</span><span id="q-chip"></span></div>
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <div class="card" id="qcard" style="margin-top:12px;">
+      <div class="quiz-q" id="q-instr"></div>
+      <div id="q-prompt-wrap"></div>
+      <div class="choices" id="choices"></div>
+      <div id="type-wrap" class="hidden">
+        <input class="quiz-input" id="q-input" type="text" inputmode="latin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="들은 단어를 입력">
+        <button class="btn btn-grind btn-block" id="q-next" style="margin-top:12px;">다음 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REVIEW -->
+  <div id="reviewview" class="hidden">
+    <div class="detail-head"><span class="detail-chip" id="rev-chip"></span></div>
+    <div class="center-state" style="padding:18px 0 8px;"><div class="big" id="rev-score">0 / 0</div><p id="rev-msg"></p></div>
+    <div class="actions" style="max-width:340px;margin:0 auto 14px;">
+      <button class="btn btn-ghost" id="rev-again">다시 풀기</button>
+      <a class="btn btn-blaze" id="rev-home">Quiz 홈</a>
+    </div>
+    <div class="section-kr">문항 리뷰</div>
+    <div id="review-list" style="margin-top:10px;"></div>
+  </div>
+</main>
+
+<nav class="tabbar">
+  <a href="index.html"><span class="ic">🏠</span>홈</a>
+  <a href="study.html?deck=practical"><span class="ic">🃏</span>어휘</a>
+  <a href="blanks.html"><span class="ic">⌨️</span>빈칸</a>
+  <a href="quiz.html" class="on"><span class="ic">✅</span>퀴즈</a>
+  <a href="progress.html"><span class="ic">📊</span>성취</a>
+</nav>
+
+<script src="data/meta.js"></script>
+<script src="data/vocab.js"></script>
+<script src="data/blanks.js"></script>
+<script src="assets/tts.js"></script>
+<script src="assets/store.js"></script>
+<script src="assets/deck.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const mode = params.get("mode");            // practical | academic | list
+  const day = params.get("day") ? parseInt(params.get("day"),10) : null;
+  const list = params.get("list");            // learning | known (mode=list)
+  const size = params.get("size");            // 20 | 50 | 100 | all (mode=list)
+  const fmt = params.get("fmt");
+  const isList = mode === "list";
+  const deckKr = mode === "academic" ? "학술어휘" : mode === "practical" ? "실용어휘"
+    : list === "known" ? "학습완료 어휘" : list === "viewed" ? "확인한 어휘" : "학습중 어휘";
+
+  function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+  const FORMATS = [
+    { key:"meaning",  num:"1", title:"영어 → 한국어 뜻", sub:"4지선다", type:"mc" },
+    { key:"synonym",  num:"2", title:"영어 → 동의어",    sub:"4지선다", type:"mc" },
+    { key:"reverse",  num:"3", title:"한국어 뜻 → 영어", sub:"4지선다", type:"mc" },
+    { key:"listenUS", num:"4", title:"듣고 영문 타이핑 · US", sub:"🇺🇸 미국 발음", type:"listen", lang:"en-US" },
+    { key:"listenUK", num:"5", title:"듣고 영문 타이핑 · UK", sub:"🇬🇧 영국 발음", type:"listen", lang:"en-GB" },
+  ];
+  const fmtDef = FORMATS.find(f => f.key === fmt);
+
+  if (!mode) return; // hub static
+
+  // word set for this quiz
+  function wordSet() {
+    if (isList) {
+      const keys = NEO_STORE.allByStatus(list);
+      let ws = keys.map(k => {
+        if (k.deck === "ctest") { const w = NEO_DECK.blanksByLemma(k.lemma); return w ? { term:w.answer, lemma:w.lemma, meaning:w.meaning, synonyms:w.synonyms, tts:w.tts, skill:"reading", deck:"ctest" } : null; }
+        const e = NEO_DECK.byLemma(k.lemma); return e ? { term:e.term, lemma:e.lemma, meaning:e.meaning, synonyms:e.synonyms, tts:e.tts, skill:e.skill, deck:e.deck } : null;
+      }).filter(Boolean);
+      ws = shuffle(ws);
+      if (size && size !== "all") ws = ws.slice(0, parseInt(size,10));
+      return ws;
+    }
+    return NEO_DECK.dayWords(mode, day);
+  }
+  const pool = (isList ? NEO_DECK.vocab() : NEO_DECK.vocab(null, mode)); // distractor pool
+
+  // ---------- DAY GRID (deck modes only) ----------
+  function showDayGrid() {
+    $("hub").classList.add("hidden"); $("daylist").classList.remove("hidden");
+    $("crumb").textContent = `${deckKr} Quiz`; $("day-deck").textContent = deckKr;
+    $("day-grid").innerHTML = NEO_DECK.days(mode).map(d => `<a class="day-card" href="quiz.html?mode=${mode}&day=${d.day}">
+      <div class="dnum">DAY ${d.day}</div><div class="dcount">${d.count}단어</div></a>`).join("");
+  }
+
+  // ---------- FORMAT CHOOSER ----------
+  function baseQuery() {
+    return isList ? `mode=list&list=${list}&size=${size||"all"}` : `mode=${mode}&day=${day}`;
+  }
+  function showFmt() {
+    $("hub").classList.add("hidden"); $("fmtview").classList.remove("hidden");
+    const label = isList ? deckKr : `${deckKr} · DAY ${day}`;
+    $("crumb").textContent = label; $("fmt-chip").textContent = label;
+    $("fmt-back").href = isList ? "progress.html" : `quiz.html?mode=${mode}`;
+    $("fmt-grid").innerHTML = FORMATS.map(f => `<a class="fmt-btn" href="quiz.html?${baseQuery()}&fmt=${f.key}">
+      <span class="fnum">${f.num}</span><span><div>${f.title}</div><div class="fsub">${f.sub}</div></span></a>`).join("");
+  }
+
+  // ---------- SESSION (deferred grading) ----------
+  let session = [], idx = 0, graded = false;
+
+  function sampleVals(arr, n, excludeLC) {
+    const seen = new Set(excludeLC); const out = [];
+    for (const v of shuffle(arr)) { const key = v.toLowerCase(); if (seen.has(key)) continue; seen.add(key); out.push(v); if (out.length>=n) break; }
+    return out;
+  }
+
+  function buildSession() {
+    let words = wordSet();
+    if (fmt === "synonym") words = words.filter(w => (w.synonyms||[]).length);
+    words = shuffle(words);
+    session = words.map(w => {
+      const it = { w, your: null };
+      if (fmt === "meaning") {
+        it.instr = "이 단어의 뜻은?"; it.promptHtml = `<div class="quiz-prompt">${esc(w.term)}</div>`;
+        it.correct = w.meaning;
+        it.options = shuffle([w.meaning, ...sampleVals(pool.filter(x=>x.lemma!==w.lemma&&x.meaning).map(x=>x.meaning), 3, new Set([w.meaning.toLowerCase()]))]);
+      } else if (fmt === "reverse") {
+        it.instr = "이 뜻에 맞는 영어 단어는?"; it.promptHtml = `<div class="quiz-prompt kr">${esc(w.meaning)}</div>`;
+        it.correct = w.term;
+        it.options = shuffle([w.term, ...sampleVals(pool.filter(x=>x.lemma!==w.lemma).map(x=>x.term), 3, new Set([w.term.toLowerCase()]))]);
+      } else if (fmt === "synonym") {
+        it.instr = "이 단어의 동의어는?"; it.promptHtml = `<div class="quiz-prompt">${esc(w.term)}</div>`;
+        const syns = w.synonyms || []; it.correct = shuffle(syns)[0];
+        const exclude = new Set([...syns.map(s=>s.toLowerCase()), w.lemma]);
+        it.options = shuffle([it.correct, ...sampleVals(pool.filter(x=>x.lemma!==w.lemma).flatMap(x=>x.synonyms||[]).filter(s=>!exclude.has(s.toLowerCase())), 3, new Set([it.correct.toLowerCase()]))]);
+      } else { // listen
+        it.type = "listen"; it.instr = "들은 단어를 영어로 입력하세요"; it.correct = (w.tts?w.tts.text:w.term);
+      }
+      return it;
+    });
+  }
+
+  function startSession() {
+    $("hub").classList.add("hidden"); $("quizview").classList.remove("hidden");
+    const label = isList ? deckKr : `${deckKr} · DAY ${day}`;
+    $("crumb").textContent = label; $("q-chip").textContent = fmtDef.title;
+    $("quiz-back").href = `quiz.html?${baseQuery()}`;
+    buildSession(); idx = 0; graded = false;
+    render();
+  }
+
+  function render() {
+    if (idx >= session.length) return grade();
+    const it = session[idx];
+    $("pos").textContent = `${idx+1} / ${session.length}`;
+    $("fill").style.width = (idx/session.length*100) + "%";
+    $("q-instr").textContent = it.instr;
+    $("choices").innerHTML = ""; $("choices").classList.remove("hidden"); $("type-wrap").classList.add("hidden");
+    if (it.type === "listen") {
+      $("q-prompt-wrap").innerHTML = `<button class="listen-play" id="play">${fmtDef.sub.split(" ")[0]} 다시 듣기 🔊</button>`;
+      $("choices").classList.add("hidden"); $("type-wrap").classList.remove("hidden");
+      const inp = $("q-input"); inp.value = it.your || ""; inp.disabled = false;
+      const playFn = () => NEO_TTS && NEO_TTS.speak(it.correct, fmtDef.lang);
+      $("play").addEventListener("click", playFn); setTimeout(playFn, 250); inp.focus();
+    } else {
+      $("q-prompt-wrap").innerHTML = it.promptHtml;
+      $("choices").innerHTML = it.options.map((o,i)=>`<button class="choice" data-v="${esc(o)}"><span class="ltr">${"ABCD"[i]}</span><span>${esc(o)}</span></button>`).join("");
+      $("choices").querySelectorAll(".choice").forEach(b => b.addEventListener("click", () => {
+        it.your = b.dataset.v;
+        $("choices").querySelectorAll(".choice").forEach(x=>x.classList.remove("sel"));
+        b.classList.add("sel");
+        setTimeout(() => { idx++; render(); }, 200);   // no correctness feedback
+      }));
+    }
+  }
+  function nextTyping() { const it = session[idx]; it.your = $("q-input").value.trim(); idx++; render(); }
+
+  function grade() {
+    if (!graded) {
+      graded = true;
+      for (const it of session) {
+        const ok = (it.your||"").trim().toLowerCase() === (it.correct||"").toLowerCase();
+        it.ok = ok;
+        NEO_STORE.record(it.w.skill, it.w.deck, it.w.lemma, ok);
+        if (!ok) NEO_STORE.setStatus(it.w.skill, it.w.deck, it.w.lemma, "learning"); // 오답 → 학습중
+      }
+    }
+    showReview();
+  }
+
+  function showReview() {
+    $("quizview").classList.add("hidden"); $("hub").classList.add("hidden"); $("reviewview").classList.remove("hidden");
+    const ansered = session.filter(it => it.your != null).length;
+    const correct = session.filter(it => it.ok).length;
+    $("crumb").textContent = `${deckKr} · 리뷰`;
+    $("rev-chip").textContent = fmtDef.title;
+    $("rev-score").textContent = `${correct} / ${session.length}`;
+    $("rev-msg").textContent = `푼 ${ansered}문제 · 정답 ${correct} · 오답 ${session.length - correct}`;
+    $("rev-again").onclick = () => location.href = `quiz.html?${baseQuery()}&fmt=${fmt}`;
+    $("rev-home").href = "quiz.html";
+    $("review-list").innerHTML = session.map(it => {
+      const promptText = fmt === "reverse" ? it.w.meaning : it.w.term;
+      const cardHref = it.w.deck === "ctest" ? "blanks.html" : `study.html?term=${encodeURIComponent(it.w.lemma)}`;
+      const mine = it.your ? esc(it.your) : "<i>미응답</i>";
+      return `<div class="review-row ${it.ok?"ok":"no"}">
+        <div class="rq"><span class="rev-mark ${it.ok?"ok":"no"}">${it.ok?"✓":"✗"}</span>${esc(promptText)}</div>
+        <div class="ra"><span class="mine">내 답: ${mine}</span>${it.ok?"":` · <span class="cor">정답: ${esc(it.correct)}</span>`}</div>
+        ${it.ok?"":`<a class="rcard" href="${cardHref}">카드 보기 →</a>`}
+      </div>`;
+    }).join("");
+    window.scrollTo(0,0);
+  }
+
+  // events
+  $("btn-review").addEventListener("click", grade);   // grade now (unanswered → wrong)
+  $("q-next").addEventListener("click", nextTyping);
+  $("q-input").addEventListener("keydown", e => { if (e.key==="Enter") nextTyping(); });
+
+  // route
+  if (fmt && fmtDef && (day || isList)) startSession();
+  else if (day || isList) showFmt();
+  else showDayGrid();
+})();
+</script>
+</body>
+</html>

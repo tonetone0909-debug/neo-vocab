@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>로그인 · NEO VOCAB</title>
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<div class="topbar">
+  <span class="brand"><span class="dot"></span>NEO VOCAB</span>
+</div>
+
+<main class="app">
+  <div class="kicker">ACCESS</div>
+  <h1 class="title-kr" style="font-size:clamp(30px,8vw,46px);">코드를<br>입력해봐요</h1>
+  <p class="lead" id="lead">발급받은 코드를 넣으면 학습을 시작할 수 있어요.</p>
+
+  <div class="card" style="margin-top:18px;">
+    <input class="quiz-input" id="code" type="text" inputmode="latin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="코드 입력" style="text-align:center;">
+    <div class="verdict" id="msg" style="min-height:20px;margin-top:10px;"></div>
+    <button class="btn btn-grind btn-block" id="go" style="margin-top:6px;">들어가기 →</button>
+  </div>
+</main>
+
+<script src="assets/config.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const url = ((window.NEO_AUTH||{}).url || "").trim();
+  if (!url) { location.replace("index.html"); return; }   // 인증 미설정 → 바로 통과
+  const params = new URLSearchParams(location.search);
+  if (params.get("invalid")) { $("msg").textContent = "코드가 유효하지 않아요. 다시 확인해봐요."; $("msg").className = "verdict no"; }
+  if (params.get("offline")) { $("msg").textContent = "인터넷 연결이 필요해요. 연결 후 다시 시도해봐요."; $("msg").className = "verdict no"; }
+
+  function submit() {
+    const code = $("code").value.trim();
+    if (!code) return;
+    $("msg").textContent = "확인 중…"; $("msg").className = "verdict";
+    fetch(url + "?action=validate&code=" + encodeURIComponent(code))
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.ok) {
+          localStorage.setItem("neo_code", code);
+          sessionStorage.setItem("neo_auth_ok", "1");
+          if (d.role) sessionStorage.setItem("neo_role", d.role);
+          location.replace(d.role === "admin" ? "admin.html" : "index.html");
+        } else { $("msg").textContent = "코드가 유효하지 않아요."; $("msg").className = "verdict no"; }
+      })
+      .catch(() => { $("msg").textContent = "인터넷 연결이 필요해요."; $("msg").className = "verdict no"; });
+  }
+  $("go").addEventListener("click", submit);
+  $("code").addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+  $("code").focus();
+})();
+</script>
+</body>
+</html>

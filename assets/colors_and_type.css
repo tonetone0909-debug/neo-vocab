@@ -1,0 +1,265 @@
+/* =========================================================
+   NEO TOEFL — Foundations: Color + Type
+   ========================================================= */
+
+/* ---------- Web fonts (Google Fonts substitutions flagged in README) ---------- */
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&family=Gaegu:wght@400;700&family=Black+Han+Sans&family=Jua&family=Do+Hyeon&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;500;700;900&display=swap');
+
+:root {
+  /* =========================================================
+     COLOR — Statement palette
+     Two loud colors that fight. Everything else is black/bone.
+     ========================================================= */
+
+  /* Dominant statement */
+  --neo-acid:        #E8FF3A;  /* highlighter yellow-green — the brand */
+  --neo-acid-ink:    #B8D400;  /* darker acid, for hover/press on acid */
+  --neo-acid-soft:   #F4FF9E;  /* washed acid, backgrounds only */
+
+  /* Clashing accent */
+  --neo-blaze:       #2B2BFF;  /* electric cyber blue — CTA, links, emphasis */
+  --neo-blaze-ink:   #1515CC;  /* pressed blue */
+  --neo-blaze-soft:  #D9D9FF;
+
+  /* Hot alert / meme pink */
+  --neo-hot:         #FF3DA6;  /* NEW!, LIVE, ALERT stamps */
+  --neo-hot-ink:     #CC1F7C;
+
+  /* Neutrals — soft white system. Eye-comfortable, never harsh #FFF. */
+  --neo-ink:         #0A0A0A;  /* primary text, borders */
+  --neo-ink-soft:    #2A2A2A;
+  --neo-paper:       #FBFBF7;  /* DEFAULT page — soft warm white */
+  --neo-paper-2:     #F4F4EE;  /* sunken / band background */
+  --neo-card:        #FFFFFF;  /* card surface — only when on top of paper */
+  --neo-mute:        #7A7A75;  /* muted ink */
+  --neo-line:        #0A0A0A;  /* borders — always ink, 2-3px */
+
+  /* Legacy aliases (existing files reference --neo-bone / --neo-cream) */
+  --neo-bone:        var(--neo-paper);
+  --neo-bone-2:      var(--neo-paper-2);
+  --neo-cream:       var(--neo-card);
+
+  /* Score / grade colors (gaming HUD) */
+  --neo-grind:       #00D26A;  /* XP gain, correct, "W" */
+  --neo-npc:         #6B6B6B;  /* NPC grey */
+  --neo-fail:        #FF3D3D;  /* wrong, "L", timer danger */
+
+  /* =========================================================
+     SEMANTIC — Light theme (default bone paper)
+     ========================================================= */
+  --fg-1:            var(--neo-ink);
+  --fg-2:            var(--neo-ink-soft);
+  --fg-3:            var(--neo-mute);
+  --fg-inverse:      var(--neo-cream);
+
+  --bg-1:            var(--neo-paper);      /* page */
+  --bg-2:            var(--neo-card);       /* card */
+  --bg-3:            var(--neo-paper-2);    /* sunken */
+  --bg-brand:        var(--neo-acid);
+  --bg-accent:       var(--neo-blaze);
+
+  --border:          var(--neo-ink);
+  --border-w:        3px;                   /* chunky everywhere */
+  --border-w-sm:     2px;
+
+  --link:            var(--neo-blaze);
+  --link-hover:      var(--neo-blaze-ink);
+
+  --success:         var(--neo-grind);
+  --danger:          var(--neo-fail);
+  --warn:            var(--neo-hot);
+
+  /* =========================================================
+     TYPE — Dual script system
+     English and Korean must feel equally LOUD.
+     Display families for headlines; reading families for
+     long TOEFL passages (legibility is non-negotiable).
+     ========================================================= */
+
+  /* Display — chunky black, dual-script unified */
+  /* v2.2: 불규칙동사 Master v3 파일럿 검증 결과 —
+     Noto Sans KR weight 900 이 **대형 한국어 타이틀**에서 가장 legibility 확실.
+     Jua / Black Han Sans 는 획 많은 한글(불규칙·관계사 등)에서 뭉개짐 발생.
+     Jua/Do Hyeon 는 섹션 헤더·카드 타이틀 등 중형 display 로 강등.
+     Black Han Sans 는 짧은 hero 스탬프/스티커 전용. */
+  --font-display:        'Archivo Black', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  /* 대형 페이지 타이틀 — MUST use font-weight: 900 */
+  --font-title-kr:       'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  /* 중형 display (섹션 헤더, 카드 타이틀, 강조 헤드라인) */
+  --font-display-kr:     'Jua', 'Do Hyeon', 'Noto Sans KR', sans-serif;
+  /* Impact-only alt — 짧은 hero 스탬프/스티커 전용 (획 적은 글자만) */
+  --font-display-kr-alt: 'Black Han Sans', 'Jua', 'Noto Sans KR', sans-serif;
+  /* Legacy alias */
+  --font-display-soft-kr: 'Jua', 'Do Hyeon', 'Noto Sans KR', sans-serif;
+
+  /* UI body — Noto Sans KR everywhere. EN falls through to Noto Sans KR which has full Latin coverage. */
+  --font-body:       'Noto Sans KR', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  --font-body-kr:    'Noto Sans KR', 'Apple SD Gothic Neo', system-ui, sans-serif;
+
+  /* Reading (long TOEFL passages — legibility wins) */
+  --font-reading:    'Noto Sans KR', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  --font-reading-kr: 'Noto Serif KR', 'Apple SD Gothic Neo', serif;
+
+  /* Meme / handwritten accent */
+  --font-meme-kr:    'Gaegu', 'Noto Sans KR', sans-serif;
+
+  /* Mono / HUD */
+  --font-mono:       'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* =========================================================
+     TYPE — Scale (fluid, aggressive)
+     ========================================================= */
+  --fs-hero:         clamp(72px, 11vw, 180px);  /* textbook cover / landing */
+  --fs-display-1:    clamp(48px, 6vw, 96px);
+  --fs-display-2:    clamp(36px, 4.5vw, 64px);
+  --fs-h1:           clamp(32px, 3.5vw, 48px);
+  --fs-h2:           28px;
+  --fs-h3:           22px;
+  --fs-lead:         18px;
+  --fs-body:         16px;
+  --fs-small:        14px;
+  --fs-micro:        12px;
+  --fs-passage:      18px;   /* TOEFL reading passage — never below */
+  --fs-numeral-xl:   clamp(120px, 18vw, 280px); /* oversized score numerals */
+
+  --lh-tight:        0.92;   /* display */
+  --lh-snug:         1.12;
+  --lh-body:         1.5;
+  --lh-passage:      1.75;   /* reading comfort */
+
+  --tracking-tight:  -0.02em;
+  --tracking-loose:  0.08em;   /* all-caps labels */
+  --tracking-stamp:  0.14em;   /* stamp/kicker */
+
+  /* =========================================================
+     SPACING — 4px base, aggressive steps
+     ========================================================= */
+  --s-0:   0px;
+  --s-1:   4px;
+  --s-2:   8px;
+  --s-3:   12px;
+  --s-4:   16px;
+  --s-5:   24px;
+  --s-6:   32px;
+  --s-7:   48px;
+  --s-8:   64px;
+  --s-9:   96px;
+  --s-10:  128px;
+
+  /* =========================================================
+     RADIUS — mostly sharp, small radii for sticker feel.
+     Never soft/pill except on chips.
+     ========================================================= */
+  --r-0:   0px;      /* default — sharp */
+  --r-1:   4px;      /* subtle softening */
+  --r-2:   8px;      /* cards */
+  --r-3:   14px;     /* sticker cutout */
+  --r-pill: 999px;   /* chips / tags only */
+
+  /* =========================================================
+     SHADOWS — HARD BLACK OFFSETS. No blur. Stickers, not soft UI.
+     ========================================================= */
+  --sh-1:   3px 3px 0 0 var(--neo-ink);
+  --sh-2:   5px 5px 0 0 var(--neo-ink);
+  --sh-3:   8px 8px 0 0 var(--neo-ink);
+  --sh-4:  12px 12px 0 0 var(--neo-ink);
+  --sh-acid:  5px 5px 0 0 var(--neo-acid);
+  --sh-blaze: 5px 5px 0 0 var(--neo-blaze);
+  --sh-hot:   5px 5px 0 0 var(--neo-hot);
+  /* Soft shadow — used RARELY, only on floating overlays */
+  --sh-soft: 0 12px 40px -10px rgba(0,0,0,.25);
+
+  /* =========================================================
+     MOTION
+     Snappy, over-shoot. No graceful fades.
+     ========================================================= */
+  --ease-snap:    cubic-bezier(.2, .9, .2, 1.2);  /* slight overshoot */
+  --ease-stomp:   cubic-bezier(.7, 0, .3, 1);
+  --dur-fast:     120ms;
+  --dur-base:     180ms;
+  --dur-slow:     260ms;
+}
+
+/* =========================================================
+   SEMANTIC TAG STYLES
+   ========================================================= */
+html, body {
+  background: var(--bg-1);
+  color: var(--fg-1);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, .h1 {
+  font-family: var(--font-display);
+  font-size: var(--fs-display-1);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
+  margin: 0;
+}
+h2, .h2 {
+  font-family: var(--font-display);
+  font-size: var(--fs-display-2);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
+  margin: 0;
+}
+h3, .h3 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h1);
+  line-height: var(--lh-snug);
+  text-transform: uppercase;
+  margin: 0;
+}
+h4, .h4 {
+  font-family: var(--font-body);
+  font-weight: 900;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-snug);
+  margin: 0;
+}
+
+p, .p { font-size: var(--fs-body); line-height: var(--lh-body); margin: 0; }
+.lead { font-size: var(--fs-lead); line-height: 1.4; }
+
+.passage {
+  font-family: var(--font-reading);
+  font-size: var(--fs-passage);
+  line-height: var(--lh-passage);
+  color: var(--fg-1);
+  max-width: 66ch;
+}
+.passage-kr {
+  font-family: var(--font-reading-kr);
+  font-size: var(--fs-passage);
+  line-height: var(--lh-passage);
+}
+
+code, kbd, .mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--tracking-stamp);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.numeral-xl {
+  font-family: var(--font-display);
+  font-size: var(--fs-numeral-xl);
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  font-feature-settings: 'tnum' 1;
+}
+
+.kr       { font-family: var(--font-body-kr); }
+.kr-display { font-family: var(--font-display-kr); letter-spacing: 0; }
+.kr-meme  { font-family: var(--font-meme-kr); }

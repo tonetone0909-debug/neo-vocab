@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+  <defs>
+    
+  </defs>
+  <g transform="translate(80 80) rotate(-8) translate(-80 -80)">
+    <circle cx="80" cy="80" r="64" fill="#0A0A0A"></circle>
+    <circle cx="76" cy="76" r="64" fill="#E8FF3A" stroke="#0A0A0A" stroke-width="5"></circle>
+    
+    <rect x="52" y="60" width="14" height="16" fill="#0A0A0A"></rect>
+    <rect x="88" y="60" width="14" height="16" fill="#0A0A0A"></rect>
+    <path d="M54 98 Q76 114 100 98" fill="none" stroke="#0A0A0A" stroke-width="6" stroke-linecap="round"></path>
+    
+    <g stroke="#0A0A0A" stroke-width="3" stroke-linecap="round">
+      <line x1="30" y1="38" x2="30" y2="22"></line>
+      <line x1="22" y1="30" x2="38" y2="30"></line>
+    </g>
+  </g>
+</svg>

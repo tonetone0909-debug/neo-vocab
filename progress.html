@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>성취도 · NEO VOCAB</title>
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="assets/config.js"></script>
+<script src="assets/auth.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="dot"></span>NEO VOCAB</a>
+  <span class="crumb">MY PROGRESS</span>
+</div>
+
+<main class="app">
+  <div class="kicker">MY PROGRESS · 성취도</div>
+  <h1 class="title-kr" style="font-size:clamp(28px,7vw,40px);">내 학습 현황</h1>
+
+  <div class="section-kr" style="margin-top:22px;">내 단어장</div>
+  <div class="prog-cards">
+    <a class="stat-card" id="c-total" href="mylist.html?list=all&view=list"><div class="sc-v" id="v-total">0</div><div class="sc-l">전체단어</div></a>
+    <a class="stat-card" id="c-viewed" href="mylist.html?list=viewed"><div class="sc-v" id="v-viewed">0</div><div class="sc-l">확인한 단어</div></a>
+    <a class="stat-card acid" id="c-learning" href="mylist.html?list=learning"><div class="sc-v" id="v-learning">0</div><div class="sc-l">헷갈리는 단어</div></a>
+    <a class="stat-card grind" id="c-known" href="mylist.html?list=known"><div class="sc-v" id="v-known">0</div><div class="sc-l">외운 단어</div></a>
+  </div>
+
+  <div class="section-kr" style="margin-top:26px;">덱별 진도</div>
+  <div id="deck-bars"></div>
+
+  <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:26px;display:none;">로그아웃 ⏏</button>
+</main>
+
+<nav class="tabbar">
+  <a href="index.html"><span class="ic">🏠</span>홈</a>
+  <a href="study.html?deck=practical"><span class="ic">🃏</span>어휘</a>
+  <a href="blanks.html"><span class="ic">⌨️</span>빈칸</a>
+  <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
+  <a href="progress.html" class="on"><span class="ic">📊</span>성취</a>
+</nav>
+
+<script src="data/meta.js"></script>
+<script src="data/vocab.js"></script>
+<script src="data/blanks.js"></script>
+<script src="assets/store.js"></script>
+<script src="assets/deck.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const practical = NEO_DECK.vocab(null, "practical");
+  const academic = NEO_DECK.vocab(null, "academic");
+  const ctestItems = NEO_DECK.blanks().flatMap(c => c.words).map(w => ({ skill: "reading", deck: "ctest", lemma: w.lemma }));
+  const allItems = [...practical, ...academic, ...ctestItems];
+
+  const sc = NEO_STORE.statusCounts();
+  $("v-total").textContent = allItems.length;
+  $("v-viewed").textContent = sc.viewed;
+  $("v-learning").textContent = sc.learning;
+  $("v-known").textContent = sc.known;
+
+  function bar(label, items, href) {
+    const s = NEO_STORE.deckStats(items);
+    const pct = s.total ? Math.round(s.studied / s.total * 100) : 0;
+    return `<a class="deck-card" href="${href}" style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;">
+        <span class="dt" style="font-size:18px;">${label}</span>
+        <span class="dcount">${s.studied} / ${s.total} · ${pct}%</span>
+      </div>
+      <div class="bar" style="margin-top:8px;"><div class="fill" style="width:${pct}%"></div></div>
+    </a>`;
+  }
+  $("deck-bars").innerHTML =
+    bar("실용어휘", practical, "study.html?deck=practical") +
+    bar("학술어휘", academic, "study.html?deck=academic") +
+    bar("Reading Task1 빈칸어휘", ctestItems, "blanks.html");
+
+  // 코드 인증이 켜져 있을 때만 로그아웃 노출
+  if (((window.NEO_AUTH || {}).url || "").trim()) {
+    $("logout").style.display = "";
+    $("logout").addEventListener("click", () => {
+      if (!confirm("로그아웃할까요? 다시 코드를 입력해야 사용할 수 있어요.")) return;
+      localStorage.removeItem("neo_code");
+      sessionStorage.removeItem("neo_auth_ok");
+      sessionStorage.removeItem("neo_role");
+      location.href = "login.html";
+    });
+  }
+})();
+</script>
+</body>
+</html>

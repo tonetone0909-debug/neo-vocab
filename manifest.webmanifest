@@ -1,0 +1,17 @@
+{
+  "name": "NEO TOEFL Reading 단어장",
+  "short_name": "NEO 단어장",
+  "description": "TOEFL Reading 어휘 트레이너 — 파생어·동의어·예문·미/영 발음, C-test 빈칸, 동의어 퀴즈",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ko",
+  "background_color": "#FBFBF7",
+  "theme_color": "#0A0A0A",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

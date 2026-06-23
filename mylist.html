@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>내 단어장 · NEO VOCAB</title>
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="assets/config.js"></script>
+<script src="assets/auth.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="dot"></span>NEO VOCAB</a>
+  <span class="crumb" id="crumb">내 단어장</span>
+</div>
+
+<main class="app">
+  <!-- HUB: 리스트 / 퀴즈 카드 -->
+  <div id="hub" class="hidden">
+    <div class="detail-head"><a class="back-btn" href="progress.html">← 성취도</a><span class="detail-chip" id="hub-chip"></span></div>
+    <h1 class="title-kr" id="hub-title" style="font-size:clamp(26px,7vw,38px);"></h1>
+    <div class="deck-grid" style="margin-top:18px;">
+      <a class="deck-card acid" id="card-list">
+        <span class="kicker">WORD LIST</span>
+        <div class="dt">어휘 리스트</div>
+        <div class="dd">단어를 쭉 훑어봐요. 탭하면 카드로 이동해요.</div>
+        <div class="mini-stats"><span class="ms" id="st-list">…</span></div>
+      </a>
+      <a class="deck-card accent" id="card-quiz">
+        <span class="kicker">QUIZ</span>
+        <div class="dt">퀴즈</div>
+        <div class="dd">20·50·100·전체 중 골라서 5가지 양식으로 풀어요.</div>
+      </a>
+    </div>
+    <button class="btn btn-sm btn-ghost btn-block" id="list-reset" style="margin-top:12px;">이 목록 초기화 ↺</button>
+  </div>
+
+  <!-- WORD LIST -->
+  <div id="listview" class="hidden">
+    <div class="detail-head"><a class="back-btn" id="list-back">← 뒤로</a><span class="detail-chip" id="list-chip"></span></div>
+    <div class="wordlist" id="wordlist"></div>
+    <p class="muted hidden" id="list-empty" style="font-size:13px;">아직 이 목록에 단어가 없어요.</p>
+  </div>
+
+  <!-- QUIZ SIZE CHOOSER -->
+  <div id="sizeview" class="hidden">
+    <div class="detail-head"><a class="back-btn" id="size-back">← 뒤로</a><span class="detail-chip" id="size-chip"></span></div>
+    <div class="section-kr">몇 문제 풀까요?</div>
+    <div class="fmt-grid" id="size-grid"></div>
+  </div>
+</main>
+
+<nav class="tabbar">
+  <a href="index.html"><span class="ic">🏠</span>홈</a>
+  <a href="study.html?deck=practical"><span class="ic">🃏</span>어휘</a>
+  <a href="blanks.html"><span class="ic">⌨️</span>빈칸</a>
+  <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
+  <a href="progress.html" class="on"><span class="ic">📊</span>성취</a>
+</nav>
+
+<script src="data/meta.js"></script>
+<script src="data/vocab.js"></script>
+<script src="data/blanks.js"></script>
+<script src="assets/store.js"></script>
+<script src="assets/deck.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const list = ["known","viewed","learning","all"].includes(params.get("list")) ? params.get("list") : "learning";
+  const view = params.get("view");
+  const listKr = list === "known" ? "학습완료 어휘" : list === "viewed" ? "확인한 어휘" : list === "all" ? "전체 단어" : "학습중 어휘";
+  function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  let entries;
+  if (list === "all") {
+    const seen = new Set(); entries = [];
+    for (const e of NEO_DECK.vocab()) { if (seen.has(e.lemma)) continue; seen.add(e.lemma); entries.push({ term: e.term, meaning: e.meaning, pos: e.pos, skill: e.skill, deck: e.deck, lemma: e.lemma }); }
+    for (const w of NEO_DECK.blanks().flatMap(c => c.words)) { if (seen.has(w.lemma)) continue; seen.add(w.lemma); entries.push({ term: w.answer, meaning: w.meaning, pos: w.pos, skill: "reading", deck: "ctest", lemma: w.lemma }); }
+  } else {
+    entries = NEO_STORE.allByStatus(list).map(k => NEO_DECK.findEntry(k.skill, k.deck, k.lemma)).filter(Boolean);
+  }
+  entries.sort((a, z) => a.term.toLowerCase().localeCompare(z.term.toLowerCase()));
+  const n = entries.length;
+
+  function showHub() {
+    $("hub").classList.remove("hidden"); $("listview").classList.add("hidden"); $("sizeview").classList.add("hidden");
+    $("crumb").textContent = listKr; $("hub-chip").textContent = `${n}개`;
+    $("hub-title").textContent = listKr;
+    $("st-list").innerHTML = `<b>${n}</b>개 단어`;
+    $("card-list").href = `mylist.html?list=${list}&view=list`;
+    $("card-quiz").href = `mylist.html?list=${list}&view=quiz`;
+  }
+
+  function showList() {
+    $("hub").classList.add("hidden"); $("listview").classList.remove("hidden"); $("sizeview").classList.add("hidden");
+    $("crumb").textContent = `${listKr} · 리스트`;
+    $("list-chip").textContent = `${n}개`;
+    $("list-back").href = list === "all" ? "progress.html" : `mylist.html?list=${list}`;
+    if (!n) { $("list-empty").classList.remove("hidden"); $("wordlist").innerHTML = ""; return; }
+    $("list-empty").classList.add("hidden");
+    $("wordlist").innerHTML = entries.map(e => {
+      const href = e.deck === "ctest" ? "blanks.html" : `study.html?term=${encodeURIComponent(e.lemma)}`;
+      return `<a class="wordrow" href="${href}">
+        <span class="wterm">${esc(e.term)}</span><span class="wpos">${esc(e.pos||"")}</span>
+        <span class="wmean">${esc(e.meaning||"")}</span></a>`;
+    }).join("");
+  }
+
+  function showSize() {
+    $("hub").classList.add("hidden"); $("listview").classList.add("hidden"); $("sizeview").classList.remove("hidden");
+    $("crumb").textContent = `${listKr} · 퀴즈`;
+    $("size-chip").textContent = `${n}개 중`;
+    $("size-back").href = `mylist.html?list=${list}`;
+    const sizes = [["20문제",20],["50문제",50],["100문제",100],["전체 "+n+"문제","all"]];
+    $("size-grid").innerHTML = sizes
+      .filter(([lab,sz]) => sz === "all" ? n > 0 : sz <= n)
+      .map(([lab,sz]) => `<a class="fmt-btn" href="quiz.html?mode=list&list=${list}&size=${sz}">
+        <span class="fnum">${sz==="all"?"∞":sz}</span><span><div>${lab}</div><div class="fsub">랜덤 출제 → 양식 선택</div></span></a>`).join("")
+      || `<p class="muted" style="font-size:13px;">아직 이 목록에 단어가 없어요. 카드에서 표시해봐요.</p>`;
+  }
+
+  $("list-reset").addEventListener("click", () => {
+    if (!n) return;
+    if (confirm(`${listKr} 목록(${n}개)의 학습 진도를 초기화할까요?`)) {
+      NEO_STORE.resetItems(entries.map(e => ({ skill: e.skill, deck: e.deck, lemma: e.lemma })));
+      location.href = "progress.html";
+    }
+  });
+
+  if (list === "all") showList();          // 전체단어는 열람 전용(허브/퀴즈 없음)
+  else if (view === "list") showList();
+  else if (view === "quiz") showSize();
+  else showHub();
+})();
+</script>
+</body>
+</html>

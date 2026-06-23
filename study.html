@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>어휘 · NEO TOEFL 단어장</title>
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="assets/config.js"></script>
+<script src="assets/auth.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="dot"></span>NEO VOCAB</a>
+  <span class="crumb" id="crumb">어휘</span>
+</div>
+
+<main class="app">
+  <!-- DAY GRID -->
+  <div id="daylist">
+    <div class="deck-toggle">
+      <span class="chip" id="t-practical" data-deck="practical">실용어휘</span>
+      <span class="chip" id="t-academic" data-deck="academic">학술어휘</span>
+    </div>
+    <button class="btn btn-sm btn-ghost btn-block" id="deck-reset" style="margin:10px 0 2px;">모든 Day 진도 초기화 ↺</button>
+    <div class="day-grid" id="day-grid"></div>
+  </div>
+
+  <!-- WORD LIST (one day) -->
+  <div id="wordview" class="hidden">
+    <div class="detail-head">
+      <a class="back-btn" id="to-grid">← Day 목록</a>
+      <span class="detail-chip" id="day-chip"></span>
+    </div>
+    <button class="btn btn-sm btn-ghost btn-block" id="day-reset" style="margin:2px 0 10px;">이 Day 진도 초기화 ↺</button>
+    <div class="wordlist" id="wordlist"></div>
+    <a class="day-quiz-cta" id="day-quiz">이 Day 퀴즈 풀기 ▶</a>
+  </div>
+
+  <!-- TERM DETAIL -->
+  <div id="detail" class="hidden">
+    <div class="detail-head">
+      <button class="back-btn" id="btn-back">← 돌아가기</button>
+      <span class="detail-chip" id="detail-chip"></span>
+    </div>
+    <div class="flashcard" id="detail-card">
+      <div class="fc-term" id="d-term"></div>
+      <span class="fc-pos" id="d-pos"></span>
+      <div class="tts-row" id="d-tts"></div>
+      <div id="d-body"></div>
+      <div class="actions" style="margin-top:16px;">
+        <button class="btn btn-ghost" id="btn-hard">헷갈려요 ↻</button>
+        <button class="btn btn-grind" id="btn-known">외웠어요 ✓</button>
+      </div>
+      <button class="btn btn-blaze btn-block" id="btn-next" style="margin-top:10px;">다음 단어 →</button>
+    </div>
+  </div>
+</main>
+
+<nav class="tabbar">
+  <a href="index.html"><span class="ic">🏠</span>홈</a>
+  <a href="study.html?deck=practical" class="on"><span class="ic">🃏</span>어휘</a>
+  <a href="blanks.html"><span class="ic">⌨️</span>빈칸</a>
+  <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
+  <a href="progress.html"><span class="ic">📊</span>성취</a>
+</nav>
+
+<script src="data/meta.js"></script>
+<script src="data/vocab.js"></script>
+<script src="assets/tts.js"></script>
+<script src="assets/store.js"></script>
+<script src="assets/deck.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const deckName = params.get("deck") || "practical";
+  const dayParam = params.get("day");
+  const termParam = params.get("term");
+  const stack = [];
+  let curEntry = null;
+  let seqIdx = -1;   // position in dayItems for next-word navigation
+
+  function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlight(sentence, form) {
+    let safe = esc(sentence); if (!form) return safe;
+    for (const w of String(form).trim().split(/\s+/)) {       // bold every word of a phrase
+      const stem = esc(w).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+      if (stem.length < 2) continue;
+      try { safe = safe.replace(new RegExp(`\\b(${stem}[a-z]*)`, "i"), "<b>$1</b>"); } catch(e){}
+    }
+    return safe;
+  }
+  function skillKr(s){ return s === "listening" ? "리스닝" : "리딩"; }
+  function starHtml(n){ n=n||0; let h=""; for(let i=1;i<=3;i++) h+=`<span class="${i<=n?'on':'off'}">★</span>`; return `<span class="stars">${h}</span>`; }
+
+  function ttsButtons(container, text) {
+    container.innerHTML = "";
+    if (!window.NEO_TTS || !NEO_TTS.supported()) return;
+    [["US","en-US","🇺🇸"],["UK","en-GB","🇬🇧"]].forEach(([label, lang, flag]) => {
+      const b = document.createElement("button");
+      b.className = "tts-btn"; b.type = "button";
+      b.innerHTML = `<span class="flag">${flag}</span> <span class="lbl">${label} 발음</span>`;
+      b.addEventListener("click", e => { e.stopPropagation();
+        const used = NEO_TTS.speak(text, lang); if (used && used !== label) b.querySelector(".lbl").textContent = `${used} 발음`; });
+      container.appendChild(b);
+    });
+  }
+
+  function derivRows(list, cls) {
+    return `<div class="${cls||''}">` + list.map((d, i) => {
+      const ex = d.ex ? `<div class="deriv-ex hidden"><div class="en">${highlight(d.ex.en, d.form)}</div><div class="ko">${esc(d.ex.ko||"")}</div></div>` : "";
+      const chev = d.ex ? `<span class="chev">▸</span>` : "";
+      const head = d.form ? `<span class="dform">${esc(d.form)}</span>` : `<span class="dform">${esc(d.pos||"")}</span>`;
+      const pos = d.form ? `<span class="dpos">${esc(d.pos||"")}</span>` : "";
+      return `<div class="deriv${d.ex?" click":""}">${'<div class="dhead">'+head+pos+chev+'</div>'}<div class="dmean">${esc(d.meaning||"")}</div>${ex}</div>`;
+    }).join("") + `</div>`;
+  }
+
+  function fillBack(el, e) {
+    let html = `<div class="fc-meaning">${esc(e.meaning||"")}</div>`;
+    const syn = e.synonyms || [];
+    if (syn.length) {
+      html += `<div class="block-label">동의어 SYNONYMS</div><div class="syn-list">`;
+      html += syn.map(s => { const link = NEO_DECK.byLemma(s);
+        return link ? `<span class="syn link" data-lemma="${esc(s.toLowerCase().trim())}">${esc(s)}</span>` : `<span class="syn">${esc(s)}</span>`; }).join("");
+      html += `</div>`;
+    }
+    const dv = e.derivations || [];
+    if (dv.length) { html += `<div class="block-label">파생어 WORD FAMILY</div>` + derivRows(dv); }
+    const ap = e.altPos || [];
+    if (ap.length) { html += `<div class="block-label">다른 품사 OTHER FORMS</div>` + derivRows(ap, "altpos"); }
+    const ex = e.examples || [];
+    if (ex.length) {
+      html += `<div class="block-label">예문 EXAMPLES</div>`;
+      html += ex.map(x => `<div class="ex"><div class="en">${highlight(x.en, x.form||e.term)}</div><div class="ko">${esc(x.ko||"")}</div></div>`).join("");
+    }
+    el.innerHTML = html;
+    el.querySelectorAll(".syn.link").forEach(s => s.addEventListener("click", ev => { ev.stopPropagation(); openTerm(s.dataset.lemma, true); }));
+    el.querySelectorAll(".deriv.click").forEach(row => row.addEventListener("click", ev => {
+      ev.stopPropagation(); row.classList.toggle("open");
+      const box = row.querySelector(".deriv-ex"); if (box) box.classList.toggle("hidden");
+    }));
+  }
+
+  // ---- DAY GRID ----
+  function showGrid() {
+    $("daylist").classList.remove("hidden"); $("wordview").classList.add("hidden"); $("detail").classList.add("hidden");
+    document.querySelectorAll(".deck-toggle .chip").forEach(c => c.classList.toggle("on", c.dataset.deck === deckName));
+    $("crumb").textContent = (deckName === "academic" ? "학술어휘" : "실용어휘") + " · Day";
+    const days = NEO_DECK.days(deckName);
+    $("day-grid").innerHTML = days.map(d => {
+      const done = d.studied >= d.count && d.count > 0;
+      const pct = d.count ? Math.round(d.studied / d.count * 100) : 0;
+      return `<a class="day-card${done?" done":""}" href="study.html?deck=${deckName}&day=${d.day}">
+        <div class="dnum">DAY ${d.day}</div>
+        <div class="dcount">${d.count}단어 · 학습 ${d.studied}</div>
+        <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+      </a>`;
+    }).join("");
+  }
+
+  // ---- WORD LIST ----
+  let dayItems = [];
+  function showWordList() {
+    const d = parseInt(dayParam, 10);
+    dayItems = NEO_DECK.dayWords(deckName, d).slice().sort((a, z) => (z.stars||0) - (a.stars||0));
+    $("daylist").classList.add("hidden"); $("detail").classList.add("hidden"); $("wordview").classList.remove("hidden");
+    $("day-chip").textContent = `DAY ${d}`;
+    $("crumb").textContent = (deckName === "academic" ? "학술" : "실용") + ` · DAY ${d}`;
+    $("to-grid").href = `study.html?deck=${deckName}`;
+    $("day-quiz").href = `quiz.html?mode=${deckName}&day=${d}`;
+    renderWordList();
+  }
+  function renderWordList() {
+    $("wordlist").innerHTML = dayItems.map((e, i) => {
+      const p = NEO_STORE.get(e.skill, e.deck, e.lemma);
+      const known = p && p.box >= 1;
+      return `<div class="wordrow${known?" known":""}" data-i="${i}">
+        <span class="wterm">${esc(e.term)}</span>
+        <span class="wpos">${esc(e.pos||"")}</span>
+        <span class="wstars">${"★".repeat(e.stars||0)}</span>
+        ${known?'<span class="wcheck">✓</span>':''}
+        <span class="wmean">${esc(e.meaning||"")}</span>
+      </div>`;
+    }).join("");
+    $("wordlist").querySelectorAll(".wordrow").forEach(row =>
+      row.addEventListener("click", () => { seqIdx = +row.dataset.i; openEntry(dayItems[seqIdx], { type: "list" }); }));
+  }
+
+  // ---- DETAIL ----
+  function showEntry(e) {
+    curEntry = e;
+    NEO_STORE.markViewed(e.skill, e.deck, e.lemma);   // opened = 확인한 단어
+    // hide "다음 단어" when not in a day sequence (e.g. ?term deep-link)
+    $("btn-next").classList.toggle("hidden", !(dayParam && seqIdx >= 0));
+    $("daylist").classList.add("hidden"); $("wordview").classList.add("hidden"); $("detail").classList.remove("hidden");
+    $("detail").dataset.lemma = e.lemma;
+    $("d-term").textContent = e.term;
+    $("d-pos").innerHTML = `${esc(e.pos||"")}</span> <span class="fc-stars" style="margin:0;">${starHtml(e.stars)}</span> <span class="skill-badge">${skillKr(e.skill)}`;
+    $("detail-chip").textContent = `${skillKr(e.skill)} · ${e.deck === "academic" ? "학술" : "실용"}`;
+    ttsButtons($("d-tts"), e.tts ? e.tts.text : e.term);
+    fillBack($("d-body"), e);
+    window.scrollTo(0, 0);
+  }
+  function openEntry(e, ret) { if (!e) return; stack.push(ret || { type: "list" }); showEntry(e); }
+  function openTerm(lemma, push) {
+    const e = NEO_DECK.byLemma(lemma); if (!e) return;
+    if (push) stack.push(!$("detail").classList.contains("hidden") ? { type: "term", lemma: $("detail").dataset.lemma } : { type: "list" });
+    showEntry(e);
+  }
+  function back() {
+    const prev = stack.pop();
+    if (prev && prev.type === "term") openTerm(prev.lemma, false);
+    else if (dayParam) showWordList();
+    else showGrid();
+  }
+  function mark(correct) {
+    if (curEntry) {
+      NEO_STORE.record(curEntry.skill, curEntry.deck, curEntry.lemma, correct);
+      NEO_STORE.setStatus(curEntry.skill, curEntry.deck, curEntry.lemma, correct ? "known" : "learning");
+    }
+    nextWord();
+  }
+  // advance to the next word in the day sequence (or finish → list)
+  function nextWord() {
+    stack.length = 0;
+    if (dayParam && seqIdx >= 0 && seqIdx + 1 < dayItems.length) {
+      seqIdx += 1;
+      openEntry(dayItems[seqIdx], { type: "list" });
+    } else if (dayParam) {
+      showWordList();
+    } else { showGrid(); }
+  }
+
+  // events
+  $("btn-back").addEventListener("click", back);
+  $("btn-known").addEventListener("click", () => mark(true));
+  $("btn-hard").addEventListener("click", () => mark(false));
+  $("btn-next").addEventListener("click", nextWord);
+  $("day-reset").addEventListener("click", () => {
+    if (confirm(`DAY ${dayParam} 의 학습 진도를 초기화할까요?`)) { NEO_STORE.resetItems(dayItems); showWordList(); }
+  });
+  $("deck-reset").addEventListener("click", () => {
+    const nm = deckName === "academic" ? "학술어휘" : "실용어휘";
+    if (confirm(`${nm} 전체 Day의 학습 진도를 초기화할까요?`)) { NEO_STORE.resetItems(NEO_DECK.vocab(null, deckName)); showGrid(); }
+  });
+  $("to-grid") && $("to-grid").addEventListener("click", () => {});
+  document.querySelectorAll(".deck-toggle .chip").forEach(ch => ch.addEventListener("click", () => { location.href = `study.html?deck=${ch.dataset.deck}`; }));
+  document.addEventListener("keydown", e => {
+    if (!$("detail").classList.contains("hidden") && (e.key === "Escape" || e.key === "Backspace")) back();
+  });
+
+  // init
+  if (termParam) { openTerm(termParam, true); }
+  else if (dayParam) showWordList();
+  else showGrid();
+})();
+</script>
+</body>
+</html>

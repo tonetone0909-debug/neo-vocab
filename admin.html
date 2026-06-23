@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>관리자 · NEO VOCAB</title>
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<div class="topbar">
+  <span class="brand"><span class="dot"></span>NEO VOCAB</span>
+  <span class="crumb">ADMIN</span>
+</div>
+
+<main class="app">
+  <div class="kicker">ADMIN · CODE MANAGER</div>
+  <h1 class="title-kr" style="font-size:clamp(28px,7vw,42px);">코드 관리</h1>
+
+  <div id="gate" class="card" style="margin-top:16px;">
+    <div class="sc-l" style="margin-bottom:8px;">관리자 코드</div>
+    <input class="quiz-input" id="admincode" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="관리자 코드 입력" style="text-align:center;">
+    <div class="verdict" id="gmsg" style="min-height:18px;margin-top:8px;"></div>
+    <button class="btn btn-grind btn-block" id="gin" style="margin-top:6px;">확인</button>
+  </div>
+
+  <div id="panel" style="display:none;">
+    <div class="card" style="margin-top:16px;">
+      <div class="sc-l" style="margin-bottom:8px;">코드 발급</div>
+      <input class="quiz-input" id="newcode" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="새 코드 (예: neo-3f9k2)" style="margin-bottom:8px;">
+      <input class="quiz-input" id="newlabel" type="text" autocomplete="off" placeholder="라벨 (학생 이름 등, 선택)" style="margin-bottom:8px;">
+      <button class="btn btn-known btn-block" id="addbtn">＋ 코드 추가</button>
+      <div class="verdict" id="amsg" style="min-height:18px;margin-top:8px;"></div>
+    </div>
+
+    <div class="detail-head" style="margin-top:18px;">
+      <span class="sc-l">발급된 코드 <span id="count">0</span>개</span>
+      <button class="btn btn-sm btn-ghost" id="refresh">새로고침 ↻</button>
+    </div>
+    <div id="list"></div>
+
+    <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:20px;">관리자 로그아웃</button>
+  </div>
+</main>
+
+<script src="assets/config.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const url = ((window.NEO_AUTH||{}).url || "").trim();
+  if (!url) { document.querySelector(".app").innerHTML = '<p class="lead" style="margin-top:30px;">인증 백엔드(URL)가 아직 설정되지 않았어요. <code>assets/config.js</code>에 URL을 넣으면 관리자 기능이 활성화돼요. (AUTH_SETUP.md 참고)</p>'; return; }
+
+  let admin = sessionStorage.getItem("neo_admin") || "";
+
+  function api(params) {
+    return fetch(url + "?" + params).then(r => r.json());
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+
+  function showPanel() { $("gate").style.display = "none"; $("panel").style.display = "block"; load(); }
+
+  function gateIn() {
+    const c = $("admincode").value.trim();
+    if (!c) return;
+    $("gmsg").textContent = "확인 중…"; $("gmsg").className = "verdict";
+    api("action=validate&code=" + encodeURIComponent(c)).then(d => {
+      if (d && d.ok && d.role === "admin") {
+        admin = c; sessionStorage.setItem("neo_admin", c); $("gmsg").textContent = ""; showPanel();
+      } else { $("gmsg").textContent = "관리자 코드가 아니에요."; $("gmsg").className = "verdict no"; }
+    }).catch(() => { $("gmsg").textContent = "인터넷 연결이 필요해요."; $("gmsg").className = "verdict no"; });
+  }
+
+  function load() {
+    $("list").innerHTML = '<p class="lead">불러오는 중…</p>';
+    api("action=list&admin=" + encodeURIComponent(admin)).then(d => {
+      if (!d || !d.ok) {
+        if (d && d.error === "forbidden") { sessionStorage.removeItem("neo_admin"); $("panel").style.display="none"; $("gate").style.display="block"; return; }
+        $("list").innerHTML = '<p class="lead no">목록을 불러오지 못했어요.</p>'; return;
+      }
+      const codes = d.codes || [];
+      $("count").textContent = codes.length;
+      if (!codes.length) { $("list").innerHTML = '<p class="lead">아직 발급된 코드가 없어요.</p>'; return; }
+      $("list").innerHTML = codes.map(c =>
+        '<div class="wordrow" style="align-items:center;">' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-weight:800;">' + esc(c.code) + '</div>' +
+            '<div class="sc-l" style="opacity:.7;">' + (c.label ? esc(c.label) + " · " : "") + esc(c.createdAt || "") + '</div>' +
+          '</div>' +
+          '<button class="btn btn-sm btn-hard del" data-code="' + esc(c.code) + '">삭제</button>' +
+        '</div>'
+      ).join("");
+      Array.from(document.querySelectorAll(".del")).forEach(b => b.addEventListener("click", () => del(b.getAttribute("data-code"))));
+    }).catch(() => { $("list").innerHTML = '<p class="lead no">인터넷 연결이 필요해요.</p>'; });
+  }
+
+  function add() {
+    const code = $("newcode").value.trim();
+    if (!code) { $("amsg").textContent = "코드를 입력해봐요."; $("amsg").className = "verdict no"; return; }
+    $("amsg").textContent = "추가 중…"; $("amsg").className = "verdict";
+    api("action=add&admin=" + encodeURIComponent(admin) + "&code=" + encodeURIComponent(code) + "&label=" + encodeURIComponent($("newlabel").value.trim())).then(d => {
+      if (d && d.ok) { $("amsg").textContent = "추가됐어요 ✓"; $("amsg").className = "verdict ok"; $("newcode").value=""; $("newlabel").value=""; load(); }
+      else if (d && d.error === "exists") { $("amsg").textContent = "이미 있는 코드예요."; $("amsg").className = "verdict no"; }
+      else { $("amsg").textContent = "추가 실패."; $("amsg").className = "verdict no"; }
+    }).catch(() => { $("amsg").textContent = "인터넷 연결이 필요해요."; $("amsg").className = "verdict no"; });
+  }
+
+  function del(code) {
+    if (!confirm("코드 '" + code + "'를 삭제할까요? 이 코드를 쓰던 학생은 더이상 앱을 못 써요.")) return;
+    api("action=del&admin=" + encodeURIComponent(admin) + "&code=" + encodeURIComponent(code)).then(d => {
+      if (d && d.ok) load();
+    }).catch(() => {});
+  }
+
+  $("gin").addEventListener("click", gateIn);
+  $("admincode").addEventListener("keydown", e => { if (e.key === "Enter") gateIn(); });
+  $("addbtn").addEventListener("click", add);
+  $("refresh").addEventListener("click", load);
+  $("logout").addEventListener("click", () => { sessionStorage.removeItem("neo_admin"); location.href = "login.html"; });
+
+  if (admin) showPanel(); else $("admincode").focus();
+})();
+</script>
+</body>
+</html>

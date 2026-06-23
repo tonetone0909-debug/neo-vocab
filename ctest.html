@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>빈칸 드릴 · NEO TOEFL 단어장</title>
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="assets/config.js"></script>
+<script src="assets/auth.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="dot"></span>NEO VOCAB</a>
+  <span class="crumb" id="crumb">빈칸어휘 Quiz</span>
+</div>
+
+<main class="app">
+  <!-- DAY LIST -->
+  <div id="daylist">
+    <div class="day-grid" id="day-grid"></div>
+  </div>
+
+  <!-- DAY DRILL -->
+  <div id="drillview" class="hidden">
+    <div class="detail-head">
+      <a class="back-btn" id="to-list">← Day 목록</a>
+      <span class="detail-chip" id="day-chip"></span>
+    </div>
+    <div class="progress-row">
+      <span id="pos">0 / 0</span>
+      <span id="score">정답 0</span>
+    </div>
+    <div class="bar"><div class="fill" id="fill"></div></div>
+
+    <div class="card" id="card" style="margin-top:12px;">
+      <div class="kicker" id="meta" style="color:var(--neo-mute);">TEST · ITEM</div>
+      <div class="ctest-sentence" id="sentence"></div>
+      <div class="verdict" id="verdict"></div>
+      <div class="actions" style="margin-top:14px;">
+        <button class="btn btn-ghost" id="btn-reveal">정답 보기</button>
+        <button class="btn btn-grind" id="btn-check">확인</button>
+      </div>
+    </div>
+
+    <div class="center-state hidden" id="done">
+      <div class="big">🏁</div>
+      <p id="done-msg"></p>
+      <div class="actions" style="margin-top:14px;max-width:320px;margin-left:auto;margin-right:auto;">
+        <button class="btn btn-ghost" id="btn-again">다시</button>
+        <a class="btn btn-blaze" id="done-list">← Day 목록</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<nav class="tabbar">
+  <a href="index.html"><span class="ic">🏠</span>홈</a>
+  <a href="study.html?deck=practical"><span class="ic">🃏</span>어휘</a>
+  <a href="blanks.html"><span class="ic">⌨️</span>빈칸</a>
+  <a href="quiz.html" class="on"><span class="ic">✅</span>퀴즈</a>
+  <a href="progress.html"><span class="ic">📊</span>성취</a>
+</nav>
+
+<script src="data/ctest.js"></script>
+<script src="assets/store.js"></script>
+<script src="assets/deck.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const dayParam = params.get("day");
+  let deck = [], idx = 0, score = 0, answered = false;
+
+  function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  function showDayList() {
+    $("daylist").classList.remove("hidden"); $("drillview").classList.add("hidden");
+    $("crumb").textContent = "빈칸어휘 Quiz · Day";
+    const days = NEO_DECK.ctestDays();
+    const totalW = days.reduce((n,d)=>n+d.count,0);
+    let html = `<a class="day-card all" href="ctest.html?day=all"><div class="dtheme">전체 한 번에 (${totalW}단어)</div></a>`;
+    html += days.map(d => {
+      const done = d.studied >= d.count && d.count > 0;
+      const pct = d.count ? Math.round(d.studied / d.count * 100) : 0;
+      return `<a class="day-card${done?" done":""}" href="ctest.html?day=${d.day}">
+        <div class="dnum">DAY ${d.day}</div>
+        <div class="dcount">${d.count}단어 · ${d.drills}문제</div>
+        <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+      </a>`;
+    }).join("");
+    $("day-grid").innerHTML = html;
+  }
+
+  function start() {
+    let items, label;
+    if (dayParam === "all") { items = NEO_DECK.ctest(); label = "전체"; }
+    else { const d = parseInt(dayParam,10); items = NEO_DECK.ctestDayDrills(d); label = `DAY ${d}`; }
+    deck = NEO_DECK.shuffle(items); idx = 0; score = 0;
+    $("daylist").classList.add("hidden"); $("drillview").classList.remove("hidden");
+    $("done").classList.add("hidden"); $("card").classList.remove("hidden");
+    $("day-chip").textContent = label;
+    $("to-list").href = "ctest.html"; $("done-list").href = "ctest.html";
+    render();
+  }
+
+  function render() {
+    answered = false;
+    const c = deck[idx];
+    if (!c) return finish();
+    $("meta").textContent = `DAY ${c.day} · ${c.item}`;
+    // inline blank: prefix + one char-box per missing letter (auto-advance)
+    $("sentence").innerHTML = esc(c.sentence || "").replace(/([A-Za-z]*)(_+)/, (m, pre, u) => {
+      let boxes = "";
+      for (let i = 0; i < u.length; i++) boxes += `<input class="char-box" data-i="${i}" type="text" inputmode="latin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="1">`;
+      return `<span class="inline-prefix">${pre}</span><span class="char-wrap">${boxes}</span>`;
+    });
+    $("verdict").textContent = ""; $("verdict").className = "verdict"; $("btn-check").textContent = "확인";
+    $("pos").textContent = `${idx + 1} / ${deck.length}`;
+    $("score").textContent = `정답 ${score}`;
+    $("fill").style.width = (idx / deck.length * 100) + "%";
+    bindBoxes();
+  }
+
+  function boxes() { return [...document.querySelectorAll("#sentence .char-box")]; }
+  function bindBoxes() {
+    const bs = boxes();
+    bs.forEach((b, i) => {
+      b.addEventListener("input", () => { b.value = b.value.replace(/[^A-Za-z]/g, ""); if (b.value && bs[i+1]) bs[i+1].focus(); });
+      b.addEventListener("keydown", e => {
+        if (e.key === "Backspace" && !b.value && bs[i-1]) { bs[i-1].focus(); }
+        else if (e.key === "Enter") check();
+      });
+    });
+    if (bs[0]) bs[0].focus();
+  }
+
+  function fullWord(c) {
+    const v = boxes().map(b => b.value).join("").trim().toLowerCase();
+    const ans = c.answer.toLowerCase();
+    return v === ans || (c.prefix.toLowerCase() + v) === ans;
+  }
+  function check() {
+    const c = deck[idx]; if (!c) return; if (answered) return nextCard();
+    const ok = fullWord(c); answered = true;
+    boxes().forEach(b => { b.disabled = true; b.classList.add(ok ? "ok" : "no"); });
+    if (ok) { score++; $("verdict").textContent = "정답이에요! ✓"; $("verdict").className = "verdict ok"; }
+    else { $("verdict").innerHTML = `아쉬워요 — 정답은 <b>${esc(c.answer)}</b> 예요.`; $("verdict").className = "verdict no"; }
+    NEO_STORE.record(c.skill, c.deck, c.lemma, ok);
+    $("score").textContent = `정답 ${score}`; $("btn-check").textContent = "다음 →";
+  }
+  function reveal() {
+    const c = deck[idx]; if (!c || answered) return; answered = true;
+    const missing = c.answer.slice(c.prefix.length).split("");
+    boxes().forEach((b, i) => { b.value = missing[i] || ""; b.disabled = true; b.classList.add("no"); });
+    $("verdict").innerHTML = `정답은 <b>${esc(c.answer)}</b> 예요.`; $("verdict").className = "verdict no";
+    NEO_STORE.record(c.skill, c.deck, c.lemma, false); $("btn-check").textContent = "다음 →";
+  }
+  function nextCard() { idx++; if (idx >= deck.length) finish(); else render(); }
+  function finish() {
+    $("card").classList.add("hidden"); $("done").classList.remove("hidden");
+    $("done-msg").innerHTML = `총 ${deck.length}문제 중 <b>${score}개</b> 맞혔어요.`; $("fill").style.width = "100%";
+  }
+
+  $("btn-check").addEventListener("click", check);
+  $("btn-reveal").addEventListener("click", reveal);
+  $("btn-again").addEventListener("click", start);
+
+  if (dayParam) start(); else showDayList();
+})();
+</script>
+</body>
+</html>

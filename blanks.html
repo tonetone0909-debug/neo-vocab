@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Reading Task1 빈칸어휘 · NEO VOCAB</title>
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="assets/config.js"></script>
+<script src="assets/auth.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="index.html"><span class="dot"></span>NEO VOCAB</a>
+  <span class="crumb" id="crumb">Reading Task1 빈칸어휘</span>
+</div>
+
+<main class="app">
+  <!-- DAY GRID -->
+  <div id="daylist">
+    <button class="btn btn-sm btn-ghost btn-block" id="deck-reset" style="margin:2px 0 4px;">모든 Day 진도 초기화 ↺</button>
+    <div class="day-grid" id="day-grid"></div>
+  </div>
+
+  <!-- CARD LIST (one day) -->
+  <div id="cardview" class="hidden">
+    <div class="detail-head">
+      <a class="back-btn" id="to-grid">← Day 목록</a>
+      <span class="detail-chip" id="day-chip"></span>
+    </div>
+    <button class="btn btn-sm btn-ghost btn-block" id="day-reset" style="margin:2px 0 8px;">이 Day 진도 초기화 ↺</button>
+    <p class="muted" style="font-size:13px;margin:2px 0 0;">빈칸을 보고 단어를 떠올린 뒤, 카드를 탭해 정답·뜻을 확인해봐요.</p>
+    <div class="wordlist" id="cardlist"></div>
+    <a class="day-quiz-cta" id="day-quiz">이 Day 타이핑 퀴즈 ▶</a>
+  </div>
+
+  <!-- DETAIL -->
+  <div id="detail" class="hidden">
+    <div class="detail-head">
+      <button class="back-btn" id="btn-back">← 돌아가기</button>
+      <span class="detail-chip" id="detail-chip">빈칸</span>
+    </div>
+    <div class="flashcard">
+      <div class="blank-reveal" id="d-blank"></div>
+      <div id="d-body"></div>
+      <div class="actions" style="margin-top:16px;">
+        <button class="btn btn-ghost" id="btn-hard">헷갈려요 ↻</button>
+        <button class="btn btn-grind" id="btn-known">외웠어요 ✓</button>
+      </div>
+      <button class="btn btn-blaze btn-block" id="btn-next" style="margin-top:10px;">다음 카드 →</button>
+    </div>
+  </div>
+</main>
+
+<nav class="tabbar">
+  <a href="index.html"><span class="ic">🏠</span>홈</a>
+  <a href="study.html?deck=practical"><span class="ic">🃏</span>어휘</a>
+  <a href="blanks.html" class="on"><span class="ic">⌨️</span>빈칸</a>
+  <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
+  <a href="progress.html"><span class="ic">📊</span>성취</a>
+</nav>
+
+<script src="data/meta.js"></script>
+<script src="data/vocab.js"></script>
+<script src="data/blanks.js"></script>
+<script src="assets/tts.js"></script>
+<script src="assets/store.js"></script>
+<script src="assets/deck.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const dayParam = params.get("day");
+  let curCard = null;
+
+  function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function highlight(sentence, form) {
+    let safe = esc(sentence); if (!form) return safe;
+    for (const w of String(form).trim().split(/\s+/)) {
+      const stem = esc(w).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+      if (stem.length < 2) continue;
+      try { safe = safe.replace(new RegExp(`\\b(${stem}[a-z]*)`, "i"), "<b>$1</b>"); } catch(e){}
+    }
+    return safe;
+  }
+  function slots(blankView) {
+    return esc(blankView).replace(/([A-Za-z]*)(_+)/, (m, pre, u) => pre + '<span class="slot"></span>'.repeat(u.length));
+  }
+  // render a full sentence with the blank rendered as spaced slots (글자엔 자간 X, 빈칸만 분리)
+  function sentenceSlots(sentence) {
+    return esc(sentence).replace(/([A-Za-z]*)(_+)/, (m, pre, u) => pre + '<span class="slot"></span>'.repeat(u.length));
+  }
+  function ttsButtons(container, text) {
+    container.innerHTML = "";
+    if (!window.NEO_TTS || !NEO_TTS.supported()) return;
+    [["US","en-US","🇺🇸"],["UK","en-GB","🇬🇧"]].forEach(([label, lang, flag]) => {
+      const b = document.createElement("button"); b.className = "tts-btn"; b.type = "button";
+      b.innerHTML = `<span class="flag">${flag}</span> <span class="lbl">${label} 발음</span>`;
+      b.addEventListener("click", e => { e.stopPropagation();
+        const used = NEO_TTS.speak(text, lang); if (used && used !== label) b.querySelector(".lbl").textContent = `${used} 발음`; });
+      container.appendChild(b);
+    });
+  }
+
+  function wordSection(w) {
+    const wrap = document.createElement("div");
+    wrap.className = "answer-block";
+    let html = `<div class="answer-head">${esc(w.answer)}</div><span class="fc-pos">${esc(w.pos||"")}</span><div class="tts-row"></div>`;
+    html += `<div class="fc-meaning">${esc(w.meaning||"")}</div>`;
+    const syn = w.synonyms || [];
+    if (syn.length) {
+      html += `<div class="block-label">동의어 SYNONYMS</div><div class="syn-list">`;
+      html += syn.map(s => { const link = NEO_DECK.byLemma(s);
+        return link ? `<a class="syn link" href="study.html?term=${encodeURIComponent(s.toLowerCase().trim())}">${esc(s)}</a>` : `<span class="syn">${esc(s)}</span>`; }).join("");
+      html += `</div>`;
+    }
+    const dv = w.derivations || [];
+    if (dv.length) {
+      html += `<div class="block-label">파생어 WORD FAMILY</div><div class="derivwrap">`;
+      html += dv.map(d => {
+        const ex = d.ex ? `<div class="deriv-ex hidden"><div class="en">${highlight(d.ex.en, d.form)}</div><div class="ko">${esc(d.ex.ko||"")}</div></div>` : "";
+        const chev = d.ex ? `<span class="chev">▸</span>` : "";
+        return `<div class="deriv${d.ex?" click":""}"><div class="dhead"><span class="dform">${esc(d.form)}</span><span class="dpos">${esc(d.pos||"")}</span>${chev}</div><div class="dmean">${esc(d.meaning||"")}</div>${ex}</div>`;
+      }).join("") + `</div>`;
+    }
+    const ex = w.examples || [];
+    if (ex.length) {
+      html += `<div class="block-label">예문 EXAMPLES</div>`;
+      html += ex.map(x => `<div class="ex"><div class="en">${highlight(x.en, x.form||w.answer)}</div><div class="ko">${esc(x.ko||"")}</div></div>`).join("");
+    }
+    if (w.sentence) html += `<div class="block-label">출제 문장 IN CONTEXT</div><div class="ex ctest-sentence"><div class="en">${sentenceSlots(w.sentence)}</div></div>`;
+    wrap.innerHTML = html;
+    ttsButtons(wrap.querySelector(".tts-row"), w.tts ? w.tts.text : w.answer);
+    wrap.querySelectorAll(".deriv.click").forEach(row => row.addEventListener("click", () => {
+      row.classList.toggle("open"); const box = row.querySelector(".deriv-ex"); if (box) box.classList.toggle("hidden");
+    }));
+    return wrap;
+  }
+
+  // ---- DAY GRID ----
+  function showGrid() {
+    $("daylist").classList.remove("hidden"); $("cardview").classList.add("hidden"); $("detail").classList.add("hidden");
+    $("crumb").textContent = "Reading Task1 빈칸어휘";
+    const days = NEO_DECK.blanksDays();
+    $("day-grid").innerHTML = days.map(d => {
+      const done = d.studied >= d.count && d.count > 0;
+      const pct = d.count ? Math.round(d.studied / d.count * 100) : 0;
+      return `<a class="day-card${done?" done":""}" href="blanks.html?day=${d.day}">
+        <div class="dnum">DAY ${d.day}</div>
+        <div class="dcount">${d.count}단어 · ${d.cards}카드 · 학습 ${d.studied}</div>
+        <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+      </a>`;
+    }).join("");
+  }
+
+  // ---- CARD LIST ----
+  let dayCards = [];
+  function showCardList() {
+    const d = parseInt(dayParam, 10);
+    dayCards = NEO_DECK.blanksDayCards(d);
+    $("daylist").classList.add("hidden"); $("detail").classList.add("hidden"); $("cardview").classList.remove("hidden");
+    $("day-chip").textContent = `DAY ${d}`;
+    $("crumb").textContent = `빈칸 · DAY ${d}`;
+    $("to-grid").href = "blanks.html";
+    $("day-quiz").href = `ctest.html?day=${d}`;
+    $("cardlist").innerHTML = dayCards.map((card, i) => {
+      const known = card.words.every(w => { const p = NEO_STORE.get("reading","ctest",w.lemma); return p && p.box >= 1; });
+      return `<div class="blankrow${known?" known":""}" data-i="${i}">
+        <span class="bform">${slots(card.blankView)}</span>
+        ${card.words.length>1?`<span class="bcount">${card.words.length}개</span>`:''}
+        ${known?'<span class="wcheck">✓</span>':''}
+      </div>`;
+    }).join("");
+    $("cardlist").querySelectorAll(".blankrow").forEach(row =>
+      row.addEventListener("click", () => { cardIdx = +row.dataset.i; openCard(dayCards[cardIdx]); }));
+  }
+
+  // ---- DETAIL ----
+  let cardIdx = -1;
+  function openCard(card) {
+    curCard = card;
+    card.words.forEach(w => NEO_STORE.markViewed("reading", "ctest", w.lemma));   // opened = 확인한 단어
+    $("daylist").classList.add("hidden"); $("cardview").classList.add("hidden"); $("detail").classList.remove("hidden");
+    $("d-blank").innerHTML = slots(card.blankView);
+    const body = $("d-body"); body.innerHTML = "";
+    card.words.forEach(w => body.appendChild(wordSection(w)));
+    window.scrollTo(0, 0);
+  }
+  function back() {
+    if (dayParam) showCardList(); else showGrid();
+  }
+  function nextCard() {
+    if (cardIdx >= 0 && cardIdx + 1 < dayCards.length) { cardIdx += 1; openCard(dayCards[cardIdx]); }
+    else showCardList();
+  }
+  function mark(correct) {
+    if (curCard) curCard.words.forEach(w => {
+      NEO_STORE.record("reading", "ctest", w.lemma, correct);
+      NEO_STORE.setStatus("reading", "ctest", w.lemma, correct ? "known" : "learning");
+    });
+    nextCard();
+  }
+
+  $("btn-back").addEventListener("click", back);
+  $("btn-known").addEventListener("click", () => mark(true));
+  $("btn-hard").addEventListener("click", () => mark(false));
+  $("btn-next").addEventListener("click", nextCard);
+  $("day-reset").addEventListener("click", () => {
+    if (confirm(`DAY ${dayParam} 의 학습 진도를 초기화할까요?`)) {
+      const items = dayCards.flatMap(c => c.words).map(w => ({ skill: "reading", deck: "ctest", lemma: w.lemma }));
+      NEO_STORE.resetItems(items); showCardList();
+    }
+  });
+  $("deck-reset").addEventListener("click", () => {
+    if (confirm("빈칸어휘 전체 Day의 학습 진도를 초기화할까요?")) {
+      const items = NEO_DECK.blanks().flatMap(c => c.words).map(w => ({ skill: "reading", deck: "ctest", lemma: w.lemma }));
+      NEO_STORE.resetItems(items); showGrid();
+    }
+  });
+  document.addEventListener("keydown", e => { if (!$("detail").classList.contains("hidden") && (e.key==="Escape"||e.key==="Backspace")) back(); });
+
+  if (dayParam) showCardList(); else showGrid();
+})();
+</script>
+</body>
+</html>
