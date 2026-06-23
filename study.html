@@ -54,8 +54,8 @@
       <span class="detail-chip" id="detail-chip"></span>
     </div>
     <div class="flashcard" id="detail-card" data-swipe-card>
-      <div class="swipe-signal know">✓ 외웠어요</div>
-      <div class="swipe-signal hard">↻ 헷갈려요</div>
+      <div class="swipe-half know" aria-hidden="true"></div>
+      <div class="swipe-half hard" aria-hidden="true"></div>
       <div class="fc-term" id="d-term"></div>
       <span class="fc-pos" id="d-pos"></span>
       <div class="tts-row" id="d-tts"></div>
@@ -113,8 +113,7 @@
       const b = document.createElement("button");
       b.className = "tts-btn"; b.type = "button";
       b.innerHTML = `<span class="flag">${flag}</span> <span class="lbl">${label} 발음</span>`;
-      b.addEventListener("click", e => { e.stopPropagation();
-        const used = NEO_TTS.speak(text, lang); if (used && used !== label) b.querySelector(".lbl").textContent = `${used} 발음`; });
+      b.addEventListener("click", e => { e.stopPropagation(); NEO_TTS.speak(text, lang); });
       container.appendChild(b);
     });
   }
@@ -207,7 +206,7 @@
     // reset swipe transform/signals from a previous card
     const card = $("detail-card");
     card.style.transition = ""; card.style.transform = "";
-    card.querySelectorAll(".swipe-signal").forEach(s => s.style.opacity = 0);
+    if (card._resetSig) card._resetSig();
     // hide "다음 단어" when not in a day/review sequence (e.g. ?term deep-link)
     $("btn-next").classList.toggle("hidden", !((dayParam || reviewMode) && seqIdx >= 0));
     $("daylist").classList.add("hidden"); $("wordview").classList.add("hidden"); $("detail").classList.remove("hidden");
@@ -290,42 +289,50 @@
     if (!$("detail").classList.contains("hidden") && (e.key === "Escape" || e.key === "Backspace")) back();
   });
 
-  // ---- 카드 채점 스와이프 (틴더식) ----
+  // ---- 카드 채점 스와이프 (틴더식, 반쪽 세로 시그널) ----
   (function initSwipe() {
     const card = $("detail-card"); if (!card) return;
-    const know = card.querySelector(".swipe-signal.know");
-    const hard = card.querySelector(".swipe-signal.hard");
-    let sx = 0, sy = 0, dx = 0, dragging = false, decided = false, horiz = false, moved = false;
-    card.addEventListener("pointerdown", e => {
-      if (e.pointerType === "mouse" && e.button !== 0) return;   // 카드 어디서든 스와이프 시작 가능
-      dragging = true; decided = false; horiz = false; moved = false; sx = e.clientX; sy = e.clientY; dx = 0;
-      card.style.transition = "none";
-    });
-    card.addEventListener("pointermove", e => {
-      if (!dragging) return;
-      const mx = e.clientX - sx, my = e.clientY - sy;
+    const know = card.querySelector(".swipe-half.know");
+    const hard = card.querySelector(".swipe-half.hard");
+    know.innerHTML = "<span>외웠어요</span>";   // 큰 글자 하나, 세로
+    hard.innerHTML = "<span>헷갈려요</span>";
+    function reset() { know.style.opacity = 0; hard.style.opacity = 0; }
+    card._resetSig = reset;
+
+    let sx = 0, sy = 0, dx = 0, active = false, decided = false, horiz = false, moved = false;
+    function begin(x, y) { active = true; decided = false; horiz = false; moved = false; sx = x; sy = y; dx = 0; card.style.transition = "none"; }
+    function move(x, y, ev) {
+      if (!active) return;
+      const mx = x - sx, my = y - sy;
       if (!decided) {
-        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
         decided = true; horiz = Math.abs(mx) > Math.abs(my);
-        if (horiz) { moved = true; try { card.setPointerCapture(e.pointerId); } catch (x) {} }
+        if (!horiz) { active = false; return; }    // 세로 → 스크롤에 양보
+        moved = true;
       }
-      if (!horiz) { dragging = false; return; }   // 세로 제스처 → 스크롤에 양보
+      if (ev && ev.cancelable) ev.preventDefault();  // 가로 드래그 중 페이지 스크롤 차단
       dx = mx;
       card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
-      const t = Math.min(1, Math.abs(dx) / 90);
-      know.style.opacity = dx > 0 ? t : 0;
-      hard.style.opacity = dx < 0 ? t : 0;
-    });
-    function endDrag() {
-      if (!dragging) return; dragging = false;
+      const t = Math.min(1, Math.abs(dx) / 90) * 0.6;   // 반투명(카드 비침)
+      know.style.opacity = dx > 0 ? t : 0;   // 오른쪽 = 외웠어요(왼쪽 절반)
+      hard.style.opacity = dx < 0 ? t : 0;   // 왼쪽 = 헷갈려요(오른쪽 절반)
+    }
+    function end() {
+      if (!active) return; active = false;
       card.style.transition = "transform .18s ease";
       if (dx > 90) { card.style.transform = "translateX(520px) rotate(18deg)"; mark(true); }
       else if (dx < -90) { card.style.transform = "translateX(-520px) rotate(-18deg)"; mark(false); }
-      else { card.style.transform = ""; know.style.opacity = 0; hard.style.opacity = 0; }
+      else { card.style.transform = ""; reset(); }
       dx = 0;
     }
-    card.addEventListener("pointerup", endDrag);
-    card.addEventListener("pointercancel", endDrag);
+    card.addEventListener("touchstart", e => { if (e.touches.length !== 1) { active = false; return; } begin(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+    card.addEventListener("touchmove", e => { const t = e.touches[0]; if (t) move(t.clientX, t.clientY, e); }, { passive: false });
+    card.addEventListener("touchend", end);
+    card.addEventListener("touchcancel", end);
+    let md = false;
+    card.addEventListener("mousedown", e => { if (e.button !== 0) return; e.preventDefault(); md = true; begin(e.clientX, e.clientY); });
+    window.addEventListener("mousemove", e => { if (md) move(e.clientX, e.clientY, null); });
+    window.addEventListener("mouseup", e => { if (md) { md = false; end(); } });
     card.addEventListener("click", e => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
   })();
 

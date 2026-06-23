@@ -395,15 +395,19 @@ button { font-family: inherit; cursor: pointer; }
 .today-review .tr-n { font-family: var(--font-display); font-size: 40px; line-height: 1; flex: 0 0 auto; }
 
 /* ---------- Tinder-style grade swipe (card detail) ---------- */
-.flashcard { touch-action: pan-y; position: relative; }
-.swipe-signal {
-  position: absolute; top: 18px; padding: 11px 20px; border: 4px solid var(--neo-ink); border-radius: 14px;
-  font-weight: 900; font-size: 24px; box-shadow: var(--sh-2); opacity: 0; pointer-events: none;
-  transition: opacity .08s linear; z-index: 5; color: #0A0A0A; white-space: nowrap;
+.flashcard { touch-action: pan-y; position: relative; overflow: hidden; -webkit-user-select: none; user-select: none; }
+/* 카드를 세로로 반 나눈 시그널: 외웠어요=왼쪽 절반(초록), 헷갈려요=오른쪽 절반(핑크) */
+.swipe-half {
+  position: absolute; top: 0; bottom: 0; width: 50%; opacity: 0; pointer-events: none; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .06s linear;
 }
-/* 카드가 이동하는 반대쪽에 표시해 잘 보이게: 외웠어요=왼쪽, 헷갈려요=오른쪽 */
-.swipe-signal.know { left: 16px; background: var(--neo-grind); transform: rotate(-7deg); }
-.swipe-signal.hard { right: 16px; background: var(--neo-hot); transform: rotate(7deg); }
+.swipe-half.know { left: 0; background: var(--neo-grind); }
+.swipe-half.hard { right: 0; background: var(--neo-hot); }
+.swipe-half span {
+  writing-mode: vertical-rl; text-orientation: upright; font-weight: 900;
+  font-size: clamp(40px, 16vw, 92px); letter-spacing: 2px; color: #0A0A0A;
+}
 
 @media (min-width: 600px) {
   .deck-grid { grid-template-columns: 1fr; }
