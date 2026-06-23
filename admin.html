@@ -10,6 +10,7 @@
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/colors_and_type.css">
 <link rel="stylesheet" href="assets/app.css">
+<script src="assets/ui.js"></script>
 </head>
 <body>
 
@@ -36,6 +37,16 @@
       <input class="quiz-input" id="newlabel" type="text" autocomplete="off" placeholder="라벨 (학생 이름 등, 선택)" style="margin-bottom:8px;">
       <button class="btn btn-known btn-block" id="addbtn">＋ 코드 추가</button>
       <div class="verdict" id="amsg" style="min-height:18px;margin-top:8px;"></div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <div class="sc-l" style="margin-bottom:8px;">엑셀 명단으로 일괄 생성</div>
+      <p class="lead" style="font-size:13px;margin:0 0 10px;line-height:1.5;">수강생 명단(.xlsx)을 올리면 코드가 자동 생성돼요. 코드 = <b>이름 이니셜 3글자 + 전화번호 뒤 4자리</b>. 명단에 <b>이름</b>·<b>연락처</b> 열이 있어야 해요.</p>
+      <input type="file" id="xlsxfile" accept=".xlsx" style="margin-bottom:8px;width:100%;">
+      <div class="verdict" id="xmsg" style="min-height:18px;"></div>
+      <div id="preview"></div>
+      <div class="verdict no" id="dupwarn" style="min-height:0;margin-top:6px;"></div>
+      <button class="btn btn-known btn-block" id="bulkadd" style="margin-top:10px;display:none;">위 코드 모두 추가 →</button>
     </div>
 
     <div class="detail-head" style="margin-top:18px;">
@@ -110,11 +121,178 @@
   }
 
   function del(code) {
-    if (!confirm("코드 '" + code + "'를 삭제할까요? 이 코드를 쓰던 학생은 더이상 앱을 못 써요.")) return;
-    api("action=del&admin=" + encodeURIComponent(admin) + "&code=" + encodeURIComponent(code)).then(d => {
-      if (d && d.ok) load();
-    }).catch(() => {});
+    neoConfirm("코드 '" + code + "'를 삭제할까요?\n이 코드를 쓰던 학생은 더이상 앱을 못 써요.", { danger: true }).then(ok => {
+      if (!ok) return;
+      api("action=del&admin=" + encodeURIComponent(admin) + "&code=" + encodeURIComponent(code)).then(d => {
+        if (d && d.ok) load();
+      }).catch(() => {});
+    });
   }
+
+  // ===== 엑셀 명단 일괄 생성 =====
+  // 한글 이니셜(영어식 k/p/t/j). 초성 인덱스 0~18, ㅇ초성은 모음으로.
+  const CHO = ['k','kk','n','t','tt','r','m','p','pp','s','ss','','j','jj','ch','k','t','p','h'];
+  const JUNG = ['a','a','y','y','e','e','y','y','o','w','w','o','y','u','w','w','w','y','e','u','i'];
+  function syllableInitial(ch) {
+    const code = ch.charCodeAt(0);
+    if (code >= 0xAC00 && code <= 0xD7A3) {
+      const idx = code - 0xAC00;
+      const cho = Math.floor(idx / 588);
+      const jung = Math.floor((idx % 588) / 28);
+      let r = CHO[cho];
+      if (!r) r = JUNG[jung];      // ㅇ초성 → 모음 첫 글자
+      return r ? r[0] : "";
+    }
+    if (/[A-Za-z]/.test(ch)) return ch.toLowerCase();
+    return "";
+  }
+  function makeInitials(name) {
+    const chars = Array.from((name || "").trim()).filter(c => /\S/.test(c));
+    let out = "";
+    for (const c of chars) { const i = syllableInitial(c); if (i) out += i; if (out.length >= 3) break; }
+    return out.slice(0, 3);
+  }
+  function last4(phone) { return (phone || "").replace(/\D/g, "").slice(-4); }
+
+  // 브라우저 내장 기능(DecompressionStream)으로 .xlsx(zip) 직접 읽기 — 외부 라이브러리 불필요
+  async function readXlsx(file) {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const dv = new DataView(buf.buffer);
+    let eocd = -1;
+    for (let i = buf.length - 22; i >= 0; i--) { if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; } }
+    if (eocd < 0) throw new Error("엑셀 형식이 아니에요");
+    const cdCount = dv.getUint16(eocd + 10, true);
+    let off = dv.getUint32(eocd + 16, true);
+    const entries = {};
+    for (let n = 0; n < cdCount; n++) {
+      if (dv.getUint32(off, true) !== 0x02014b50) break;
+      const method = dv.getUint16(off + 10, true);
+      const compSize = dv.getUint32(off + 20, true);
+      const nameLen = dv.getUint16(off + 28, true);
+      const extraLen = dv.getUint16(off + 30, true);
+      const commentLen = dv.getUint16(off + 32, true);
+      const lho = dv.getUint32(off + 42, true);
+      const name = new TextDecoder().decode(buf.subarray(off + 46, off + 46 + nameLen));
+      entries[name] = { method, compSize, lho };
+      off += 46 + nameLen + extraLen + commentLen;
+    }
+    async function extract(name) {
+      const e = entries[name]; if (!e) return null;
+      const lnameLen = dv.getUint16(e.lho + 26, true);
+      const lextraLen = dv.getUint16(e.lho + 28, true);
+      const dataStart = e.lho + 30 + lnameLen + lextraLen;
+      const comp = buf.subarray(dataStart, dataStart + e.compSize);
+      if (e.method === 0) return new TextDecoder().decode(comp);
+      const stream = new Response(comp).body.pipeThrough(new DecompressionStream("deflate-raw"));
+      const ab = await new Response(stream).arrayBuffer();
+      return new TextDecoder().decode(new Uint8Array(ab));
+    }
+    const sheetKey = Object.keys(entries).find(k => /^xl\/worksheets\/sheet\d+\.xml$/.test(k)) || "xl/worksheets/sheet1.xml";
+    return { sheet: await extract(sheetKey), shared: await extract("xl/sharedStrings.xml") };
+  }
+  function parseShared(xml) {
+    if (!xml) return [];
+    const doc = new DOMParser().parseFromString(xml, "application/xml");
+    return Array.from(doc.getElementsByTagName("si")).map(si =>
+      Array.from(si.getElementsByTagName("t")).map(t => t.textContent).join(""));
+  }
+  function parseSheet(xml, shared) {
+    const doc = new DOMParser().parseFromString(xml, "application/xml");
+    return Array.from(doc.getElementsByTagName("row")).map(row => {
+      const obj = {};
+      Array.from(row.getElementsByTagName("c")).forEach(c => {
+        const ref = c.getAttribute("r") || ""; const t = c.getAttribute("t");
+        const col = (ref.match(/[A-Z]+/) || [""])[0];
+        const is = c.getElementsByTagName("is")[0];
+        const v = c.getElementsByTagName("v")[0];
+        let val = "";
+        if (t === "inlineStr" && is) val = Array.from(is.getElementsByTagName("t")).map(x => x.textContent).join("");
+        else if (t === "s" && v) val = shared[parseInt(v.textContent, 10)] || "";
+        else if (v) val = v.textContent;
+        obj[col] = val;
+      });
+      return obj;
+    });
+  }
+
+  let bulkRows = [];
+  function updateDupMarks() {
+    const counts = {};
+    bulkRows.forEach(r => { const c = (r.code || "").trim(); if (c) counts[c] = (counts[c] || 0) + 1; });
+    Array.from(document.querySelectorAll(".bcode")).forEach(inp => {
+      const c = (bulkRows[+inp.getAttribute("data-i")].code || "").trim();
+      inp.style.borderColor = (c && counts[c] > 1) ? "var(--neo-hot)" : "";
+    });
+    const hasDup = Object.keys(counts).some(c => counts[c] > 1);
+    $("dupwarn").textContent = hasDup ? "⚠ 코드가 겹치는 학생이 있어요(빨간 칸). 한 명은 코드를 바꿔야 둘 다 로그인돼요." : "";
+  }
+  function renderPreview() {
+    $("preview").innerHTML = bulkRows.map((r, i) =>
+      '<div class="wordrow" style="align-items:center;gap:8px;">' +
+        '<span style="flex:0 0 64px;font-weight:800;">' + esc(r.name) + '</span>' +
+        '<input class="quiz-input bcode" data-i="' + i + '" value="' + esc(r.code) + '" autocapitalize="off" autocorrect="off" spellcheck="false" style="flex:1;margin:0;padding:8px 10px;">' +
+      '</div>'
+    ).join("");
+    Array.from(document.querySelectorAll(".bcode")).forEach(inp =>
+      inp.addEventListener("input", () => { bulkRows[+inp.getAttribute("data-i")].code = inp.value.trim(); updateDupMarks(); }));
+    $("bulkadd").style.display = bulkRows.length ? "" : "none";
+    updateDupMarks();
+  }
+
+  $("xlsxfile").addEventListener("change", async ev => {
+    const file = ev.target.files[0]; if (!file) return;
+    $("xmsg").textContent = "명단 읽는 중…"; $("xmsg").className = "verdict";
+    $("preview").innerHTML = ""; $("bulkadd").style.display = "none"; bulkRows = [];
+    try {
+      const { sheet, shared } = await readXlsx(file);
+      if (!sheet) throw new Error("시트를 찾지 못했어요");
+      const rows = parseSheet(sheet, parseShared(shared));
+      let nameCol = null, phoneCol = null, headerIdx = -1;
+      for (let i = 0; i < Math.min(rows.length, 6); i++) {
+        for (const col in rows[i]) {
+          const val = (rows[i][col] || "").trim();
+          if (["이름", "성명", "학생명", "수강생"].includes(val)) nameCol = col;
+          if (val === "연락처" || val.includes("전화") || val.includes("휴대") || val.includes("핸드폰")) phoneCol = col;
+        }
+        if (nameCol && phoneCol) { headerIdx = i; break; }
+      }
+      if (!nameCol || !phoneCol) throw new Error("'이름'과 '연락처' 열을 찾지 못했어요");
+      const seen = new Set(); let dupPeople = 0;
+      for (let i = headerIdx + 1; i < rows.length; i++) {
+        const name = (rows[i][nameCol] || "").trim();
+        if (!name) continue;
+        const phoneDigits = (rows[i][phoneCol] || "").replace(/\D/g, "");
+        const key = name + "|" + phoneDigits;       // 동일인 = 이름+전화 동일
+        if (seen.has(key)) { dupPeople++; continue; }
+        seen.add(key);
+        bulkRows.push({ name, code: makeInitials(name) + phoneDigits.slice(-4) });
+      }
+      if (!bulkRows.length) throw new Error("학생 행을 찾지 못했어요");
+      renderPreview();
+      $("xmsg").textContent = bulkRows.length + "명 읽었어요" + (dupPeople ? " (동일인 " + dupPeople + "명 제외)" : "") + ". 코드 확인·수정 후 추가하세요.";
+      $("xmsg").className = "verdict ok";
+    } catch (e) { $("xmsg").textContent = "읽기 실패: " + e.message; $("xmsg").className = "verdict no"; }
+  });
+
+  $("bulkadd").addEventListener("click", async () => {
+    const valid = bulkRows.filter(r => r.code);
+    if (!valid.length) return;
+    if (!(await neoConfirm(valid.length + "명의 코드를 추가할까요?"))) return;
+    $("bulkadd").disabled = true;
+    let ok = 0, dup = 0, fail = 0;
+    for (let i = 0; i < valid.length; i++) {
+      $("xmsg").textContent = "추가 중… (" + (i + 1) + "/" + valid.length + ")"; $("xmsg").className = "verdict";
+      try {
+        const d = await api("action=add&admin=" + encodeURIComponent(admin) + "&code=" + encodeURIComponent(valid[i].code) + "&label=" + encodeURIComponent(valid[i].name));
+        if (d && d.ok) ok++; else if (d && d.error === "exists") dup++; else fail++;
+      } catch (e) { fail++; }
+    }
+    $("bulkadd").disabled = false;
+    $("xmsg").textContent = "완료: 추가 " + ok + "명" + (dup ? ", 이미있음 " + dup : "") + (fail ? ", 실패 " + fail : "");
+    $("xmsg").className = fail ? "verdict no" : "verdict ok";
+    $("preview").innerHTML = ""; $("bulkadd").style.display = "none"; bulkRows = []; $("xlsxfile").value = "";
+    load();
+  });
 
   $("gin").addEventListener("click", gateIn);
   $("admincode").addEventListener("keydown", e => { if (e.key === "Enter") gateIn(); });

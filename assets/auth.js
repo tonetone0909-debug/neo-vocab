@@ -7,7 +7,8 @@
   if (!url) return;                                   // 인증 미설정 → 통과
   var page = location.pathname.split("/").pop() || "index.html";
   if (page === "login.html" || page === "admin.html") return; // 자체 게이트
-  var code = localStorage.getItem("neo_code");
+  // 로그인 유지 ON → localStorage(앱 닫아도 유지) / OFF → sessionStorage(앱 닫으면 사라짐)
+  var code = sessionStorage.getItem("neo_code") || localStorage.getItem("neo_code");
   if (!code) { location.replace("login.html"); return; }
   if (sessionStorage.getItem("neo_auth_ok") === "1") return;  // 이번 실행 검증 완료
   var de = document.documentElement;
@@ -20,7 +21,9 @@
         if (d.role) sessionStorage.setItem("neo_role", d.role);
         de.style.visibility = "";
       } else {
+        // 코드가 삭제됨 → 자동 로그아웃
         localStorage.removeItem("neo_code");
+        sessionStorage.removeItem("neo_code");
         sessionStorage.removeItem("neo_auth_ok");
         location.replace("login.html?invalid=1");
       }

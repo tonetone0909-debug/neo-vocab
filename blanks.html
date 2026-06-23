@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="assets/app.css">
 <script src="assets/config.js"></script>
 <script src="assets/auth.js"></script>
+<script src="assets/ui.js"></script>
 </head>
 <body>
 
@@ -23,7 +24,12 @@
 <main class="app">
   <!-- DAY GRID -->
   <div id="daylist">
-    <button class="btn btn-sm btn-ghost btn-block" id="deck-reset" style="margin:2px 0 4px;">모든 Day 진도 초기화 ↺</button>
+    <div class="deck-toggle">
+      <a class="chip" href="study.html?deck=practical">실용어휘</a>
+      <a class="chip" href="study.html?deck=academic">학술어휘</a>
+      <span class="chip on">빈칸어휘</span>
+    </div>
+    <button class="btn btn-sm btn-ghost btn-block" id="deck-reset" style="margin:10px 0 2px;">모든 Day 진도 초기화 ↺</button>
     <div class="day-grid" id="day-grid"></div>
   </div>
 
@@ -59,8 +65,7 @@
 
 <nav class="tabbar">
   <a href="index.html"><span class="ic">🏠</span>홈</a>
-  <a href="study.html?deck=practical"><span class="ic">🃏</span>어휘</a>
-  <a href="blanks.html" class="on"><span class="ic">⌨️</span>빈칸</a>
+  <a href="study.html?deck=practical" class="on"><span class="ic">🃏</span>어휘</a>
   <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
   <a href="progress.html"><span class="ic">📊</span>성취</a>
 </nav>
@@ -211,16 +216,18 @@
   $("btn-hard").addEventListener("click", () => mark(false));
   $("btn-next").addEventListener("click", nextCard);
   $("day-reset").addEventListener("click", () => {
-    if (confirm(`DAY ${dayParam} 의 학습 진도를 초기화할까요?`)) {
+    neoConfirm(`DAY ${dayParam} 의 학습 진도를 초기화할까요?\n(되돌릴 수 없어요)`, { danger: true }).then(ok => {
+      if (!ok) return;
       const items = dayCards.flatMap(c => c.words).map(w => ({ skill: "reading", deck: "ctest", lemma: w.lemma }));
       NEO_STORE.resetItems(items); showCardList();
-    }
+    });
   });
   $("deck-reset").addEventListener("click", () => {
-    if (confirm("빈칸어휘 전체 Day의 학습 진도를 초기화할까요?")) {
+    neoConfirm("빈칸어휘 전체 Day의 학습 진도를 초기화할까요?\n(되돌릴 수 없어요)", { danger: true }).then(ok => {
+      if (!ok) return;
       const items = NEO_DECK.blanks().flatMap(c => c.words).map(w => ({ skill: "reading", deck: "ctest", lemma: w.lemma }));
       NEO_STORE.resetItems(items); showGrid();
-    }
+    });
   });
   document.addEventListener("keydown", e => { if (!$("detail").classList.contains("hidden") && (e.key==="Escape"||e.key==="Backspace")) back(); });
 

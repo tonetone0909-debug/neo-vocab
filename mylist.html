@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="assets/app.css">
 <script src="assets/config.js"></script>
 <script src="assets/auth.js"></script>
+<script src="assets/ui.js"></script>
 </head>
 <body>
 
@@ -59,7 +60,6 @@
 <nav class="tabbar">
   <a href="index.html"><span class="ic">🏠</span>홈</a>
   <a href="study.html?deck=practical"><span class="ic">🃏</span>어휘</a>
-  <a href="blanks.html"><span class="ic">⌨️</span>빈칸</a>
   <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
   <a href="progress.html" class="on"><span class="ic">📊</span>성취</a>
 </nav>
@@ -128,10 +128,11 @@
 
   $("list-reset").addEventListener("click", () => {
     if (!n) return;
-    if (confirm(`${listKr} 목록(${n}개)의 학습 진도를 초기화할까요?`)) {
+    neoConfirm(`${listKr} 목록(${n}개)의 학습 진도를 초기화할까요?\n(되돌릴 수 없어요)`, { danger: true }).then(ok => {
+      if (!ok) return;
       NEO_STORE.resetItems(entries.map(e => ({ skill: e.skill, deck: e.deck, lemma: e.lemma })));
       location.href = "progress.html";
-    }
+    });
   });
 
   if (list === "all") showList();          // 전체단어는 열람 전용(허브/퀴즈 없음)

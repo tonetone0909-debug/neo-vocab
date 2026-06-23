@@ -1,5 +1,5 @@
 // sw.js — app-shell cache for offline use. Bump CACHE on every data rebuild.
-const CACHE = "neo-vocab-v19";
+const CACHE = "neo-vocab-v24";
 const SHELL = [
   "./",
   "./index.html",
@@ -19,6 +19,7 @@ const SHELL = [
   "./assets/deck.js",
   "./assets/config.js",
   "./assets/auth.js",
+  "./assets/ui.js",
   "./assets/mascot-grinder.svg",
   "./assets/mark.svg",
   "./data/meta.js",

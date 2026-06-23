@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="assets/app.css">
 <script src="assets/config.js"></script>
 <script src="assets/auth.js"></script>
+<script src="assets/ui.js"></script>
 </head>
 <body>
 
@@ -26,6 +27,7 @@
     <div class="deck-toggle">
       <span class="chip" id="t-practical" data-deck="practical">실용어휘</span>
       <span class="chip" id="t-academic" data-deck="academic">학술어휘</span>
+      <span class="chip" id="t-blanks" data-deck="blanks">빈칸어휘</span>
     </div>
     <button class="btn btn-sm btn-ghost btn-block" id="deck-reset" style="margin:10px 0 2px;">모든 Day 진도 초기화 ↺</button>
     <div class="day-grid" id="day-grid"></div>
@@ -65,7 +67,6 @@
 <nav class="tabbar">
   <a href="index.html"><span class="ic">🏠</span>홈</a>
   <a href="study.html?deck=practical" class="on"><span class="ic">🃏</span>어휘</a>
-  <a href="blanks.html"><span class="ic">⌨️</span>빈칸</a>
   <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
   <a href="progress.html"><span class="ic">📊</span>성취</a>
 </nav>
@@ -244,14 +245,18 @@
   $("btn-hard").addEventListener("click", () => mark(false));
   $("btn-next").addEventListener("click", nextWord);
   $("day-reset").addEventListener("click", () => {
-    if (confirm(`DAY ${dayParam} 의 학습 진도를 초기화할까요?`)) { NEO_STORE.resetItems(dayItems); showWordList(); }
+    neoConfirm(`DAY ${dayParam} 의 학습 진도를 초기화할까요?\n(되돌릴 수 없어요)`, { danger: true }).then(ok => {
+      if (ok) { NEO_STORE.resetItems(dayItems); showWordList(); }
+    });
   });
   $("deck-reset").addEventListener("click", () => {
     const nm = deckName === "academic" ? "학술어휘" : "실용어휘";
-    if (confirm(`${nm} 전체 Day의 학습 진도를 초기화할까요?`)) { NEO_STORE.resetItems(NEO_DECK.vocab(null, deckName)); showGrid(); }
+    neoConfirm(`${nm} 전체 Day의 학습 진도를 초기화할까요?\n(되돌릴 수 없어요)`, { danger: true }).then(ok => {
+      if (ok) { NEO_STORE.resetItems(NEO_DECK.vocab(null, deckName)); showGrid(); }
+    });
   });
   $("to-grid") && $("to-grid").addEventListener("click", () => {});
-  document.querySelectorAll(".deck-toggle .chip").forEach(ch => ch.addEventListener("click", () => { location.href = `study.html?deck=${ch.dataset.deck}`; }));
+  document.querySelectorAll(".deck-toggle .chip").forEach(ch => ch.addEventListener("click", () => { location.href = ch.dataset.deck === "blanks" ? "blanks.html" : `study.html?deck=${ch.dataset.deck}`; }));
   document.addEventListener("keydown", e => {
     if (!$("detail").classList.contains("hidden") && (e.key === "Escape" || e.key === "Backspace")) back();
   });

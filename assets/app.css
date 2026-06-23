@@ -94,6 +94,7 @@ button { font-family: inherit; cursor: pointer; }
 .chip {
   font-size: 13px; font-weight: 700; padding: 7px 12px; border: 3px solid var(--neo-ink);
   border-radius: 999px; background: var(--neo-card); box-shadow: var(--sh-1); user-select: none;
+  color: var(--neo-ink); text-decoration: none; cursor: pointer; display: inline-block;
 }
 .chip.on { background: var(--neo-acid); }
 .spacer { flex: 1; }
@@ -363,6 +364,18 @@ button { font-family: inherit; cursor: pointer; }
 
 .deck-toggle { display: flex; gap: 8px; margin: 4px 0 2px; }
 .skill-badge { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; background: var(--neo-paper-2); border: 2px solid var(--neo-ink); border-radius: 999px; padding: 1px 7px; margin-left: 8px; vertical-align: middle; }
+
+/* in-app modal (confirm/alert) */
+.neo-modal-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(10,10,10,.45); opacity: 0; pointer-events: none; transition: opacity .12s ease; }
+.neo-modal-overlay.show { opacity: 1; pointer-events: auto; }
+.neo-modal { width: 100%; max-width: 340px; background: var(--neo-card); border: 3px solid var(--neo-ink); border-radius: 14px;
+  box-shadow: 0 16px 0 -4px rgba(10,10,10,.18), 0 26px 50px rgba(10,10,10,.38); padding: 22px 20px 18px;
+  transform: translateY(10px) scale(.97); transition: transform .14s ease; }
+.neo-modal-overlay.show .neo-modal { transform: none; }
+.neo-modal-msg { font-size: 16px; font-weight: 700; line-height: 1.55; color: var(--neo-ink); white-space: pre-line; }
+.neo-modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+.neo-modal-actions .btn { flex: 1; }
 
 /* tip */
 .npc-tip { display: flex; gap: 10px; align-items: flex-start; margin-top: 18px; padding: 12px; background: var(--neo-acid-soft); border: 3px solid var(--neo-ink); border-radius: 8px; }
