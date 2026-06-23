@@ -1,34 +1,10 @@
-/* shell.js — 공용 셸: 다크모드 토글 + 탭 간 스와이프. 전 페이지 <head>에서 로드.
+/* shell.js — 공용 셸: 탭 간 스와이프. 전 페이지 <head>에서 로드.
  * config/auth 다음, 본문 스크립트 전에 둠. */
 (function () {
-  // ---------- 1) 다크모드 (페인트 전 즉시 적용) ----------
-  var de = document.documentElement;
-  try { if (localStorage.getItem("neo_theme") === "dark") de.setAttribute("data-theme", "dark"); } catch (e) {}
+  // 이전 버전 다크모드 흔적 정리(다크모드 기능 제거됨)
+  try { document.documentElement.removeAttribute("data-theme"); localStorage.removeItem("neo_theme"); } catch (e) {}
 
-  function applyTheme(dark) {
-    if (dark) de.setAttribute("data-theme", "dark"); else de.removeAttribute("data-theme");
-    try { localStorage.setItem("neo_theme", dark ? "dark" : "light"); } catch (e) {}
-    var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", dark ? "#15150F" : "#0A0A0A");
-    var btn = document.querySelector(".theme-toggle");
-    if (btn) btn.textContent = dark ? "☀️" : "🌙";
-  }
-
-  function injectToggle() {
-    var bar = document.querySelector(".topbar");
-    if (!bar || bar.querySelector(".theme-toggle")) return;
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "theme-toggle";
-    btn.setAttribute("aria-label", "다크모드 전환");
-    btn.textContent = de.getAttribute("data-theme") === "dark" ? "☀️" : "🌙";
-    btn.addEventListener("click", function () {
-      applyTheme(de.getAttribute("data-theme") !== "dark");
-    });
-    bar.appendChild(btn);
-  }
-
-  // ---------- 2) 탭 간 스와이프 ----------
+  // ---------- 탭 간 스와이프 ----------
   var TABS = ["index.html", "study.html", "quiz.html", "progress.html"];
   var URLS = ["index.html", "study.html?deck=practical", "quiz.html", "progress.html"];
   function currentTabIndex() {
@@ -69,7 +45,4 @@
   var md = false;
   document.addEventListener("mousedown", function (e) { md = true; onStart(e.clientX, e.clientY, e.target); });
   document.addEventListener("mouseup", function (e) { if (md) { md = false; onEnd(e.clientX, e.clientY); } });
-
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", injectToggle);
-  else injectToggle();
 })();

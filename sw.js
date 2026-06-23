@@ -1,6 +1,6 @@
 // sw.js — app-shell cache. 앱 셸(HTML/JS/CSS)은 network-first(온라인이면 항상 최신),
 // 큰 데이터 파일과 폰트만 cache-first. Bump CACHE on every change.
-const CACHE = "neo-vocab-v31";
+const CACHE = "neo-vocab-v34";
 const SHELL = [
   "./",
   "./index.html",
@@ -33,6 +33,8 @@ const SHELL = [
   "./assets/icons/icon-512.png",
   "./assets/icons/maskable-512.png",
   "./assets/icons/apple-touch-icon.png",
+  "./assets/icons/icon-32.png",
+  "./favicon.ico",
 ];
 
 self.addEventListener("install", e => {
