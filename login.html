@@ -25,7 +25,10 @@
   <div class="card" style="margin-top:18px;">
     <input class="quiz-input" id="code" type="text" inputmode="latin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="코드 입력" style="text-align:center;">
     <div class="verdict" id="msg" style="min-height:20px;margin-top:10px;"></div>
-    <button class="btn btn-grind btn-block" id="go" style="margin-top:6px;">들어가기 →</button>
+    <label style="display:flex;align-items:center;gap:8px;justify-content:center;margin:4px 0 10px;font-weight:700;font-size:14px;cursor:pointer;">
+      <input type="checkbox" id="keep" style="width:18px;height:18px;"> 로그인 유지
+    </label>
+    <button class="btn btn-grind btn-block" id="go" style="margin-top:0;">들어가기 →</button>
   </div>
 </main>
 
@@ -47,7 +50,9 @@
       .then(r => r.json())
       .then(d => {
         if (d && d.ok) {
-          localStorage.setItem("neo_code", code);
+          // 로그인 유지 체크 → localStorage(앱 닫아도 유지), 아니면 sessionStorage(닫으면 로그아웃)
+          if ($("keep").checked) { localStorage.setItem("neo_code", code); sessionStorage.removeItem("neo_code"); }
+          else { sessionStorage.setItem("neo_code", code); localStorage.removeItem("neo_code"); }
           sessionStorage.setItem("neo_auth_ok", "1");
           if (d.role) sessionStorage.setItem("neo_role", d.role);
           location.replace(d.role === "admin" ? "admin.html" : "index.html");
