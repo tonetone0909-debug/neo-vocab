@@ -7,8 +7,9 @@
   if (!url) return;                                   // 인증 미설정 → 통과
   var page = location.pathname.split("/").pop() || "index.html";
   if (page === "login.html" || page === "admin.html") return; // 자체 게이트
-  // 로그인 유지 ON → localStorage(앱 닫아도 유지) / OFF → sessionStorage(앱 닫으면 사라짐)
-  var code = sessionStorage.getItem("neo_code") || localStorage.getItem("neo_code");
+  // 세션 코드 우선. localStorage 코드는 "로그인 유지(neo_keep)" 플래그가 있을 때만 사용.
+  var code = sessionStorage.getItem("neo_code");
+  if (!code && localStorage.getItem("neo_keep") === "1") code = localStorage.getItem("neo_code");
   if (!code) { location.replace("login.html"); return; }
   if (sessionStorage.getItem("neo_auth_ok") === "1") return;  // 이번 실행 검증 완료
   var de = document.documentElement;
@@ -23,6 +24,7 @@
       } else {
         // 코드가 삭제됨 → 자동 로그아웃
         localStorage.removeItem("neo_code");
+        localStorage.removeItem("neo_keep");
         sessionStorage.removeItem("neo_code");
         sessionStorage.removeItem("neo_auth_ok");
         location.replace("login.html?invalid=1");

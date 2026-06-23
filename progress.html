@@ -88,6 +88,7 @@
       neoConfirm("로그아웃할까요? 다시 코드를 입력해야 사용할 수 있어요.").then(ok => {
         if (!ok) return;
         localStorage.removeItem("neo_code");
+        localStorage.removeItem("neo_keep");
         sessionStorage.removeItem("neo_code");
         sessionStorage.removeItem("neo_auth_ok");
         sessionStorage.removeItem("neo_role");

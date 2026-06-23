@@ -83,7 +83,13 @@
   const bw = bd.reduce((n,d)=>n+d.count,0);
   document.getElementById("st-blanks").innerHTML = `<b>${bw}</b>단어 · <b>${bd.length}</b> Day`;
   document.getElementById("st-quiz").innerHTML = `실용·학술·빈칸 · Day별`;
-  if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(()=>{}));
+  if ("serviceWorker" in navigator) window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloaded) return; reloaded = true; location.reload();  // 새 버전 적용 시 1회 자동 새로고침
+    });
+  });
 })();
 </script>
 </body>

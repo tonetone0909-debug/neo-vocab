@@ -1,5 +1,6 @@
-// sw.js — app-shell cache for offline use. Bump CACHE on every data rebuild.
-const CACHE = "neo-vocab-v24";
+// sw.js — app-shell cache. 앱 셸(HTML/JS/CSS)은 network-first(온라인이면 항상 최신),
+// 큰 데이터 파일과 폰트만 cache-first. Bump CACHE on every change.
+const CACHE = "neo-vocab-v25";
 const SHELL = [
   "./",
   "./index.html",
@@ -48,20 +49,35 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === location.origin;
+  const isData = sameOrigin && url.pathname.includes("/data/");      // 큰 단어 데이터
+  const isFont = /fonts\.(googleapis|gstatic)\.com/.test(url.host);
+
+  // 앱 셸(HTML/JS/CSS 등 same-origin, data 제외) → network-first: 온라인이면 항상 최신
+  if (sameOrigin && !isData) {
+    e.respondWith(
+      fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy)).catch(()=>{});
+        return res;
+      }).catch(() =>
+        caches.match(req).then(hit => hit || (req.mode === "navigate" ? caches.match("./index.html") : undefined))
+      )
+    );
+    return;
+  }
+
+  // 데이터 파일 + 폰트 → cache-first(빠름, 버전 올릴 때만 갱신)
   e.respondWith(
     caches.match(req).then(hit => {
       if (hit) return hit;
       return fetch(req).then(res => {
-        // runtime-cache same-origin + google fonts (stale-while-revalidate-ish)
-        const url = new URL(req.url);
-        if (url.origin === location.origin || /fonts\.(googleapis|gstatic)\.com/.test(url.host)) {
+        if (isData || isFont) {
           const copy = res.clone();
           caches.open(CACHE).then(c => c.put(req, copy)).catch(()=>{});
         }
         return res;
-      }).catch(() => {
-        // offline navigation fallback
-        if (req.mode === "navigate") return caches.match("./index.html");
       });
     })
   );

@@ -50,9 +50,12 @@
       .then(r => r.json())
       .then(d => {
         if (d && d.ok) {
-          // 로그인 유지 체크 → localStorage(앱 닫아도 유지), 아니면 sessionStorage(닫으면 로그아웃)
-          if ($("keep").checked) { localStorage.setItem("neo_code", code); sessionStorage.removeItem("neo_code"); }
-          else { sessionStorage.setItem("neo_code", code); localStorage.removeItem("neo_code"); }
+          // 로그인 유지 체크 → localStorage + neo_keep 플래그(앱 닫아도 유지), 아니면 sessionStorage(닫으면 로그아웃)
+          if ($("keep").checked) {
+            localStorage.setItem("neo_code", code); localStorage.setItem("neo_keep", "1"); sessionStorage.removeItem("neo_code");
+          } else {
+            sessionStorage.setItem("neo_code", code); localStorage.removeItem("neo_code"); localStorage.removeItem("neo_keep");
+          }
           sessionStorage.setItem("neo_auth_ok", "1");
           if (d.role) sessionStorage.setItem("neo_role", d.role);
           location.replace(d.role === "admin" ? "admin.html" : "index.html");
