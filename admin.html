@@ -14,6 +14,20 @@
 <link rel="stylesheet" href="assets/app.css">
 <script src="assets/shell.js"></script>
 <script src="assets/ui.js"></script>
+<style>
+  /* 코드 다중선택 체크박스 — 3px ink 보더 + acid 체크(하드, blur 없음) */
+  .neo-chk { -webkit-appearance:none; appearance:none; flex:0 0 auto; width:22px; height:22px;
+    border:3px solid var(--neo-ink); background:var(--neo-card); border-radius:0; cursor:pointer; position:relative; margin:0; }
+  .neo-chk:checked { background:var(--neo-acid); }
+  .neo-chk:checked::after { content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:15px; font-weight:900; line-height:1; color:var(--neo-ink); }
+  .neo-chk:indeterminate { background:var(--neo-ink); }
+  .neo-chk:indeterminate::after { content:"–"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-weight:900; color:var(--neo-paper); }
+  .copycode .copyhint { font-family:var(--font-mono); font-size:10px; letter-spacing:0.08em; font-weight:500;
+    color:var(--neo-ink); opacity:.45; margin-left:6px; }
+  .copycode:hover .copyhint { opacity:.8; }
+</style>
 </head>
 <body>
 
@@ -56,6 +70,20 @@
       <span class="sc-l">발급된 코드 <span id="count">0</span>개</span>
       <button class="btn btn-sm btn-ghost" id="refresh">새로고침 ↻</button>
     </div>
+
+    <input class="quiz-input" id="search" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="🔍 코드·이름 검색" style="margin:0 0 10px;">
+
+    <div class="detail-head" id="bulkbar" style="margin:0 0 8px;gap:10px;display:none;">
+      <label class="sc-l" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="selall" class="neo-chk"> 전체 선택 <span id="selcount" style="opacity:.7;font-weight:700;"></span>
+      </label>
+      <span style="display:flex;gap:8px;flex:0 0 auto;">
+        <button class="btn btn-sm btn-ghost" id="csvexport">CSV ↓</button>
+        <button class="btn btn-sm btn-hard" id="bulkdel" disabled>선택 삭제</button>
+      </span>
+    </div>
+    <div class="verdict ok" id="bmsg" style="min-height:0;margin:0 0 8px;"></div>
+
     <div id="list"></div>
 
     <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:20px;">관리자 로그아웃</button>
@@ -89,27 +117,106 @@
     }).catch(() => { $("gmsg").textContent = "인터넷 연결이 필요해요."; $("gmsg").className = "verdict no"; });
   }
 
+  let allCodes = [];
+
   function load() {
     $("list").innerHTML = '<p class="lead">불러오는 중…</p>';
-    api("action=list&admin=" + encodeURIComponent(admin)).then(d => {
+    return api("action=list&admin=" + encodeURIComponent(admin)).then(d => {
       if (!d || !d.ok) {
         if (d && d.error === "forbidden") { sessionStorage.removeItem("neo_admin"); $("panel").style.display="none"; $("gate").style.display="block"; return; }
         $("list").innerHTML = '<p class="lead no">목록을 불러오지 못했어요.</p>'; return;
       }
-      const codes = d.codes || [];
-      $("count").textContent = codes.length;
-      if (!codes.length) { $("list").innerHTML = '<p class="lead">아직 발급된 코드가 없어요.</p>'; return; }
-      $("list").innerHTML = codes.map(c =>
-        '<div class="wordrow" style="align-items:center;">' +
-          '<div style="flex:1;min-width:0;">' +
-            '<div style="font-weight:800;">' + esc(c.code) + '</div>' +
-            '<div class="sc-l" style="opacity:.7;">' + (c.label ? esc(c.label) + " · " : "") + esc(c.createdAt || "") + '</div>' +
-          '</div>' +
-          '<button class="btn btn-sm btn-hard del" data-code="' + esc(c.code) + '">삭제</button>' +
-        '</div>'
-      ).join("");
-      Array.from(document.querySelectorAll(".del")).forEach(b => b.addEventListener("click", () => del(b.getAttribute("data-code"))));
+      allCodes = d.codes || [];
+      $("count").textContent = allCodes.length;
+      render();
     }).catch(() => { $("list").innerHTML = '<p class="lead no">인터넷 연결이 필요해요.</p>'; });
+  }
+
+  function filtered() {
+    const q = ($("search").value || "").trim().toLowerCase();
+    if (!q) return allCodes;
+    return allCodes.filter(c => (c.code||"").toLowerCase().includes(q) || (c.label||"").toLowerCase().includes(q));
+  }
+  function rowHTML(c) {
+    return '<div class="wordrow" style="align-items:center;gap:10px;">' +
+      '<input type="checkbox" class="neo-chk rowchk" data-code="' + esc(c.code) + '">' +
+      '<div class="copycode" data-code="' + esc(c.code) + '" style="flex:1;min-width:0;cursor:pointer;" title="클릭하면 코드 복사">' +
+        '<div style="font-weight:800;">' + esc(c.code) + '<span class="copyhint">⧉ 복사</span></div>' +
+        '<div class="sc-l" style="opacity:.7;">' + (c.label ? esc(c.label) + " · " : "") + esc(c.createdAt || "") + '</div>' +
+      '</div>' +
+      '<button class="btn btn-sm btn-hard del" data-code="' + esc(c.code) + '">삭제</button>' +
+    '</div>';
+  }
+  function render() {
+    if (!allCodes.length) { $("list").innerHTML = '<p class="lead">아직 발급된 코드가 없어요.</p>'; $("bulkbar").style.display = "none"; return; }
+    $("bulkbar").style.display = "";
+    const list = filtered();
+    if (!list.length) { $("list").innerHTML = '<p class="lead">검색 결과가 없어요.</p>'; }
+    else {
+      $("list").innerHTML = list.map(rowHTML).join("");
+      Array.from(document.querySelectorAll(".del")).forEach(b => b.addEventListener("click", e => { e.stopPropagation(); del(b.getAttribute("data-code")); }));
+      Array.from(document.querySelectorAll(".copycode")).forEach(el => el.addEventListener("click", () => copyCode(el)));
+      Array.from(document.querySelectorAll(".rowchk")).forEach(ch => ch.addEventListener("change", updateSel));
+    }
+    $("selall").checked = false; $("selall").indeterminate = false;
+    updateSel();
+  }
+  function updateSel() {
+    const total = document.querySelectorAll(".rowchk").length;
+    const sel = document.querySelectorAll(".rowchk:checked").length;
+    $("selcount").textContent = sel ? "· " + sel + "개 선택" : "";
+    $("bulkdel").disabled = !sel;
+    $("bulkdel").textContent = sel ? "선택 " + sel + "개 삭제" : "선택 삭제";
+    $("selall").checked = total > 0 && sel === total;
+    $("selall").indeterminate = sel > 0 && sel < total;
+  }
+  function selectedCodes() {
+    return Array.from(document.querySelectorAll(".rowchk:checked")).map(ch => ch.getAttribute("data-code"));
+  }
+
+  function fallbackCopy(text, done) {
+    try { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); done(); } catch (e) {}
+  }
+  function copyCode(el) {
+    const code = el.getAttribute("data-code");
+    const hint = el.querySelector(".copyhint");
+    const done = () => { if (!hint) return; hint.textContent = "복사됨 ✓"; hint.style.color = "var(--neo-blaze)"; hint.style.opacity = "1";
+      setTimeout(() => { hint.textContent = "⧉ 복사"; hint.style.color = ""; hint.style.opacity = ""; }, 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done).catch(() => fallbackCopy(code, done));
+    else fallbackCopy(code, done);
+  }
+
+  function csvCell(v) { v = String(v == null ? "" : v); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function exportCsv() {
+    const list = filtered();
+    if (!list.length) return;
+    const rows = [["code", "label", "createdAt"]].concat(list.map(c => [c.code, c.label || "", c.createdAt || ""]));
+    const csv = rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });   // BOM → 엑셀 한글 깨짐 방지
+    const d = new Date();
+    const stamp = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "neo-codes-" + stamp + ".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  async function bulkDelete() {
+    const codes = selectedCodes();
+    if (!codes.length) return;
+    if (!(await neoConfirm(codes.length + "개 코드를 삭제할까요?\n이 코드를 쓰던 학생들은 더이상 앱을 못 써요.\n(되돌릴 수 없어요)", { danger: true }))) return;
+    $("bulkdel").disabled = true; $("bmsg").className = "verdict";
+    let ok = 0, fail = 0;
+    for (let i = 0; i < codes.length; i++) {
+      $("bmsg").textContent = "삭제 중… (" + (i + 1) + "/" + codes.length + ")";
+      try { const d = await api("action=del&admin=" + encodeURIComponent(admin) + "&code=" + encodeURIComponent(codes[i])); if (d && d.ok) ok++; else fail++; }
+      catch (e) { fail++; }
+    }
+    await load();
+    $("bmsg").textContent = "삭제 완료: " + ok + "개" + (fail ? ", 실패 " + fail + "개" : "");
+    $("bmsg").className = fail ? "verdict no" : "verdict ok";
+    setTimeout(() => { if ($("bmsg")) { $("bmsg").textContent = ""; } }, 4000);
   }
 
   function add() {
@@ -301,6 +408,14 @@
   $("admincode").addEventListener("keydown", e => { if (e.key === "Enter") gateIn(); });
   $("addbtn").addEventListener("click", add);
   $("refresh").addEventListener("click", load);
+  $("search").addEventListener("input", render);
+  $("selall").addEventListener("change", () => {
+    const on = $("selall").checked;
+    Array.from(document.querySelectorAll(".rowchk")).forEach(ch => { ch.checked = on; });
+    updateSel();
+  });
+  $("bulkdel").addEventListener("click", bulkDelete);
+  $("csvexport").addEventListener("click", exportCsv);
   $("logout").addEventListener("click", () => { sessionStorage.removeItem("neo_admin"); location.href = "login.html"; });
 
   if (admin) showPanel(); else $("admincode").focus();
