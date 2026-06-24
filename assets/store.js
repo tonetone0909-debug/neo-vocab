@@ -99,6 +99,22 @@
     } catch (e) {}
   })();
 
+  // 앱으로 다시 돌아올 때마다 재동기화(다른 기기 변경 반영) + 나갈 때 밀린 진도 즉시 푸시
+  // → 두 기기를 동시에 띄워놔도 전환하면 최신으로 맞춰짐("실시간처럼")
+  (function liveSync() {
+    var lastPull = 0;
+    document.addEventListener("visibilitychange", function () {
+      try {
+        if (!authUrl() || !getCode() || sessionStorage.getItem("neo_auth_ok") !== "1") return;
+        if (document.hidden) { syncFlush(); return; }     // 앱 나갈 때 밀린 진도 즉시 서버로
+        var now = Date.now();
+        if (now - lastPull < 10000) return;               // 10초 쓰로틀(과도한 호출 방지)
+        lastPull = now;
+        syncPull();                                       // 돌아올 때 최신 받아오기(변경 있으면 화면 갱신)
+      } catch (e) {}
+    });
+  })();
+
   function keyOf(skill, deck, lemma) { return `${skill}:${deck}:${lemma}`; }
 
   function get(skill, deck, lemma) {
