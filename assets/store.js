@@ -64,18 +64,29 @@
     if (l.viewed || s.viewed) m.viewed = true;
     return m;
   }
+  // 한 항목의 의미 있는 값만 직렬화(속성 순서 차이로 인한 헛 reload 방지)
+  function canonEntry(o) {
+    if (!o) return "";
+    return [o.box || 0, o.seen || 0, o.correct || 0, o.dueDay || 0, o.lastDay || 0, o.status || "", o.viewed ? 1 : 0].join(",");
+  }
   function syncPull() {
     const url = authUrl(), code = getCode();
     if (!url || !code) return Promise.resolve();
     return fetch(url + "?action=getprog&code=" + encodeURIComponent(code))
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        if (!d || !d.ok || !d.data) return;
-        let server = {}; try { server = JSON.parse(d.data) || {}; } catch (e) { return; }
-        const local = load(), merged = Object.assign({}, local);
-        for (const k in server) merged[k] = mergeEntry(local[k], server[k]);
-        save(merged, true);
-        syncPush();   // 병합본을 서버에도 반영(로컬에만 있던 진도 업로드)
+        if (!d || !d.ok) return;
+        var server = {};
+        if (d.data) { try { server = JSON.parse(d.data) || {}; } catch (e) { server = {}; } }
+        var local = load(), merged = Object.assign({}, local), changed = false;
+        for (var k in server) {
+          var m = mergeEntry(local[k], server[k]);
+          merged[k] = m;
+          if (canonEntry(m) !== canonEntry(local[k])) changed = true;   // 다른 기기서 새 진도가 들어옴
+        }
+        if (changed) save(merged, true);
+        syncFlush();                       // 로컬(병합본)을 서버에 즉시 반영 — 서버가 비어 있어도 시드됨
+        if (changed) location.reload();     // 받아온 진도를 화면에 반영(페이지가 동기화 전에 렌더됐으므로)
       }).catch(function () {});
   }
   // 앱 실행(로그인 세션)당 1회 서버 진도 가져오기
