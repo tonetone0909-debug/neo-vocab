@@ -1,39 +1,54 @@
 // tts.js — Web Speech API wrapper. US (en-US) + UK (en-GB) playback.
-// Handles iOS Safari quirks: voices populate async via onvoiceschanged, and
-// speech must be triggered from a user gesture.
+// Picks a DISTINCT voice per accent so US and UK don't sound identical.
+// Handles voices populating async (voiceschanged) on iOS/Android standalone.
 (function () {
   "use strict";
   let voices = [];
   function loadVoices() {
-    try { voices = window.speechSynthesis ? speechSynthesis.getVoices() : []; }
+    try { voices = window.speechSynthesis ? (speechSynthesis.getVoices() || []) : []; }
     catch (e) { voices = []; }
   }
   if (window.speechSynthesis) {
     loadVoices();
-    speechSynthesis.onvoiceschanged = loadVoices;
+    try { speechSynthesis.addEventListener("voiceschanged", loadVoices); } catch (e) {}
+    try { speechSynthesis.onvoiceschanged = loadVoices; } catch (e) {}
   }
 
-  // pick a voice EXACTLY matching the requested accent (en-US / en-GB).
-  // No primary-language fallback — a wrong-accent fallback would make US and UK
-  // sound identical. If none, return null and let the OS apply u.lang.
+  // accent-specific voice name hints (Android: "Google US/UK English"; Win/macOS/iOS names)
+  const NAMES = {
+    "en-gb": ["google uk", "uk english", "daniel", "arthur", "kate", "serena", "martha", "oliver", "(uk", "british", "en-gb"],
+    "en-us": ["google us", "us english", "samantha", "aaron", "nicky", "fred", "alex", "(us", "en-us"]
+  };
+
+  // Pick a voice that truly matches the requested accent. No generic "en" fallback
+  // (that would make US and UK pick the same voice). Returns null if none.
   function pickVoice(lang) {
     if (!voices.length) loadVoices();
     const want = lang.toLowerCase();
-    return voices.find(v => v.lang && v.lang.toLowerCase().replace("_", "-") === want) || null;
+    // 1) exact lang code
+    let v = voices.find(x => x.lang && x.lang.toLowerCase().replace("_", "-") === want);
+    if (v) return v;
+    // 2) by known accent voice name (restricted to English voices)
+    const hints = NAMES[want] || [];
+    v = voices.find(x => {
+      const nm = (x.name || "").toLowerCase();
+      const lg = (x.lang || "").toLowerCase();
+      return lg.indexOf("en") === 0 && hints.some(h => nm.indexOf(h) !== -1);
+    });
+    return v || null;
   }
 
   function speak(text, lang) {
-    if (!window.speechSynthesis || !text) return null;
+    if (!window.speechSynthesis || !text) return;   // no return value (defensive)
     try {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = lang;            // keep requested accent so the OS can apply it
+      u.lang = lang;
       u.rate = 0.95;
       const v = pickVoice(lang);
-      if (v) u.voice = v;       // only assign an exact-accent voice; never override u.lang
+      if (v) { u.voice = v; u.lang = v.lang; }       // distinct accent voice
       speechSynthesis.speak(u);
-      return true;
-    } catch (e) { return null; }
+    } catch (e) {}
   }
 
   function supported() { return !!window.speechSynthesis; }

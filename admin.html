@@ -44,7 +44,7 @@
 
     <div class="card" style="margin-top:14px;">
       <div class="sc-l" style="margin-bottom:8px;">엑셀 명단으로 일괄 생성</div>
-      <p class="lead" style="font-size:13px;margin:0 0 10px;line-height:1.5;">수강생 명단(.xlsx)을 올리면 코드가 자동 생성돼요. 코드 = <b>이름 이니셜 3글자 + 전화번호 뒤 4자리</b>. 명단에 <b>이름</b>·<b>연락처</b> 열이 있어야 해요.</p>
+      <p class="lead" style="font-size:13px;margin:0 0 10px;line-height:1.5;">수강생 명단(.xlsx)을 올리면 코드가 자동 생성돼요. 코드 = <b>한글 이름 + 전화번호 뒤 4자리</b> (예: 박태환4355). 명단에 <b>이름</b>·<b>연락처</b> 열이 있어야 해요.</p>
       <input type="file" id="xlsxfile" accept=".xlsx" style="margin-bottom:8px;width:100%;">
       <div class="verdict" id="xmsg" style="min-height:18px;"></div>
       <div id="preview"></div>
@@ -268,7 +268,7 @@
         const key = name + "|" + phoneDigits;       // 동일인 = 이름+전화 동일
         if (seen.has(key)) { dupPeople++; continue; }
         seen.add(key);
-        bulkRows.push({ name, code: makeInitials(name) + phoneDigits.slice(-4) });
+        bulkRows.push({ name, code: name.replace(/\s+/g, "") + phoneDigits.slice(-4) });   // 한글 풀네임 + 전화 뒤4
       }
       if (!bulkRows.length) throw new Error("학생 행을 찾지 못했어요");
       renderPreview();

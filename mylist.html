@@ -131,9 +131,14 @@
 
   $("list-reset").addEventListener("click", () => {
     if (!n) return;
-    neoConfirm(`${listKr} 목록(${n}개)의 학습 진도를 초기화할까요?\n(되돌릴 수 없어요)`, { danger: true }).then(ok => {
+    neoConfirm(`${listKr} 목록(${n}개)의 분류 표시를 해제할까요?\n(학습 진도는 그대로 유지돼요)`, { danger: true }).then(ok => {
       if (!ok) return;
-      NEO_STORE.resetItems(entries.map(e => ({ skill: e.skill, deck: e.deck, lemma: e.lemma })));
+      // 저장된 키 그대로 사용(findEntry로 변환하면 다중 덱 단어의 키가 어긋나 누락됨)
+      const items = list === "all"
+        ? [].concat(NEO_STORE.allByStatus("viewed"), NEO_STORE.allByStatus("learning"), NEO_STORE.allByStatus("known"))
+        : NEO_STORE.allByStatus(list);
+      NEO_STORE.clearStatusItems(items);
+      NEO_STORE.syncFlush();
       location.href = "progress.html";
     });
   });

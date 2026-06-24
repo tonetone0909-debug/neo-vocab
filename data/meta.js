@@ -1,1 +1,1 @@
-window.NEO_VOCAB_META = {"version":"1","builtAt":"2026-06-22","counts":{"total":3155,"reading":{"practical":725,"academic":719},"listening":{"practical":975,"academic":736},"practical":1700,"academic":1455,"days":{"practical":34,"academic":29},"enriched":3140}};
+window.NEO_VOCAB_META = {"version":"1","builtAt":"2026-06-24","counts":{"total":3155,"reading":{"practical":725,"academic":719},"listening":{"practical":975,"academic":736},"practical":1700,"academic":1455,"days":{"practical":34,"academic":29},"enriched":3140}};

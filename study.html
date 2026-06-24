@@ -53,18 +53,33 @@
       <button class="back-btn" id="btn-back">← 돌아가기</button>
       <span class="detail-chip" id="detail-chip"></span>
     </div>
-    <div class="flashcard" id="detail-card" data-swipe-card>
-      <div class="swipe-half know" aria-hidden="true"></div>
-      <div class="swipe-half hard" aria-hidden="true"></div>
-      <div class="fc-term" id="d-term"></div>
-      <span class="fc-pos" id="d-pos"></span>
-      <div class="tts-row" id="d-tts"></div>
-      <div id="d-body"></div>
-      <div class="actions" style="margin-top:16px;">
-        <button class="btn btn-ghost" id="btn-hard">헷갈려요 ↻</button>
-        <button class="btn btn-grind" id="btn-known">외웠어요 ✓</button>
+    <div class="cardstage">
+      <div class="flashcard back" id="card-back" aria-hidden="true"></div>
+      <div class="flashcard front" id="detail-card" data-swipe-card>
+        <div class="swipe-half know" aria-hidden="true"></div>
+        <div class="swipe-half hard" aria-hidden="true"></div>
+        <div class="card-scroll" id="card-scroll">
+          <div class="fc-term" id="d-term"></div>
+          <span class="fc-pos" id="d-pos"></span>
+          <div class="tts-row" id="d-tts"></div>
+          <div id="d-body"></div>
+          <div class="actions" style="margin-top:16px;">
+            <button class="btn btn-ghost" id="btn-hard">헷갈려요 ↻</button>
+            <button class="btn btn-grind" id="btn-known">외웠어요 ✓</button>
+          </div>
+          <div class="nav-row">
+            <button class="btn btn-ghost" id="btn-prev">← 이전</button>
+            <button class="btn btn-blaze" id="btn-next">다음 →</button>
+          </div>
+        </div>
       </div>
-      <button class="btn btn-blaze btn-block" id="btn-next" style="margin-top:10px;">다음 단어 →</button>
+      <div class="flashcard quiz-cta hidden" id="quiz-card">
+        <div class="qc-inner">
+          <div class="qc-emoji">🏆</div>
+          <div class="qc-title">Quiz로 성취도를<br>확인해요!</div>
+          <button class="btn btn-grind btn-block" id="qc-go">퀴즈 풀러 가기 →</button>
+        </div>
+      </div>
     </div>
   </div>
 </main>
@@ -92,6 +107,7 @@
   const stack = [];
   let curEntry = null;
   let seqIdx = -1;   // position in dayItems for next-word navigation
+  let enteredViaTerm = false;   // ?term 딥링크로 바로 상세 진입(목록/그리드 없이) → 돌아가기는 그전 페이지로
 
   function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   function highlight(sentence, form) {
@@ -128,8 +144,9 @@
     }).join("") + `</div>`;
   }
 
-  function fillBack(el, e) {
+  function bodyHTML(e) {
     let html = `<div class="fc-meaning">${esc(e.meaning||"")}</div>`;
+    if (e.background) html += `<div class="bg-note"><div class="bg-k">배경지식 BACKGROUND</div><div class="bg-t">${esc(e.background)}</div></div>`;
     const syn = e.synonyms || [];
     if (syn.length) {
       html += `<div class="block-label">동의어 SYNONYMS</div><div class="syn-list">`;
@@ -146,7 +163,10 @@
       html += `<div class="block-label">예문 EXAMPLES</div>`;
       html += ex.map(x => `<div class="ex"><div class="en">${highlight(x.en, x.form||e.term)}</div><div class="ko">${esc(x.ko||"")}</div></div>`).join("");
     }
-    el.innerHTML = html;
+    return html;
+  }
+  function fillBack(el, e) {
+    el.innerHTML = bodyHTML(e);
     el.querySelectorAll(".syn.link").forEach(s => s.addEventListener("click", ev => { ev.stopPropagation(); openTerm(s.dataset.lemma, true); }));
     el.querySelectorAll(".deriv.click").forEach(row => row.addEventListener("click", ev => {
       ev.stopPropagation(); row.classList.toggle("open");
@@ -207,8 +227,11 @@
     const card = $("detail-card");
     card.style.transition = ""; card.style.transform = "";
     if (card._resetSig) card._resetSig();
-    // hide "다음 단어" when not in a day/review sequence (e.g. ?term deep-link)
-    $("btn-next").classList.toggle("hidden", !((dayParam || reviewMode) && seqIdx >= 0));
+    $("quiz-card").classList.add("hidden"); $("card-back").style.display = "";
+    // hide nav buttons when not in a day/review sequence (e.g. ?term deep-link)
+    const inSeq = (dayParam || reviewMode) && seqIdx >= 0;
+    $("btn-next").classList.toggle("hidden", !inSeq);
+    $("btn-prev").classList.toggle("hidden", !(inSeq && seqIdx > 0));
     $("daylist").classList.add("hidden"); $("wordview").classList.add("hidden"); $("detail").classList.remove("hidden");
     $("detail").dataset.lemma = e.lemma;
     $("d-term").textContent = e.term;
@@ -216,7 +239,39 @@
     $("detail-chip").textContent = `${skillKr(e.skill)} · ${e.deck === "academic" ? "학술" : "실용"}`;
     ttsButtons($("d-tts"), e.tts ? e.tts.text : e.term);
     fillBack($("d-body"), e);
-    window.scrollTo(0, 0);
+    window.scrollTo(0, 0);              // detail 진입 시 페이지 상단(고정 스테이지 위치 정렬)
+    $("card-scroll").scrollTop = 0;     // 내부 스크롤 리셋 — 이후 스와이프 중엔 페이지 안 움직임
+    renderBack();
+  }
+  // 뒤(다음) 카드 미리보기 — 마지막이면 퀴즈 카드 예고
+  function renderBack() {
+    const back = $("card-back");
+    back.style.transition = ""; back.style.transform = ""; back.style.display = "";
+    const inSeq = (dayParam || reviewMode) && seqIdx >= 0;
+    if (!inSeq) { back.style.display = "none"; back.innerHTML = ""; return; }
+    const next = seqIdx + 1 < dayItems.length ? dayItems[seqIdx + 1] : null;
+    if (next) {
+      // 다음 카드 전체 내용을 미리 렌더 → 넘길 때 스무스하게 이어짐
+      back.innerHTML = `<div class="card-scroll">
+        <div class="fc-term">${esc(next.term)}</div>
+        <span class="fc-pos">${esc(next.pos||"")} <span class="fc-stars" style="margin:0;">${starHtml(next.stars)}</span> <span class="skill-badge">${skillKr(next.skill)}</span></span>
+        <div class="tts-row">${ttsStaticHTML()}</div>
+        ${bodyHTML(next)}
+      </div>`;
+    } else {
+      back.innerHTML = `<div class="cb"><div class="cb-k">마지막!</div><div class="cb-term cb-quiz">🏆<br>Quiz로<br>성취도 확인</div></div>`;
+    }
+  }
+  function ttsStaticHTML() {
+    if (!window.NEO_TTS || !NEO_TTS.supported()) return "";
+    return `<button class="tts-btn" type="button" tabindex="-1"><span class="flag">🇺🇸</span> <span class="lbl">US 발음</span></button><button class="tts-btn" type="button" tabindex="-1"><span class="flag">🇬🇧</span> <span class="lbl">UK 발음</span></button>`;
+  }
+  function showQuizCard() {
+    $("daylist").classList.add("hidden"); $("wordview").classList.add("hidden"); $("detail").classList.remove("hidden");
+    $("card-back").style.display = "none";
+    $("quiz-card").classList.remove("hidden");
+    const dest = reviewMode ? "quiz.html" : `quiz.html?mode=${deckName}&day=${dayParam}`;
+    $("qc-go").onclick = () => { location.href = dest; };
   }
   function openEntry(e, ret) { if (!e) return; stack.push(ret || { type: "list" }); showEntry(e); }
   function openTerm(lemma, push) {
@@ -229,6 +284,7 @@
     if (prev && prev.type === "term") openTerm(prev.lemma, false);
     else if (reviewMode) showReview();
     else if (dayParam) showWordList();
+    else if (enteredViaTerm && history.length > 1) history.back();   // 딥링크 진입 → 그전 페이지로(뒤로가기)
     else showGrid();
   }
   function mark(correct) {
@@ -244,11 +300,12 @@
     if ((dayParam || reviewMode) && seqIdx >= 0 && seqIdx + 1 < dayItems.length) {
       seqIdx += 1;
       openEntry(dayItems[seqIdx], { type: "list" });
-    } else if (reviewMode) {
-      showReview();
-    } else if (dayParam) {
-      showWordList();
+    } else if ((dayParam || reviewMode) && seqIdx >= 0) {
+      showQuizCard();      // 마지막 단어 다음 → 퀴즈 카드
     } else { showGrid(); }
+  }
+  function prevWord() {
+    if ((dayParam || reviewMode) && seqIdx > 0) { stack.length = 0; seqIdx -= 1; openEntry(dayItems[seqIdx], { type: "list" }); }
   }
 
   // ---- TODAY REVIEW (mode=review) ----
@@ -272,15 +329,16 @@
   $("btn-known").addEventListener("click", () => mark(true));
   $("btn-hard").addEventListener("click", () => mark(false));
   $("btn-next").addEventListener("click", nextWord);
+  $("btn-prev").addEventListener("click", prevWord);
   $("day-reset").addEventListener("click", () => {
-    neoConfirm(`DAY ${dayParam} 의 학습 진도를 초기화할까요?\n(되돌릴 수 없어요)`, { danger: true }).then(ok => {
-      if (ok) { NEO_STORE.resetItems(dayItems); showWordList(); }
+    neoConfirm(`DAY ${dayParam} 의 학습 진도를 초기화할까요?\n(확인한·외운 표시는 그대로 유지돼요)`, { danger: true }).then(ok => {
+      if (ok) { NEO_STORE.clearProgressItems(dayItems); NEO_STORE.syncFlush(); showWordList(); }
     });
   });
   $("deck-reset").addEventListener("click", () => {
     const nm = deckName === "academic" ? "학술어휘" : "실용어휘";
-    neoConfirm(`${nm} 전체 Day의 학습 진도를 초기화할까요?\n(되돌릴 수 없어요)`, { danger: true }).then(ok => {
-      if (ok) { NEO_STORE.resetItems(NEO_DECK.vocab(null, deckName)); showGrid(); }
+    neoConfirm(`${nm} 전체 Day의 학습 진도를 초기화할까요?\n(확인한·외운 표시는 그대로 유지돼요)`, { danger: true }).then(ok => {
+      if (ok) { NEO_STORE.clearProgressItems(NEO_DECK.vocab(null, deckName)); NEO_STORE.syncFlush(); showGrid(); }
     });
   });
   $("to-grid") && $("to-grid").addEventListener("click", () => {});
@@ -292,6 +350,7 @@
   // ---- 카드 채점 스와이프 (틴더식, 반쪽 세로 시그널) ----
   (function initSwipe() {
     const card = $("detail-card"); if (!card) return;
+    const back = $("card-back");
     const know = card.querySelector(".swipe-half.know");
     const hard = card.querySelector(".swipe-half.hard");
     know.innerHTML = "<span>외웠어요</span>";   // 큰 글자 하나, 세로
@@ -299,31 +358,43 @@
     function reset() { know.style.opacity = 0; hard.style.opacity = 0; }
     card._resetSig = reset;
 
-    let sx = 0, sy = 0, dx = 0, active = false, decided = false, horiz = false, moved = false;
-    function begin(x, y) { active = true; decided = false; horiz = false; moved = false; sx = x; sy = y; dx = 0; card.style.transition = "none"; }
+    let sx = 0, sy = 0, dx = 0, active = false, decided = false, horiz = false, moved = false, thresh = 130;
+    function begin(x, y) {
+      if (!$("quiz-card").classList.contains("hidden")) { active = false; return; }   // 퀴즈 카드 상태선 스와이프 없음
+      active = true; decided = false; horiz = false; moved = false; sx = x; sy = y; dx = 0;
+      thresh = Math.max(110, (card.offsetWidth || 320) * 0.42);   // 충분히 스와이프해야 넘어감
+      card.style.transition = "none";
+    }
     function move(x, y, ev) {
       if (!active) return;
       const mx = x - sx, my = y - sy;
       if (!decided) {
-        if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
-        decided = true; horiz = Math.abs(mx) > Math.abs(my);
-        if (!horiz) { active = false; return; }    // 세로 → 스크롤에 양보
+        if (Math.abs(mx) < 14 && Math.abs(my) < 14) return;
+        decided = true; horiz = Math.abs(mx) > Math.abs(my) * 1.8;   // 직선(좌/우)일 때만 — 대각선 제외
+        if (!horiz) { active = false; return; }    // 세로/대각선 → 카드 내부 스크롤에 양보
         moved = true;
       }
-      if (ev && ev.cancelable) ev.preventDefault();  // 가로 드래그 중 페이지 스크롤 차단
+      if (ev && ev.cancelable) ev.preventDefault();  // 가로 드래그 중 스크롤 차단
       dx = mx;
-      card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
-      const t = Math.min(1, Math.abs(dx) / 90) * 0.6;   // 반투명(카드 비침)
-      know.style.opacity = dx > 0 ? t : 0;   // 오른쪽 = 외웠어요(왼쪽 절반)
-      hard.style.opacity = dx < 0 ? t : 0;   // 왼쪽 = 헷갈려요(오른쪽 절반)
+      card.style.transform = `translateX(${dx}px) rotate(${dx / 26}deg)`;
+      const t = Math.min(1, Math.abs(dx) / thresh) * 0.6;   // 반투명
+      know.style.opacity = dx > 0 ? t : 0;
+      hard.style.opacity = dx < 0 ? t : 0;
+    }
+    function flyAway(dir, done) {
+      card.style.transition = "transform .26s ease-out";
+      card.style.transform = `translateX(${dir * 130}%) rotate(${dir * 16}deg)`;   // 카드 날아가는 액션
+      back.style.transition = "transform .26s ease-out";
+      back.style.transform = "scale(1) translateY(0)";    // 뒤 카드가 앞으로
+      setTimeout(() => { back.style.transition = ""; done(); }, 240);
     }
     function end() {
       if (!active) return; active = false;
-      card.style.transition = "transform .18s ease";
-      if (dx > 90) { card.style.transform = "translateX(520px) rotate(18deg)"; mark(true); }
-      else if (dx < -90) { card.style.transform = "translateX(-520px) rotate(-18deg)"; mark(false); }
-      else { card.style.transform = ""; reset(); }
+      if (dx > thresh) { flyAway(1, () => mark(true)); }
+      else if (dx < -thresh) { flyAway(-1, () => mark(false)); }
+      else { card.style.transition = "transform .18s ease"; card.style.transform = ""; reset(); }   // 부족하면 스냅백
       dx = 0;
+      if (moved) setTimeout(() => { moved = false; }, 300);   // 드래그 직후 클릭만 억제, 이후 클릭 정상
     }
     card.addEventListener("touchstart", e => { if (e.touches.length !== 1) { active = false; return; } begin(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
     card.addEventListener("touchmove", e => { const t = e.touches[0]; if (t) move(t.clientX, t.clientY, e); }, { passive: false });
@@ -337,7 +408,7 @@
   })();
 
   // init
-  if (termParam) { openTerm(termParam, true); }
+  if (termParam) { enteredViaTerm = true; openTerm(termParam, false); }
   else if (reviewMode) showReview();
   else if (dayParam) showWordList();
   else showGrid();

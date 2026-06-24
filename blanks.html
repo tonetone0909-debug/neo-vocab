@@ -54,16 +54,31 @@
       <button class="back-btn" id="btn-back">← 돌아가기</button>
       <span class="detail-chip" id="detail-chip">빈칸</span>
     </div>
-    <div class="flashcard" id="detail-card" data-swipe-card>
-      <div class="swipe-half know" aria-hidden="true"></div>
-      <div class="swipe-half hard" aria-hidden="true"></div>
-      <div class="blank-reveal" id="d-blank"></div>
-      <div id="d-body"></div>
-      <div class="actions" style="margin-top:16px;">
-        <button class="btn btn-ghost" id="btn-hard">헷갈려요 ↻</button>
-        <button class="btn btn-grind" id="btn-known">외웠어요 ✓</button>
+    <div class="cardstage">
+      <div class="flashcard back" id="card-back" aria-hidden="true"></div>
+      <div class="flashcard front" id="detail-card" data-swipe-card>
+        <div class="swipe-half know" aria-hidden="true"></div>
+        <div class="swipe-half hard" aria-hidden="true"></div>
+        <div class="card-scroll" id="card-scroll">
+          <div class="blank-reveal" id="d-blank"></div>
+          <div id="d-body"></div>
+          <div class="actions" style="margin-top:16px;">
+            <button class="btn btn-ghost" id="btn-hard">헷갈려요 ↻</button>
+            <button class="btn btn-grind" id="btn-known">외웠어요 ✓</button>
+          </div>
+          <div class="nav-row">
+            <button class="btn btn-ghost" id="btn-prev">← 이전</button>
+            <button class="btn btn-blaze" id="btn-next">다음 →</button>
+          </div>
+        </div>
       </div>
-      <button class="btn btn-blaze btn-block" id="btn-next" style="margin-top:10px;">다음 카드 →</button>
+      <div class="flashcard quiz-cta hidden" id="quiz-card">
+        <div class="qc-inner">
+          <div class="qc-emoji">🏆</div>
+          <div class="qc-title">Quiz로 성취도를<br>확인해요!</div>
+          <button class="btn btn-grind btn-block" id="qc-go">타이핑 퀴즈 가기 →</button>
+        </div>
+      </div>
     </div>
   </div>
 </main>
@@ -117,11 +132,14 @@
     });
   }
 
-  function wordSection(w) {
-    const wrap = document.createElement("div");
-    wrap.className = "answer-block";
-    let html = `<div class="answer-head">${esc(w.answer)}</div><span class="fc-pos">${esc(w.pos||"")}</span><div class="tts-row"></div>`;
+  function ttsStaticHTML() {
+    if (!window.NEO_TTS || !NEO_TTS.supported()) return "";
+    return `<button class="tts-btn" type="button" tabindex="-1"><span class="flag">🇺🇸</span> <span class="lbl">US 발음</span></button><button class="tts-btn" type="button" tabindex="-1"><span class="flag">🇬🇧</span> <span class="lbl">UK 발음</span></button>`;
+  }
+  function wordSectionHTML(w) {
+    let html = `<div class="answer-head">${esc(w.answer)}</div><span class="fc-pos">${esc(w.pos||"")}</span><div class="tts-row">${ttsStaticHTML()}</div>`;
     html += `<div class="fc-meaning">${esc(w.meaning||"")}</div>`;
+    if (w.background) html += `<div class="bg-note"><div class="bg-k">배경지식 BACKGROUND</div><div class="bg-t">${esc(w.background)}</div></div>`;
     const syn = w.synonyms || [];
     if (syn.length) {
       html += `<div class="block-label">동의어 SYNONYMS</div><div class="syn-list">`;
@@ -144,7 +162,12 @@
       html += ex.map(x => `<div class="ex"><div class="en">${highlight(x.en, x.form||w.answer)}</div><div class="ko">${esc(x.ko||"")}</div></div>`).join("");
     }
     if (w.sentence) html += `<div class="block-label">출제 문장 IN CONTEXT</div><div class="ex ctest-sentence"><div class="en">${sentenceSlots(w.sentence)}</div></div>`;
-    wrap.innerHTML = html;
+    return html;
+  }
+  function wordSection(w) {
+    const wrap = document.createElement("div");
+    wrap.className = "answer-block";
+    wrap.innerHTML = wordSectionHTML(w);
     ttsButtons(wrap.querySelector(".tts-row"), w.tts ? w.tts.text : w.answer);
     wrap.querySelectorAll(".deriv.click").forEach(row => row.addEventListener("click", () => {
       row.classList.toggle("open"); const box = row.querySelector(".deriv-ex"); if (box) box.classList.toggle("hidden");
@@ -198,17 +221,42 @@
     $("daylist").classList.add("hidden"); $("cardview").classList.add("hidden"); $("detail").classList.remove("hidden");
     const dc = $("detail-card"); dc.style.transition = ""; dc.style.transform = "";
     if (dc._resetSig) dc._resetSig();
+    $("quiz-card").classList.add("hidden"); $("card-back").style.display = "";
+    $("btn-prev").classList.toggle("hidden", !(cardIdx > 0));
     $("d-blank").innerHTML = slots(card.blankView);
     const body = $("d-body"); body.innerHTML = "";
     card.words.forEach(w => body.appendChild(wordSection(w)));
-    window.scrollTo(0, 0);
+    window.scrollTo(0, 0);              // detail 진입 시 페이지 상단
+    $("card-scroll").scrollTop = 0;     // 내부 스크롤 리셋
+    renderBack();
+  }
+  function renderBack() {
+    const back = $("card-back");
+    back.style.transition = ""; back.style.transform = ""; back.style.display = "";
+    if (cardIdx < 0) { back.style.display = "none"; back.innerHTML = ""; return; }
+    const next = cardIdx + 1 < dayCards.length ? dayCards[cardIdx + 1] : null;
+    if (next) {
+      back.innerHTML = `<div class="card-scroll"><div class="blank-reveal">${slots(next.blankView)}</div>${next.words.map(w => `<div class="answer-block">${wordSectionHTML(w)}</div>`).join("")}</div>`;
+    } else {
+      back.innerHTML = `<div class="cb"><div class="cb-k">마지막!</div><div class="cb-term cb-quiz">🏆<br>Quiz로<br>성취도 확인</div></div>`;
+    }
+  }
+  function showQuizCard() {
+    $("daylist").classList.add("hidden"); $("cardview").classList.add("hidden"); $("detail").classList.remove("hidden");
+    $("card-back").style.display = "none";
+    $("quiz-card").classList.remove("hidden");
+    $("qc-go").onclick = () => { location.href = `ctest.html?day=${dayParam}`; };
   }
   function back() {
     if (dayParam) showCardList(); else showGrid();
   }
   function nextCard() {
     if (cardIdx >= 0 && cardIdx + 1 < dayCards.length) { cardIdx += 1; openCard(dayCards[cardIdx]); }
+    else if (cardIdx >= 0) showQuizCard();   // 마지막 카드 다음 → 퀴즈 카드
     else showCardList();
+  }
+  function prevCard() {
+    if (cardIdx > 0) { cardIdx -= 1; openCard(dayCards[cardIdx]); }
   }
   function mark(correct) {
     if (curCard) curCard.words.forEach(w => {
@@ -222,18 +270,19 @@
   $("btn-known").addEventListener("click", () => mark(true));
   $("btn-hard").addEventListener("click", () => mark(false));
   $("btn-next").addEventListener("click", nextCard);
+  $("btn-prev").addEventListener("click", prevCard);
   $("day-reset").addEventListener("click", () => {
-    neoConfirm(`DAY ${dayParam} 의 학습 진도를 초기화할까요?\n(되돌릴 수 없어요)`, { danger: true }).then(ok => {
+    neoConfirm(`DAY ${dayParam} 의 학습 진도를 초기화할까요?\n(확인한·외운 표시는 그대로 유지돼요)`, { danger: true }).then(ok => {
       if (!ok) return;
       const items = dayCards.flatMap(c => c.words).map(w => ({ skill: "reading", deck: "ctest", lemma: w.lemma }));
-      NEO_STORE.resetItems(items); showCardList();
+      NEO_STORE.clearProgressItems(items); NEO_STORE.syncFlush(); showCardList();
     });
   });
   $("deck-reset").addEventListener("click", () => {
-    neoConfirm("빈칸어휘 전체 Day의 학습 진도를 초기화할까요?\n(되돌릴 수 없어요)", { danger: true }).then(ok => {
+    neoConfirm("빈칸어휘 전체 Day의 학습 진도를 초기화할까요?\n(확인한·외운 표시는 그대로 유지돼요)", { danger: true }).then(ok => {
       if (!ok) return;
       const items = NEO_DECK.blanks().flatMap(c => c.words).map(w => ({ skill: "reading", deck: "ctest", lemma: w.lemma }));
-      NEO_STORE.resetItems(items); showGrid();
+      NEO_STORE.clearProgressItems(items); NEO_STORE.syncFlush(); showGrid();
     });
   });
   document.addEventListener("keydown", e => { if (!$("detail").classList.contains("hidden") && (e.key==="Escape"||e.key==="Backspace")) back(); });
@@ -241,6 +290,7 @@
   // ---- 카드 채점 스와이프 (틴더식, 반쪽 세로 시그널) ----
   (function initSwipe() {
     const card = $("detail-card"); if (!card) return;
+    const back = $("card-back");
     const know = card.querySelector(".swipe-half.know");
     const hard = card.querySelector(".swipe-half.hard");
     know.innerHTML = "<span>외웠어요</span>";   // 큰 글자 하나, 세로
@@ -248,31 +298,43 @@
     function reset() { know.style.opacity = 0; hard.style.opacity = 0; }
     card._resetSig = reset;
 
-    let sx = 0, sy = 0, dx = 0, active = false, decided = false, horiz = false, moved = false;
-    function begin(x, y) { active = true; decided = false; horiz = false; moved = false; sx = x; sy = y; dx = 0; card.style.transition = "none"; }
+    let sx = 0, sy = 0, dx = 0, active = false, decided = false, horiz = false, moved = false, thresh = 130;
+    function begin(x, y) {
+      if (!$("quiz-card").classList.contains("hidden")) { active = false; return; }
+      active = true; decided = false; horiz = false; moved = false; sx = x; sy = y; dx = 0;
+      thresh = Math.max(110, (card.offsetWidth || 320) * 0.42);
+      card.style.transition = "none";
+    }
     function move(x, y, ev) {
       if (!active) return;
       const mx = x - sx, my = y - sy;
       if (!decided) {
-        if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
-        decided = true; horiz = Math.abs(mx) > Math.abs(my);
+        if (Math.abs(mx) < 14 && Math.abs(my) < 14) return;
+        decided = true; horiz = Math.abs(mx) > Math.abs(my) * 1.8;   // 직선(좌/우)일 때만
         if (!horiz) { active = false; return; }
         moved = true;
       }
       if (ev && ev.cancelable) ev.preventDefault();
       dx = mx;
-      card.style.transform = `translateX(${dx}px) rotate(${dx / 22}deg)`;
-      const t = Math.min(1, Math.abs(dx) / 90) * 0.6;   // 반투명(카드 비침)
+      card.style.transform = `translateX(${dx}px) rotate(${dx / 26}deg)`;
+      const t = Math.min(1, Math.abs(dx) / thresh) * 0.6;   // 반투명
       know.style.opacity = dx > 0 ? t : 0;
       hard.style.opacity = dx < 0 ? t : 0;
     }
+    function flyAway(dir, done) {
+      card.style.transition = "transform .26s ease-out";
+      card.style.transform = `translateX(${dir * 130}%) rotate(${dir * 16}deg)`;
+      back.style.transition = "transform .26s ease-out";
+      back.style.transform = "scale(1) translateY(0)";
+      setTimeout(() => { back.style.transition = ""; done(); }, 240);
+    }
     function end() {
       if (!active) return; active = false;
-      card.style.transition = "transform .18s ease";
-      if (dx > 90) { card.style.transform = "translateX(520px) rotate(18deg)"; mark(true); }
-      else if (dx < -90) { card.style.transform = "translateX(-520px) rotate(-18deg)"; mark(false); }
-      else { card.style.transform = ""; reset(); }
+      if (dx > thresh) { flyAway(1, () => mark(true)); }
+      else if (dx < -thresh) { flyAway(-1, () => mark(false)); }
+      else { card.style.transition = "transform .18s ease"; card.style.transform = ""; reset(); }
       dx = 0;
+      if (moved) setTimeout(() => { moved = false; }, 300);
     }
     card.addEventListener("touchstart", e => { if (e.touches.length !== 1) { active = false; return; } begin(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
     card.addEventListener("touchmove", e => { const t = e.touches[0]; if (t) move(t.clientX, t.clientY, e); }, { passive: false });

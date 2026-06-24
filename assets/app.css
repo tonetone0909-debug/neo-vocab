@@ -166,6 +166,11 @@ button { font-family: inherit; cursor: pointer; }
 .hidden { display: none !important; }
 .muted { color: var(--neo-mute); }
 
+/* background-knowledge note (배경지식) */
+.bg-note { margin-top: 14px; background: var(--neo-acid-soft); border: 3px solid var(--neo-ink); border-radius: 8px; padding: 12px 14px; }
+.bg-note .bg-k { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--neo-ink); margin-bottom: 5px; }
+.bg-note .bg-t { font-size: 14px; line-height: 1.6; font-weight: 500; color: var(--neo-ink); }
+
 /* synonym that links to a headword */
 .syn.link { background: var(--neo-acid); cursor: pointer; text-decoration: none; position: relative; padding-right: 22px; }
 .syn.link::after { content: "↗"; position: absolute; right: 8px; font-weight: 800; }
@@ -408,6 +413,23 @@ button { font-family: inherit; cursor: pointer; }
   writing-mode: vertical-rl; text-orientation: upright; font-weight: 900;
   font-size: clamp(40px, 16vw, 92px); letter-spacing: 2px; color: #0A0A0A;
 }
+
+/* ---------- Card stack (Tinder-style detail) ---------- */
+.cardstage { position: relative; margin-top: 6px; height: calc(100vh - 188px); height: calc(100dvh - 188px); min-height: 360px; }
+.flashcard.front, .flashcard.back, .flashcard.quiz-cta { position: absolute; inset: 0; margin: 0; }
+.flashcard.back { z-index: 1; transform: scale(.94) translateY(18px); transition: transform .26s ease-out; padding: 0; overflow: hidden; }
+.flashcard.front { z-index: 2; padding: 0; overflow: hidden; will-change: transform; }
+.flashcard.quiz-cta { z-index: 3; display: flex; align-items: center; justify-content: center; text-align: center; }
+.card-scroll { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 22px 18px; }
+.nav-row { display: flex; gap: 10px; margin-top: 10px; }
+.nav-row .btn { flex: 1; }
+.flashcard.back .cb { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 18px; opacity: .85; }
+.cb-k { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--neo-mute); }
+.cb-term { font-family: var(--font-display); font-size: clamp(28px, 8vw, 40px); text-align: center; line-height: 1.05; }
+.cb-quiz { font-family: var(--font-display-kr); font-size: clamp(24px, 6vw, 32px); }
+.qc-inner { padding: 24px; }
+.qc-emoji { font-size: 56px; line-height: 1; }
+.qc-title { font-family: var(--font-display-kr); font-size: clamp(26px, 7vw, 34px); line-height: 1.2; margin: 14px 0 22px; }
 
 @media (min-width: 600px) {
   .deck-grid { grid-template-columns: 1fr; }
