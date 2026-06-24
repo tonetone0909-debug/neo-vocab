@@ -355,7 +355,12 @@
     const hard = card.querySelector(".swipe-half.hard");
     know.innerHTML = "<span>외웠어요</span>";   // 큰 글자 하나, 세로
     hard.innerHTML = "<span>헷갈려요</span>";
-    function reset() { know.style.opacity = 0; hard.style.opacity = 0; }
+    function reset() {
+      know.style.transition = hard.style.transition = "none";   // 즉시 끄기(다음 카드에 시그널 반짝 방지)
+      know.style.opacity = hard.style.opacity = 0;
+      void know.offsetWidth;                                     // 강제 reflow → 페이드 없이 적용
+      know.style.transition = hard.style.transition = "";        // 다음 드래그 땐 다시 부드럽게
+    }
     card._resetSig = reset;
 
     let sx = 0, sy = 0, dx = 0, active = false, decided = false, horiz = false, moved = false, thresh = 130;

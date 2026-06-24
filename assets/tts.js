@@ -16,24 +16,26 @@
 
   // accent-specific voice name hints (Android: "Google US/UK English"; Win/macOS/iOS names)
   const NAMES = {
-    "en-gb": ["google uk", "uk english", "daniel", "arthur", "kate", "serena", "martha", "oliver", "(uk", "british", "en-gb"],
-    "en-us": ["google us", "us english", "samantha", "aaron", "nicky", "fred", "alex", "(us", "en-us"]
+    "en-gb": ["google uk", "uk english", "united kingdom", "kingdom", "daniel", "arthur", "kate", "serena", "martha", "oliver", "(uk", "british", "en-gb"],
+    "en-us": ["google us", "us english", "united states", "samantha", "aaron", "nicky", "fred", "alex", "(us", "en-us"]
   };
+
+  function region(v) { return (v && v.lang ? v.lang : "").toLowerCase().replace("_", "-"); }
 
   // Pick a voice that truly matches the requested accent. No generic "en" fallback
   // (that would make US and UK pick the same voice). Returns null if none.
   function pickVoice(lang) {
     if (!voices.length) loadVoices();
-    const want = lang.toLowerCase();
-    // 1) exact lang code
-    let v = voices.find(x => x.lang && x.lang.toLowerCase().replace("_", "-") === want);
+    const want = lang.toLowerCase();              // "en-us" | "en-gb"
+    // 1) lang code by PREFIX — 안드로이드 UK 보이스는 "en-gb-x-gbb-local"처럼 접미사가 붙어
+    //    정확 일치로는 안 잡힘. 접두 일치로 en-GB / en-US 변형을 모두 포착(이게 US≠UK 핵심).
+    let v = voices.find(x => region(x).indexOf(want) === 0);
     if (v) return v;
-    // 2) by known accent voice name (restricted to English voices)
+    // 2) by known accent voice name (예: "English (United Kingdom)"는 lang으로 못 잡힐 때 이름으로)
     const hints = NAMES[want] || [];
     v = voices.find(x => {
       const nm = (x.name || "").toLowerCase();
-      const lg = (x.lang || "").toLowerCase();
-      return lg.indexOf("en") === 0 && hints.some(h => nm.indexOf(h) !== -1);
+      return region(x).indexOf("en") === 0 && hints.some(h => nm.indexOf(h) !== -1);
     });
     return v || null;
   }

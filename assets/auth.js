@@ -21,6 +21,12 @@
         sessionStorage.setItem("neo_auth_ok", "1");
         if (d.role) sessionStorage.setItem("neo_role", d.role);
         de.style.visibility = "";
+        // "로그인 유지"로 앱을 바로 열면(로그인 화면 미경유) store.js의 초기 동기화가
+        // 이 비동기 검증보다 먼저 끝나 건너뛰므로, 검증 직후 여기서 한 번 당겨온다.
+        if (window.NEO_STORE && NEO_STORE.syncPull && !sessionStorage.getItem("neo_synced")) {
+          sessionStorage.setItem("neo_synced", "1");
+          NEO_STORE.syncPull();
+        }
       } else {
         // 코드가 삭제됨 → 자동 로그아웃
         localStorage.removeItem("neo_code");
