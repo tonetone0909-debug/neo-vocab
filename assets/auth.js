@@ -32,11 +32,8 @@
           if (d.role) sessionStorage.setItem("neo_role", d.role);
           if (blocking) de.style.visibility = "";
           // "로그인 유지"로 앱을 바로 열면 store.js 초기 동기화가 이 비동기 검증보다
-          // 먼저 끝나 건너뛰므로, 검증 직후 여기서 한 번 당겨온다(세션 1회).
-          if (window.NEO_STORE && NEO_STORE.syncPull && !sessionStorage.getItem("neo_synced")) {
-            sessionStorage.setItem("neo_synced", "1");
-            NEO_STORE.syncPull();
-          }
+          // 먼저 끝나 건너뛸 수 있으므로, 검증 직후 한 번 더 당겨온다(syncPull 내부 2초 dedupe).
+          if (window.NEO_STORE && NEO_STORE.syncPull) NEO_STORE.syncPull();
         } else {
           logout("invalid");                 // 코드가 삭제됨 → 로그아웃
         }

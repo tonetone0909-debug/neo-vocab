@@ -39,7 +39,17 @@
   <div class="section-kr" style="margin-top:26px;">덱별 진도</div>
   <div id="deck-bars"></div>
 
-  <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:26px;display:none;">로그아웃 ⏏</button>
+  <div id="sync-box" class="card" style="margin-top:26px;display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <div style="min-width:0;flex:1;">
+        <div class="sc-l">기기간 동기화</div>
+        <div class="sc-l" id="sync-status" style="opacity:.7;font-weight:700;margin-top:4px;line-height:1.4;">준비 중…</div>
+      </div>
+      <button class="btn btn-sm btn-grind" id="sync-now" style="flex:0 0 auto;">지금 동기화 ↻</button>
+    </div>
+  </div>
+
+  <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:14px;display:none;">로그아웃 ⏏</button>
 </main>
 
 <nav class="tabbar">
@@ -62,12 +72,6 @@
   const ctestItems = NEO_DECK.blanks().flatMap(c => c.words).map(w => ({ skill: "reading", deck: "ctest", lemma: w.lemma }));
   const allItems = [...practical, ...academic, ...ctestItems];
 
-  const sc = NEO_STORE.statusCounts();
-  $("v-total").textContent = allItems.length;
-  $("v-viewed").textContent = sc.viewed;
-  $("v-learning").textContent = sc.learning;
-  $("v-known").textContent = sc.known;
-
   function bar(label, items, href) {
     const s = NEO_STORE.deckStats(items);
     const pct = s.total ? Math.round(s.studied / s.total * 100) : 0;
@@ -79,12 +83,20 @@
       <div class="bar" style="margin-top:8px;"><div class="fill" style="width:${pct}%"></div></div>
     </a>`;
   }
-  $("deck-bars").innerHTML =
-    bar("실용어휘", practical, "study.html?deck=practical") +
-    bar("학술어휘", academic, "study.html?deck=academic") +
-    bar("Reading Task1 빈칸어휘", ctestItems, "blanks.html");
+  function render() {
+    const sc = NEO_STORE.statusCounts();
+    $("v-total").textContent = allItems.length;
+    $("v-viewed").textContent = sc.viewed;
+    $("v-learning").textContent = sc.learning;
+    $("v-known").textContent = sc.known;
+    $("deck-bars").innerHTML =
+      bar("실용어휘", practical, "study.html?deck=practical") +
+      bar("학술어휘", academic, "study.html?deck=academic") +
+      bar("Reading Task1 빈칸어휘", ctestItems, "blanks.html");
+  }
+  render();
 
-  // 코드 인증이 켜져 있을 때만 로그아웃 노출
+  // 코드 인증이 켜져 있을 때만 로그아웃 + 동기화 카드 노출
   if (((window.NEO_AUTH || {}).url || "").trim()) {
     $("logout").style.display = "";
     $("logout").addEventListener("click", () => {
@@ -98,6 +110,33 @@
         location.href = "login.html";
       });
     });
+
+    // ===== 기기간 동기화 카드 (수동 동기화 + 상태 표시) =====
+    $("sync-box").style.display = "";
+    const code = sessionStorage.getItem("neo_code") || localStorage.getItem("neo_code") || "-";
+    const pad = n => (n < 10 ? "0" : "") + n;
+    const nowHM = () => { const d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()); };
+    const setStatus = m => { $("sync-status").textContent = m; };
+    setStatus("코드: " + code);
+
+    function doSync() {
+      if (!NEO_STORE.forceSync) { setStatus("이 버전은 동기화 미지원(앱 새로고침 필요)"); return; }
+      $("sync-now").disabled = true;
+      setStatus("동기화 중…");
+      NEO_STORE.forceSync().then(r => {
+        $("sync-now").disabled = false;
+        if (r && r.ok) {
+          render();   // 받아온 진도 즉시 반영(새로고침 없이)
+          setStatus("✓ " + nowHM() + " 동기화됨 · 서버에 " + r.serverItems + "개 · 코드 " + r.code);
+        } else {
+          const e = r ? r.error : "?";
+          const msg = e === "no_code" ? "로그인 코드가 없어요" : e === "network" ? "인터넷/서버 연결 실패" : e === "server" ? "서버 응답 오류" : e;
+          setStatus("✗ 동기화 실패: " + msg + " · 코드 " + code);
+        }
+      });
+    }
+    $("sync-now").addEventListener("click", doSync);
+    doSync();   // 진도 화면 들어올 때 자동 1회
   }
 })();
 </script>

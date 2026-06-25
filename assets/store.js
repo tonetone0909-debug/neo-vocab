@@ -72,9 +72,13 @@
     if (!o) return "";
     return [o.box || 0, o.seen || 0, o.correct || 0, o.dueDay || 0, o.lastDay || 0, o.status || "", o.viewed ? 1 : 0].join(",");
   }
+  let lastPullAt = 0;   // 같은 페이지 로드 내 중복 pull 방지(initSync+auth.js 동시호출 dedupe)
   function syncPull() {
     const url = authUrl(), code = getCode();
     if (!url || !code) return Promise.resolve();
+    var now = Date.now();
+    if (now - lastPullAt < 2000) return Promise.resolve();
+    lastPullAt = now;
     return fetch(url + "?action=getprog&code=" + encodeURIComponent(code))
       .then(function (r) { return r.json(); })
       .then(function (d) {
@@ -93,15 +97,35 @@
         if (changed) location.reload();     // 받아온 진도를 화면에 반영(페이지가 동기화 전에 렌더됐으므로)
       }).catch(function () {});
   }
-  // 앱 실행(로그인 세션)당 1회 서버 진도 가져오기
+  // 매 페이지 로드마다 서버 진도 가져오기(2초 dedupe 내장) → 새로고침하면 항상 최신
   (function initSync() {
     try {
-      if (authUrl() && getCode() && sessionStorage.getItem("neo_auth_ok") === "1" && !sessionStorage.getItem("neo_synced")) {
-        sessionStorage.setItem("neo_synced", "1");
+      if (authUrl() && getCode() && sessionStorage.getItem("neo_auth_ok") === "1") {
         syncPull();
       }
     } catch (e) {}
   })();
+
+  // 수동 동기화(진도 화면 "지금 동기화" 버튼용) — pull+push 후 요약 반환. reload 안 함(호출측이 다시 그림).
+  function forceSync() {
+    const url = authUrl(), code = getCode();
+    if (!url) return Promise.resolve({ ok: false, error: "no_url" });
+    if (!code) return Promise.resolve({ ok: false, error: "no_code" });
+    lastPullAt = Date.now();   // 자동 pull과 중복 방지
+    return fetch(url + "?action=getprog&code=" + encodeURIComponent(code))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok) return { ok: false, error: "server" };
+        var server = {};
+        if (d.data) { try { server = JSON.parse(d.data) || {}; } catch (e) { server = {}; } }
+        var local = load(), merged = Object.assign({}, local), changed = false;
+        for (var k in server) { var m = mergeEntry(local[k], server[k]); merged[k] = m; if (canonEntry(m) !== canonEntry(local[k])) changed = true; }
+        if (changed) save(merged, true);
+        syncFlush();   // 항상 로컬(병합본)을 서버로 올림(시드 + 다른 기기 반영)
+        return { ok: true, serverItems: Object.keys(server).length, totalItems: Object.keys(merged).length, changed: changed, code: code };
+      })
+      .catch(function () { return { ok: false, error: "network" }; });
+  }
 
   // 앱으로 다시 돌아올 때마다 재동기화(다른 기기 변경 반영) + 나갈 때 밀린 진도 즉시 푸시
   // → 두 기기를 동시에 띄워놔도 전환하면 최신으로 맞춰짐("실시간처럼")
@@ -247,5 +271,5 @@
     return out;
   }
 
-  window.NEO_STORE = { get, record, isDue, deckStats, setStatus, markViewed, allByStatus, statusCounts, resetItems, clearStatusItems, clearProgressItems, reset, todayNum, dueReview, syncPull, syncPush, syncFlush };
+  window.NEO_STORE = { get, record, isDue, deckStats, setStatus, markViewed, allByStatus, statusCounts, resetItems, clearStatusItems, clearProgressItems, reset, todayNum, dueReview, syncPull, syncPush, syncFlush, forceSync };
 })();
