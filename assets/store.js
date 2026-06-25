@@ -3,20 +3,21 @@
 (function () {
   "use strict";
   const KEY = "neo_vocab_progress_v1";
-  const OWNER = "neo_prog_owner";       // 현재 로컬 진도가 '어느 코드'의 것인지 표시(코드 바뀌면 교체용)
   const BOX_DAYS = [0, 1, 2, 4, 7, 14];  // box 1..5 review intervals (days)
   const DAY = 86400000;
 
   // today as integer day-number (UTC) — avoids time-of-day drift
   function todayNum() { return Math.floor(Date.now() / DAY); }
 
+  // 진도는 코드별로 분리 저장 → 새 코드로 로그인하면 무조건 빈 상태(다른 코드 진도가 절대 안 섞임).
+  // 인증 OFF(코드 없음)면 기존 단일 키 사용(하위호환).
+  function storeKey() { var c = getCode(); return c ? KEY + ":" + c : KEY; }
   function load() {
-    try { return JSON.parse(localStorage.getItem(KEY)) || {}; }
+    try { return JSON.parse(localStorage.getItem(storeKey())) || {}; }
     catch (e) { return {}; }
   }
   function save(db, skipPush) {
-    try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {}
-    try { var c = getCode(); if (c) localStorage.setItem(OWNER, c); } catch (e) {}   // 이 진도의 소유 코드 표시
+    try { localStorage.setItem(storeKey(), JSON.stringify(db)); } catch (e) {}
     if (!skipPush) syncPush();
   }
 
@@ -71,41 +72,23 @@
     if (!o) return "";
     return [o.box || 0, o.seen || 0, o.correct || 0, o.dueDay || 0, o.lastDay || 0, o.status || "", o.viewed ? 1 : 0].join(",");
   }
-  function canonAll(db) {     // 전체 진도를 순서 무관 정규화(변경 감지용)
-    var ks = Object.keys(db || {}).sort();
-    return ks.map(function (k) { return k + "=" + canonEntry(db[k]); }).join("|");
-  }
   function syncPull() {
     const url = authUrl(), code = getCode();
     if (!url || !code) return Promise.resolve();
-    var owner = ""; try { owner = localStorage.getItem(OWNER) || ""; } catch (e) {}   // 비동기 전에 캡처(레이스 방지)
     return fetch(url + "?action=getprog&code=" + encodeURIComponent(code))
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (!d || !d.ok) return;
         var server = {};
         if (d.data) { try { server = JSON.parse(d.data) || {}; } catch (e) { server = {}; } }
-        var local = load();
-
-        // 로컬 진도가 '다른 코드'의 것이면 합치지 않고 이 코드의 서버 진도로 교체.
-        // (코드를 바꿔 로그인했을 때 이전 진도가 새 코드로 새어드는 것 방지 → 같은 코드면 어느 기기서나 동일)
-        if (owner && owner !== code) {
-          var changedA = canonAll(server) !== canonAll(local);
-          save(server, true);              // 로컬을 서버 그대로 교체(save가 OWNER를 현재 code로 갱신)
-          syncFlush();
-          if (changedA) location.reload();
-          return;
-        }
-
-        // 같은 코드(또는 소유 코드 미설정) → 합치기(진도 손실 방지)
-        var merged = Object.assign({}, local), changed = false;
+        // load()/save()가 이미 코드별 키라, 이 코드 진도끼리만 합쳐짐(다른 코드 오염 불가)
+        var local = load(), merged = Object.assign({}, local), changed = false;
         for (var k in server) {
           var m = mergeEntry(local[k], server[k]);
           merged[k] = m;
           if (canonEntry(m) !== canonEntry(local[k])) changed = true;   // 다른 기기서 새 진도가 들어옴
         }
         if (changed) save(merged, true);
-        else { try { if (code) localStorage.setItem(OWNER, code); } catch (e) {} }   // 변화 없어도 소유 코드는 확정
         syncFlush();                       // 로컬(병합본)을 서버에 즉시 반영 — 서버가 비어 있어도 시드됨
         if (changed) location.reload();     // 받아온 진도를 화면에 반영(페이지가 동기화 전에 렌더됐으므로)
       }).catch(function () {});
