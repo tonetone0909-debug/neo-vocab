@@ -45,4 +45,26 @@
   var md = false;
   document.addEventListener("mousedown", function (e) { md = true; onStart(e.clientX, e.clientY, e.target); });
   document.addEventListener("mouseup", function (e) { if (md) { md = false; onEnd(e.clientX, e.clientY); } });
+
+  // ---------- 우측 상단 사용자 이름(전 페이지 공통, 항상 표시) ----------
+  function showUserName() {
+    try {
+      if (!((window.NEO_AUTH || {}).url || "").trim()) return;        // 인증 OFF → 표시 안 함
+      if (sessionStorage.getItem("neo_role") === "admin") return;
+      var page = (location.pathname.split("/").pop() || "").toLowerCase();
+      if (page === "login.html" || page === "admin.html") return;
+      var code = sessionStorage.getItem("neo_code") || (localStorage.getItem("neo_keep") === "1" ? localStorage.getItem("neo_code") : "") || "";
+      if (!code) return;
+      var name = code.replace(/\s*\d{4}$/, "").trim() || code;        // 박태환4355 → 박태환
+      var bar = document.querySelector(".topbar");
+      if (!bar || bar.querySelector(".user-name")) return;
+      var crumb = bar.querySelector(".crumb"); if (crumb) crumb.style.display = "none";  // 우측 자리 양보
+      var el = document.createElement("span");
+      el.className = "user-name";
+      el.textContent = name + " 님";
+      bar.appendChild(el);
+    } catch (e) {}
+  }
+  if (document.readyState !== "loading") showUserName();
+  else document.addEventListener("DOMContentLoaded", showUserName);
 })();

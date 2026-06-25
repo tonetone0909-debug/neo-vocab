@@ -84,7 +84,7 @@
   <a href="index.html"><span class="ic">🏠</span>홈</a>
   <a href="study.html?deck=practical"><span class="ic">📝</span>어휘</a>
   <a href="quiz.html" class="on"><span class="ic">✅</span>퀴즈</a>
-  <a href="progress.html"><span class="ic">📊</span>성취</a>
+  <a href="progress.html"><span class="ic">📊</span>마이페이지</a>
 </nav>
 
 <script src="data/meta.js"></script>
@@ -125,8 +125,8 @@
     if (isList) {
       const keys = NEO_STORE.allByStatus(list);
       let ws = keys.map(k => {
-        if (k.deck === "ctest") { const w = NEO_DECK.blanksByLemma(k.lemma); return w ? { term:w.answer, lemma:w.lemma, meaning:w.meaning, synonyms:w.synonyms, tts:w.tts, skill:"reading", deck:"ctest" } : null; }
-        const e = NEO_DECK.byLemma(k.lemma); return e ? { term:e.term, lemma:e.lemma, meaning:e.meaning, synonyms:e.synonyms, tts:e.tts, skill:e.skill, deck:e.deck } : null;
+        if (k.deck === "ctest") { const w = NEO_DECK.blanksByLemma(k.lemma); return w ? { term:w.answer, lemma:w.lemma, meaning:w.meaning, pos:w.pos, synonyms:w.synonyms, tts:w.tts, skill:"reading", deck:"ctest" } : null; }
+        const e = NEO_DECK.byLemma(k.lemma); return e ? { term:e.term, lemma:e.lemma, meaning:e.meaning, pos:e.pos, synonyms:e.synonyms, tts:e.tts, skill:e.skill, deck:e.deck } : null;
       }).filter(Boolean);
       ws = shuffle(ws);
       if (size && size !== "all") ws = ws.slice(0, parseInt(size,10));
@@ -165,6 +165,18 @@
     for (const v of shuffle(arr)) { const key = v.toLowerCase(); if (seen.has(key)) continue; seen.add(key); out.push(v); if (out.length>=n) break; }
     return out;
   }
+  // 오답 보기 3개 — 같은 품사 단어에서 우선(다른 Day 포함). 부족하면 아무 품사로 보충.
+  function distractorsByPos(w, valueFn) {
+    const excl = new Set([String(valueFn(w)||"").toLowerCase()]);
+    const samePos = pool.filter(x => x.lemma !== w.lemma && x.pos && w.pos && x.pos === w.pos);
+    let out = sampleVals(samePos.map(valueFn).filter(Boolean), 3, excl);
+    if (out.length < 3) {
+      out.forEach(d => excl.add(String(d).toLowerCase()));
+      const any = pool.filter(x => x.lemma !== w.lemma);
+      out = out.concat(sampleVals(any.map(valueFn).filter(Boolean), 3 - out.length, excl));
+    }
+    return out;
+  }
 
   function buildSession() {
     let words = wordSet();
@@ -175,11 +187,11 @@
       if (fmt === "meaning") {
         it.instr = "이 단어의 뜻은?"; it.promptHtml = `<div class="quiz-prompt">${esc(w.term)}</div>`;
         it.correct = w.meaning;
-        it.options = shuffle([w.meaning, ...sampleVals(pool.filter(x=>x.lemma!==w.lemma&&x.meaning).map(x=>x.meaning), 3, new Set([w.meaning.toLowerCase()]))]);
+        it.options = shuffle([w.meaning, ...distractorsByPos(w, x => x.meaning)]);   // 보기 = 같은 품사 뜻
       } else if (fmt === "reverse") {
         it.instr = "이 뜻에 맞는 영어 단어는?"; it.promptHtml = `<div class="quiz-prompt kr">${esc(w.meaning)}</div>`;
         it.correct = w.term;
-        it.options = shuffle([w.term, ...sampleVals(pool.filter(x=>x.lemma!==w.lemma).map(x=>x.term), 3, new Set([w.term.toLowerCase()]))]);
+        it.options = shuffle([w.term, ...distractorsByPos(w, x => x.term)]);          // 보기 = 같은 품사 단어
       } else if (fmt === "synonym") {
         it.instr = "이 단어의 동의어는?"; it.promptHtml = `<div class="quiz-prompt">${esc(w.term)}</div>`;
         const syns = w.synonyms || []; it.correct = shuffle(syns)[0];

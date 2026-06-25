@@ -41,6 +41,10 @@ button { font-family: inherit; cursor: pointer; }
   margin-left: auto; font-family: var(--font-mono); font-size: 11px;
   letter-spacing: 0.12em; text-transform: uppercase; color: var(--neo-mute); font-weight: 700;
 }
+.user-name {
+  margin-left: auto; font-size: 13px; font-weight: 800; color: var(--neo-ink);
+  white-space: nowrap; max-width: 58%; overflow: hidden; text-overflow: ellipsis;
+}
 
 /* ---------- Hero / titles ---------- */
 .kicker {

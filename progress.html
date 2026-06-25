@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>성취도 · NEO VOCAB</title>
+<title>마이페이지 · NEO VOCAB</title>
 <meta name="theme-color" content="#0A0A0A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
@@ -21,12 +21,13 @@
 
 <div class="topbar">
   <a class="brand" href="index.html"><span class="dot"></span>NEO VOCAB</a>
-  <span class="crumb">MY PROGRESS</span>
+  <span class="crumb">MY PAGE</span>
 </div>
 
 <main class="app">
-  <div class="kicker">MY PROGRESS · 성취도</div>
-  <h1 class="title-kr" style="font-size:clamp(28px,7vw,40px);">내 학습 현황</h1>
+  <div class="kicker">MY PAGE · 마이페이지</div>
+  <h1 class="title-kr" style="font-size:clamp(28px,7vw,40px);">마이페이지</h1>
+  <p class="lead" id="hello" style="margin-top:8px;font-size:16px;font-weight:700;display:none;"></p>
 
   <div class="section-kr" style="margin-top:22px;">내 단어장</div>
   <div class="prog-cards">
@@ -49,14 +50,24 @@
     </div>
   </div>
 
-  <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:14px;display:none;">로그아웃 ⏏</button>
+  <div class="section-kr" style="margin-top:30px;">도움말</div>
+  <a class="deck-card" href="install-guide.html" style="display:block;margin-bottom:10px;">
+    <div class="dt" style="font-size:17px;">📲 설치 방법</div>
+    <div class="dd">홈 화면에 앱처럼 추가하기 (안드로이드·아이폰)</div>
+  </a>
+  <a class="deck-card" href="voice-setup.html" style="display:block;">
+    <div class="dt" style="font-size:17px;">🔊 발음 설정 (US·UK 같을 때)</div>
+    <div class="dd">안드로이드 영국 발음 음성팩 설치</div>
+  </a>
+
+  <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:22px;display:none;">로그아웃 ⏏</button>
 </main>
 
 <nav class="tabbar">
   <a href="index.html"><span class="ic">🏠</span>홈</a>
   <a href="study.html?deck=practical"><span class="ic">📝</span>어휘</a>
   <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
-  <a href="progress.html" class="on"><span class="ic">📊</span>성취</a>
+  <a href="progress.html" class="on"><span class="ic">📊</span>마이페이지</a>
 </nav>
 
 <script src="data/meta.js"></script>
@@ -114,6 +125,11 @@
     // ===== 기기간 동기화 카드 (수동 동기화 + 상태 표시) =====
     $("sync-box").style.display = "";
     const code = sessionStorage.getItem("neo_code") || localStorage.getItem("neo_code") || "-";
+    // 코드에서 이름 추출(박태환4355 → 박태환) — 인사말
+    if (sessionStorage.getItem("neo_role") !== "admin") {
+      const nm = (code || "").replace(/\s*\d{4}$/, "").trim() || code;
+      if (nm && nm !== "-") { $("hello").textContent = nm + " 님, 반가워요 👋"; $("hello").style.display = ""; }
+    }
     const pad = n => (n < 10 ? "0" : "") + n;
     const nowHM = () => { const d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()); };
     const setStatus = m => { $("sync-status").textContent = m; };

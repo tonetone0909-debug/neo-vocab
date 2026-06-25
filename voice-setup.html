@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>NEO VOCAB 영국 발음 설정 가이드</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="assets/icons/icon-32.png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap');
+:root{
+  --ink:#0A0A0A; --paper:#FBFBF7; --paper2:#F4F4EE; --card:#FFFFFF;
+  --acid:#E8FF3A; --blaze:#2B2BFF; --hot:#FF3DA6; --mute:#7A7A75;
+  --sh2:5px 5px 0 0 var(--ink); --sh1:3px 3px 0 0 var(--ink);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--paper);color:var(--ink);font-family:'Noto Sans KR',sans-serif;
+  -webkit-font-smoothing:antialiased;padding:22px 14px 30px;display:flex;justify-content:center;}
+.poster{width:100%;max-width:440px;}
+.head{display:flex;align-items:center;gap:14px;}
+.mark{flex:0 0 auto;width:68px;height:68px;background:var(--acid);border:3px solid var(--ink);
+  border-radius:16px;box-shadow:var(--sh2);display:flex;align-items:center;justify-content:center;
+  font-family:'Archivo Black',sans-serif;font-size:26px;letter-spacing:-1px;color:var(--ink);}
+.kick{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink);}
+.ttl{font-family:'Noto Sans KR',sans-serif;font-weight:900;font-size:clamp(30px,8vw,42px);
+  line-height:1.08;letter-spacing:-.025em;margin-top:4px;text-rendering:geometricPrecision;}
+.lead{font-size:15px;font-weight:500;line-height:1.6;margin-top:16px;color:var(--ink);}
+
+.why{margin-top:18px;background:var(--ink);color:var(--paper);border:3px solid var(--ink);
+  border-radius:8px;box-shadow:var(--sh2);padding:16px 16px 15px;}
+.why .wh{font-family:'Jua',sans-serif;font-size:19px;color:var(--acid);display:flex;align-items:center;gap:8px;}
+.why p{font-size:14px;font-weight:500;line-height:1.6;margin-top:9px;color:var(--paper);}
+.why b{color:var(--ink);background:var(--acid);padding:0 4px;font-weight:700;}
+
+.sectlabel{margin-top:22px;display:flex;align-items:center;gap:8px;
+  font-family:'Jua',sans-serif;font-size:22px;}
+.sectlabel .tag{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
+  letter-spacing:.08em;color:var(--paper);background:var(--blaze);border:3px solid var(--ink);
+  border-radius:999px;padding:3px 10px;margin-left:auto;}
+
+.step{background:var(--card);border:3px solid var(--ink);border-radius:8px;box-shadow:var(--sh2);
+  padding:16px 16px 14px;margin-top:14px;}
+ol{margin:0;padding-left:0;list-style:none;counter-reset:s;}
+ol li{counter-increment:s;position:relative;padding:11px 0 11px 30px;font-size:15px;font-weight:500;
+  line-height:1.55;border-top:2px dashed var(--paper2);}
+ol li:first-child{border-top:none;}
+ol li::before{content:counter(s);position:absolute;left:0;top:12px;width:19px;height:19px;
+  background:var(--blaze);color:var(--paper);border:2px solid var(--ink);border-radius:999px;
+  font-family:'Archivo Black',sans-serif;font-size:10px;display:flex;align-items:center;justify-content:center;}
+ol li b{background:var(--acid);padding:0 4px;font-weight:700;}
+ol li .path{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;}
+
+.tip{margin-top:14px;background:var(--acid);border:3px solid var(--ink);border-radius:8px;
+  box-shadow:var(--sh1);padding:14px 16px;font-size:14px;font-weight:700;line-height:1.55;}
+.tip .th{font-family:'Jua',sans-serif;font-size:17px;display:block;margin-bottom:5px;}
+
+.note{margin-top:18px;background:var(--paper2);border:3px solid var(--ink);border-radius:8px;
+  padding:15px 16px;font-size:14px;font-weight:700;line-height:1.55;}
+.note .nh{font-family:'Jua',sans-serif;font-size:17px;display:flex;align-items:center;gap:7px;margin-bottom:6px;}
+.note b{background:var(--acid);padding:0 4px;}
+
+.help{margin-top:14px;text-align:center;background:var(--blaze);color:var(--paper);border:3px solid var(--ink);
+  border-radius:8px;box-shadow:var(--sh1);padding:13px 15px;font-size:14px;font-weight:700;line-height:1.5;}
+.help b{color:var(--acid);}
+.foot{margin-top:16px;text-align:center;font-family:'Archivo Black',sans-serif;font-size:14px;
+  letter-spacing:-.01em;color:var(--ink);}
+.foot .dot{display:inline-block;width:11px;height:11px;background:var(--acid);border:3px solid var(--ink);
+  margin-right:6px;vertical-align:middle;}
+</style>
+</head>
+<body>
+<div class="poster">
+
+  <div class="head">
+    <div class="mark">UK</div>
+    <div>
+      <div class="kick">NEO VOCAB · 발음 설정</div>
+      <h1 class="ttl">US랑 UK가<br>똑같이 들려요?</h1>
+    </div>
+  </div>
+
+  <p class="lead">안드로이드에서 미국·영국 발음이 구분이 안 된다면, 폰에 영국 영어 음성이 빠져 있어서 그래요. 아래대로 한 번만 설치하면 해결돼요!</p>
+
+  <div class="why">
+    <div class="wh">🔎 왜 그럴까요?</div>
+    <p>발음 재생은 폰에 깔린 음성 데이터를 그대로 써요. 안드로이드에는 <b>영국 영어(English UK) 음성</b>이 기본으로 안 깔려 있는 경우가 많아요. 그러면 앱이 영국 음성을 못 찾아서 기본 미국 음성으로 대신 재생하고, 결국 US·UK가 똑같이 들리게 돼요.</p>
+    <p style="margin-top:10px;">아이폰은 영국 음성이 처음부터 들어 있어서 이 문제가 없어요. 안드로이드만 한 번 설치해주면 돼요.</p>
+  </div>
+
+  <div class="sectlabel">설치 단계 <span class="tag">ANDROID</span></div>
+
+  <div class="step">
+    <ol>
+      <li>폰 <b>설정</b> 앱을 열어요</li>
+      <li><span class="path">시스템</span> → <span class="path">언어 및 입력</span> 으로 들어가요</li>
+      <li><b>텍스트 음성 변환(TTS) 출력</b> 을 눌러요</li>
+      <li><b>Google 텍스트 음성 변환 엔진</b> 옆 <b>톱니바퀴(⚙️)</b> 를 눌러요</li>
+      <li><b>음성 데이터 설치</b> 로 들어가요</li>
+      <li><b>English (United Kingdom)</b> 을 골라 다운로드해요</li>
+      <li>다운로드가 끝나면 <b>NEO VOCAB 앱을 껐다가 다시 실행</b>해요</li>
+    </ol>
+  </div>
+
+  <div class="tip">
+    <span class="th">✅ 잘 됐는지 확인해봐요</span>
+    같은 단어의 US 버튼과 UK 버튼을 번갈아 들어봐요. 모음·끝소리 느낌이 다르게 들리면 제대로 설치된 거예요!
+  </div>
+
+  <div class="note">
+    <div class="nh">📌 메뉴 이름이 조금 달라요</div>
+    폰 제조사나 안드로이드 버전에 따라 <b>일반 관리</b>, <b>추가 설정</b> 같은 이름 안에 들어 있을 수 있어요. 설정에서 <b>"텍스트 음성 변환"</b> 또는 <b>"TTS"</b> 로 검색하면 가장 빨리 찾아요.
+  </div>
+
+  <div class="help">그래도 US·UK가 똑같이 들리면 <b>강사에게 직접 문의</b>해주세요 🙋</div>
+
+  <div class="foot"><span class="dot"></span>NEO VOCAB</div>
+
+</div>
+</body>
+</html>
