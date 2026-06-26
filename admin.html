@@ -37,8 +37,8 @@
 </div>
 
 <main class="app">
-  <div class="kicker">ADMIN · CODE MANAGER</div>
-  <h1 class="title-kr" style="font-size:clamp(28px,7vw,42px);">코드 관리</h1>
+  <div class="kicker" id="akick">ADMIN · CODE MANAGER</div>
+  <h1 class="title-kr" id="atitle" style="font-size:clamp(28px,7vw,42px);">코드 관리</h1>
 
   <div id="gate" class="card" style="margin-top:16px;">
     <div class="sc-l" style="margin-bottom:8px;">관리자 코드</div>
@@ -48,7 +48,13 @@
   </div>
 
   <div id="panel" style="display:none;">
-    <div class="card" style="margin-top:16px;">
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn btn-sm btn-grind" id="tab-code" style="flex:1;">코드 관리</button>
+      <button class="btn btn-sm btn-ghost" id="tab-prog" style="flex:1;">학생 진도</button>
+    </div>
+
+    <div id="code-panel">
+    <div class="card" style="margin-top:14px;">
       <div class="sc-l" style="margin-bottom:8px;">코드 발급</div>
       <input class="quiz-input" id="newcode" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="새 코드 (예: neo-3f9k2)" style="margin-bottom:8px;">
       <input class="quiz-input" id="newlabel" type="text" autocomplete="off" placeholder="라벨 (학생 이름 등, 선택)" style="margin-bottom:8px;">
@@ -85,11 +91,41 @@
     <div class="verdict ok" id="bmsg" style="min-height:0;margin:0 0 8px;"></div>
 
     <div id="list"></div>
+    </div><!-- /code-panel -->
+
+    <div id="prog-panel" style="display:none;">
+      <div id="plist-view">
+        <div class="detail-head" style="margin-top:16px;">
+          <span class="sc-l">학생 <span id="pcount">0</span>명</span>
+          <button class="btn btn-sm btn-ghost" id="prefresh">새로고침 ↻</button>
+        </div>
+        <input class="quiz-input" id="psearch" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="🔍 이름·코드 검색" style="margin:0 0 10px;">
+        <div class="detail-head" style="margin:0 0 10px;gap:8px;">
+          <span class="sc-l" style="flex:0 0 auto;">정렬</span>
+          <span style="display:flex;gap:6px;">
+            <button class="btn btn-sm btn-grind psort" data-sort="rate">학습률</button>
+            <button class="btn btn-sm btn-ghost psort" data-sort="recent">최근접속</button>
+            <button class="btn btn-sm btn-ghost psort" data-sort="name">이름</button>
+          </span>
+        </div>
+        <div class="verdict" id="pmsg" style="min-height:18px;"></div>
+        <div id="plist"></div>
+      </div>
+
+      <div id="pdetail-view" style="display:none;">
+        <button class="btn btn-sm btn-ghost" id="pback" style="margin-top:14px;">← 학생 목록</button>
+        <div id="pdetail" style="margin-top:12px;"></div>
+      </div>
+    </div>
 
     <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:20px;">관리자 로그아웃</button>
   </div>
 </main>
 
+<script src="data/meta.js"></script>
+<script src="data/vocab.js"></script>
+<script src="data/blanks.js"></script>
+<script src="assets/deck.js"></script>
 <script src="assets/config.js"></script>
 <script>
 (function () {
@@ -403,6 +439,132 @@
     $("preview").innerHTML = ""; $("bulkadd").style.display = "none"; bulkRows = []; $("xlsxfile").value = "";
     load();
   });
+
+  // ===================== 학생 진도 =====================
+  let students = [], TOT = null, psort = "rate";
+
+  function ensureTot() {
+    if (TOT || typeof NEO_DECK === "undefined") return;
+    TOT = {
+      practical: NEO_DECK.vocab(null, "practical").length,
+      academic: NEO_DECK.vocab(null, "academic").length,
+      ctest: NEO_DECK.blanks().flatMap(c => c.words).length,
+    };
+    TOT.all = TOT.practical + TOT.academic + TOT.ctest;
+  }
+  function statOf(dataStr) {
+    let db = {}; try { db = JSON.parse(dataStr || "{}") || {}; } catch (e) {}
+    let known = 0, learning = 0, viewed = 0, seen = 0, correct = 0;
+    const st = { practical: 0, academic: 0, ctest: 0 };
+    for (const k in db) {
+      const v = db[k] || {}, deck = (k.split(":")[1] || "");
+      if (v.status === "known") known++; else if (v.status === "learning") learning++; else if (v.viewed) viewed++;
+      seen += v.seen || 0; correct += v.correct || 0;
+      if ((v.box || 0) > 0 && st[deck] !== undefined) st[deck]++;
+    }
+    ensureTot();
+    const studied = st.practical + st.academic + st.ctest;
+    const rate = TOT && TOT.all ? Math.round(studied / TOT.all * 100) : 0;
+    return { known, learning, viewed, seen, correct, st, studied, rate };
+  }
+  function tsOf(at) { const t = Date.parse(at || ""); return isNaN(t) ? 0 : t; }
+  function relTime(at) {
+    const t = tsOf(at); if (!t) return "기록 없음";
+    const diff = Date.now() - t, day = 86400000;
+    if (diff < day) return "오늘";
+    const d = Math.floor(diff / day);
+    if (d === 1) return "어제";
+    if (d < 7) return d + "일 전";
+    if (d < 30) return Math.floor(d / 7) + "주 전";
+    if (d < 365) return Math.floor(d / 30) + "개월 전";
+    return Math.floor(d / 365) + "년 전";
+  }
+
+  function loadProg() {
+    $("pmsg").textContent = "불러오는 중…"; $("pmsg").className = "verdict"; $("plist").innerHTML = "";
+    api("action=getallprog&admin=" + encodeURIComponent(admin)).then(d => {
+      if (!d || !d.ok) {
+        if (d && d.error === "forbidden") { sessionStorage.removeItem("neo_admin"); $("panel").style.display = "none"; $("gate").style.display = "block"; return; }
+        $("pmsg").textContent = "불러오지 못했어요. (서버에 최신 gs 배포가 필요할 수 있어요)"; $("pmsg").className = "verdict no"; return;
+      }
+      $("pmsg").textContent = "";
+      students = (d.students || []).map(s => Object.assign({}, s, { stat: statOf(s.data) }));
+      renderProg();
+    }).catch(() => { $("pmsg").textContent = "인터넷 연결이 필요해요."; $("pmsg").className = "verdict no"; });
+  }
+  function renderProg() {
+    ensureTot();
+    const q = ($("psearch").value || "").trim().toLowerCase();
+    let list = students.filter(s => !q || (s.label || "").toLowerCase().includes(q) || (s.code || "").toLowerCase().includes(q));
+    list.sort((a, z) => {
+      if (psort === "name") return (a.label || a.code).localeCompare(z.label || z.code, "ko");
+      if (psort === "recent") return tsOf(z.at) - tsOf(a.at);
+      return (z.stat.rate - a.stat.rate) || (z.stat.known - a.stat.known);
+    });
+    $("pcount").textContent = students.length;
+    if (!students.length) { $("plist").innerHTML = '<p class="lead">아직 학생(코드)이 없어요.</p>'; return; }
+    if (!list.length) { $("plist").innerHTML = '<p class="lead">검색 결과가 없어요.</p>'; return; }
+    $("plist").innerHTML = list.map(s => {
+      const started = s.stat.studied > 0 || s.stat.known || s.stat.viewed || tsOf(s.at);
+      return '<div class="wordrow prow" data-code="' + esc(s.code) + '" style="align-items:center;cursor:pointer;' + (started ? '' : 'opacity:.55;') + '">' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-weight:800;">' + esc(s.label || s.code) + (started ? '' : ' <span class="sc-l" style="color:var(--neo-mute);font-weight:700;">· 미시작</span>') + '</div>' +
+          '<div class="sc-l" style="opacity:.7;">외운 ' + s.stat.known + ' · 학습률 ' + s.stat.rate + '% · ' + relTime(s.at) + '</div>' +
+        '</div>' +
+        '<span class="sc-l" style="font-weight:900;font-size:15px;">' + s.stat.rate + '%</span>' +
+      '</div>';
+    }).join("");
+    Array.from(document.querySelectorAll(".prow")).forEach(r => r.addEventListener("click", () => showStudent(r.getAttribute("data-code"))));
+  }
+  function pbar(label, st, tot) {
+    const pct = tot ? Math.round(st / tot * 100) : 0;
+    return '<div class="deck-card" style="margin-bottom:10px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;"><span class="dt" style="font-size:16px;">' + label + '</span>' +
+      '<span class="dcount">' + st + ' / ' + tot + ' · ' + pct + '%</span></div>' +
+      '<div class="bar" style="margin-top:8px;"><div class="fill" style="width:' + pct + '%"></div></div></div>';
+  }
+  function showStudent(code) {
+    const s = students.find(x => x.code === code); if (!s) return;
+    ensureTot();
+    const st = s.stat, acc = st.seen ? Math.round(st.correct / st.seen * 100) : 0;
+    const tp = TOT || { practical: 0, academic: 0, ctest: 0 };
+    $("pdetail").innerHTML =
+      '<div style="font-weight:900;font-size:22px;">' + esc(s.label || s.code) + '</div>' +
+      '<div class="sc-l" style="opacity:.7;margin:2px 0 14px;">코드 ' + esc(s.code) + ' · 마지막 접속 ' + relTime(s.at) + '</div>' +
+      '<div class="prog-cards" style="margin-bottom:16px;">' +
+        '<div class="stat-card"><div class="sc-v">' + st.viewed + '</div><div class="sc-l">확인한 단어</div></div>' +
+        '<div class="stat-card acid"><div class="sc-v">' + st.learning + '</div><div class="sc-l">헷갈리는 단어</div></div>' +
+        '<div class="stat-card grind"><div class="sc-v">' + st.known + '</div><div class="sc-l">외운 단어</div></div>' +
+        '<div class="stat-card"><div class="sc-v">' + acc + '%</div><div class="sc-l">퀴즈 정답률</div></div>' +
+      '</div>' +
+      '<div class="section-kr" style="margin-bottom:8px;">덱별 진도</div>' +
+      pbar("실용어휘", st.st.practical, tp.practical) +
+      pbar("학술어휘", st.st.academic, tp.academic) +
+      pbar("Reading Task1 빈칸어휘", st.st.ctest, tp.ctest);
+    $("plist-view").style.display = "none"; $("pdetail-view").style.display = "block";
+  }
+  function switchTab(which) {
+    const prog = which === "prog";
+    $("code-panel").style.display = prog ? "none" : "block";
+    $("prog-panel").style.display = prog ? "block" : "none";
+    $("tab-code").className = "btn btn-sm " + (prog ? "btn-ghost" : "btn-grind");
+    $("tab-prog").className = "btn btn-sm " + (prog ? "btn-grind" : "btn-ghost");
+    $("akick").textContent = prog ? "ADMIN · STUDENT PROGRESS" : "ADMIN · CODE MANAGER";
+    $("atitle").textContent = prog ? "학생 진도" : "코드 관리";
+    if (prog) { $("plist-view").style.display = "block"; $("pdetail-view").style.display = "none"; if (!students.length) loadProg(); }
+  }
+
+  $("tab-code").addEventListener("click", () => switchTab("code"));
+  $("tab-prog").addEventListener("click", () => switchTab("prog"));
+  $("prefresh").addEventListener("click", loadProg);
+  $("psearch").addEventListener("input", renderProg);
+  $("pback").addEventListener("click", () => { $("pdetail-view").style.display = "none"; $("plist-view").style.display = "block"; });
+  Array.from(document.querySelectorAll(".psort")).forEach(b => b.addEventListener("click", () => {
+    psort = b.getAttribute("data-sort");
+    Array.from(document.querySelectorAll(".psort")).forEach(x => { x.className = "btn btn-sm btn-ghost psort"; });
+    b.className = "btn btn-sm btn-grind psort";
+    renderProg();
+  }));
 
   $("gin").addEventListener("click", gateIn);
   $("admincode").addEventListener("keydown", e => { if (e.key === "Enter") gateIn(); });
