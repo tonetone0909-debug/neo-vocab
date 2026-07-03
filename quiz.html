@@ -29,8 +29,8 @@
     <div class="kicker">QUICK QUIZ</div>
     <h1 class="title-kr" style="font-size:clamp(30px,8vw,44px);">퀴즈로<br>점검해봐요</h1>
     <div class="deck-grid" style="margin-top:20px;">
-      <a class="deck-card acid" href="quiz.html?mode=practical"><span class="num">1</span><span class="kicker" style="margin-left:8px;">PRACTICAL</span><div class="dt">실용어휘 Quiz</div><div class="dd">Day별 · 4지선다 + 듣고 타이핑</div></a>
-      <a class="deck-card accent" href="quiz.html?mode=academic"><span class="num">2</span><span class="kicker" style="margin-left:8px;">ACADEMIC</span><div class="dt">학술어휘 Quiz</div><div class="dd">Day별 · 4지선다 + 듣고 타이핑</div></a>
+      <a class="deck-card acid" href="quiz.html?mode=practical"><span class="num">1</span><span class="kicker" style="margin-left:8px;">PRACTICAL</span><div class="dt">실용어휘 Quiz</div><div class="dd">Day별 · 4지선다 · 타이핑 · 듣기</div></a>
+      <a class="deck-card accent" href="quiz.html?mode=academic"><span class="num">2</span><span class="kicker" style="margin-left:8px;">ACADEMIC</span><div class="dt">학술어휘 Quiz</div><div class="dd">Day별 · 4지선다 · 타이핑 · 듣기</div></a>
       <a class="deck-card" href="ctest.html"><span class="num">3</span><span class="kicker" style="margin-left:8px;">READING TASK1</span><div class="dt">빈칸어휘 Quiz</div><div class="dd">Day별 · 빈칸에 바로 타이핑</div></a>
     </div>
   </div>
@@ -110,13 +110,23 @@
   function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
   const FORMATS = [
-    { key:"meaning",  num:"1", title:"영어 → 한국어 뜻", sub:"4지선다", type:"mc" },
-    { key:"synonym",  num:"2", title:"영어 → 동의어",    sub:"4지선다", type:"mc" },
-    { key:"reverse",  num:"3", title:"한국어 뜻 → 영어", sub:"4지선다", type:"mc" },
-    { key:"listenUS", num:"4", title:"듣고 영문 타이핑 · US", sub:"🇺🇸 미국 발음", type:"listen", lang:"en-US" },
-    { key:"listenUK", num:"5", title:"듣고 영문 타이핑 · UK", sub:"🇬🇧 영국 발음", type:"listen", lang:"en-GB" },
+    { key:"meaning",     num:"1", title:"영어 → 한국어 뜻", sub:"4지선다", type:"mc" },
+    { key:"reverse",     num:"2", title:"한국어 뜻 → 영어", sub:"4지선다", type:"mc" },
+    { key:"reverseType", num:"3", title:"한국어 뜻 → 영어", sub:"타이핑",   type:"type" },
+    { key:"synonym",     num:"4", title:"영어 → 동의어",    sub:"4지선다", type:"mc" },
+    { key:"synonymType", num:"5", title:"영어 → 동의어",    sub:"타이핑 · 동의어 1개", type:"type" },
+    { key:"listenUS",    num:"6", title:"듣고 영문 타이핑 · US", sub:"🇺🇸 미국 발음", type:"listen", lang:"en-US" },
+    { key:"listenUK",    num:"7", title:"듣고 영문 타이핑 · UK", sub:"🇬🇧 영국 발음", type:"listen", lang:"en-GB" },
   ];
   const fmtDef = FORMATS.find(f => f.key === fmt);
+
+  // 양식 선택 그룹 — 카테고리 누르면 4지선다/타이핑 하위 버튼이 펼쳐짐
+  const GROUPS = [
+    { n:"1", title:"영어 → 한국어 뜻", modes:[ { key:"meaning", label:"4지선다" } ] },
+    { n:"2", title:"한국어 뜻 → 영어", modes:[ { key:"reverse", label:"4지선다" }, { key:"reverseType", label:"타이핑" } ] },
+    { n:"3", title:"영어 → 동의어",    modes:[ { key:"synonym", label:"4지선다" }, { key:"synonymType", label:"타이핑 (동의어 1개)" } ] },
+    { n:"4", title:"듣고 영문 타이핑", modes:[ { key:"listenUS", label:"🇺🇸 US 발음" }, { key:"listenUK", label:"🇬🇧 UK 발음" } ] },
+  ];
 
   if (!mode) return; // hub static
 
@@ -153,8 +163,23 @@
     const label = isList ? deckKr : `${deckKr} · DAY ${day}`;
     $("crumb").textContent = label; $("fmt-chip").textContent = label;
     $("fmt-back").href = isList ? "progress.html" : `quiz.html?mode=${mode}`;
-    $("fmt-grid").innerHTML = FORMATS.map(f => `<a class="fmt-btn" href="quiz.html?${baseQuery()}&fmt=${f.key}">
-      <span class="fnum">${f.num}</span><span><div>${f.title}</div><div class="fsub">${f.sub}</div></span></a>`).join("");
+    $("fmt-grid").innerHTML = GROUPS.map(g => {
+      if (g.modes.length === 1) {
+        const m = g.modes[0];
+        return `<a class="fmt-btn" href="quiz.html?${baseQuery()}&fmt=${m.key}"><span class="fnum">${g.n}</span><span><div>${g.title}</div><div class="fsub">${m.label}</div></span></a>`;
+      }
+      return `<div class="fmt-group">
+        <button class="fmt-btn fmt-head" type="button"><span class="fnum">${g.n}</span><span><div>${g.title}</div><div class="fsub">유형 선택</div></span><span class="arw">▸</span></button>
+        <div class="fmt-sub" style="display:none;">
+          ${g.modes.map(m => `<a class="fmt-btn fmt-mode" href="quiz.html?${baseQuery()}&fmt=${m.key}"><span>${m.label}</span></a>`).join("")}
+        </div>
+      </div>`;
+    }).join("");
+    $("fmt-grid").querySelectorAll(".fmt-head").forEach(h => h.addEventListener("click", () => {
+      const sub = h.nextElementSibling, open = sub.style.display !== "none";
+      sub.style.display = open ? "none" : "flex";
+      h.classList.toggle("open", !open);
+    }));
   }
 
   // ---------- SESSION (deferred grading) ----------
@@ -180,7 +205,7 @@
 
   function buildSession() {
     let words = wordSet();
-    if (fmt === "synonym") words = words.filter(w => (w.synonyms||[]).length);
+    if (fmt === "synonym" || fmt === "synonymType") words = words.filter(w => (w.synonyms||[]).length);
     words = shuffle(words);
     session = words.map(w => {
       const it = { w, your: null };
@@ -197,6 +222,15 @@
         const syns = w.synonyms || []; it.correct = shuffle(syns)[0];
         const exclude = new Set([...syns.map(s=>s.toLowerCase()), w.lemma]);
         it.options = shuffle([it.correct, ...sampleVals(pool.filter(x=>x.lemma!==w.lemma).flatMap(x=>x.synonyms||[]).filter(s=>!exclude.has(s.toLowerCase())), 3, new Set([it.correct.toLowerCase()]))]);
+      } else if (fmt === "reverseType") {
+        it.type = "type"; it.instr = "이 뜻에 맞는 영어 단어를 입력하세요";
+        it.promptHtml = `<div class="quiz-prompt kr">${esc(w.meaning)}</div>`;
+        it.correct = w.term;
+      } else if (fmt === "synonymType") {
+        it.type = "type"; it.instr = "이 단어의 동의어를 하나 입력하세요";
+        it.promptHtml = `<div class="quiz-prompt">${esc(w.term)}</div>`;
+        it.answers = (w.synonyms || []);            // 복수 정답 — 하나만 맞으면 정답
+        it.correct = (w.synonyms || [])[0] || "";   // 리뷰 대표 표시용
       } else { // listen
         it.type = "listen"; it.instr = "들은 단어를 영어로 입력하세요"; it.correct = (w.tts?w.tts.text:w.term);
       }
@@ -223,9 +257,14 @@
     if (it.type === "listen") {
       $("q-prompt-wrap").innerHTML = `<button class="listen-play" id="play">${fmtDef.sub.split(" ")[0]} 다시 듣기 🔊</button>`;
       $("choices").classList.add("hidden"); $("type-wrap").classList.remove("hidden");
-      const inp = $("q-input"); inp.value = it.your || ""; inp.disabled = false;
+      const inp = $("q-input"); inp.value = it.your || ""; inp.disabled = false; inp.placeholder = "들은 단어를 입력";
       const playFn = () => NEO_TTS && NEO_TTS.speak(it.correct, fmtDef.lang);
       $("play").addEventListener("click", playFn); setTimeout(playFn, 250); inp.focus();
+    } else if (it.type === "type") {
+      $("q-prompt-wrap").innerHTML = it.promptHtml;
+      $("choices").classList.add("hidden"); $("type-wrap").classList.remove("hidden");
+      const inp = $("q-input"); inp.value = it.your || ""; inp.disabled = false; inp.placeholder = "영어로 입력";
+      inp.focus();
     } else {
       $("q-prompt-wrap").innerHTML = it.promptHtml;
       $("choices").innerHTML = it.options.map((o,i)=>`<button class="choice" data-v="${esc(o)}"><span class="ltr">${"ABCD"[i]}</span><span>${esc(o)}</span></button>`).join("");
@@ -243,7 +282,10 @@
     if (!graded) {
       graded = true;
       for (const it of session) {
-        const ok = (it.your||"").trim().toLowerCase() === (it.correct||"").toLowerCase();
+        const your = (it.your||"").trim().toLowerCase();
+        const ok = it.answers
+          ? (your !== "" && it.answers.some(a => String(a).trim().toLowerCase() === your))
+          : (your === (it.correct||"").trim().toLowerCase());
         it.ok = ok;
         NEO_STORE.record(it.w.skill, it.w.deck, it.w.lemma, ok);
         if (!ok) NEO_STORE.setStatus(it.w.skill, it.w.deck, it.w.lemma, "learning"); // 오답 → 학습중
@@ -263,12 +305,13 @@
     $("rev-again").onclick = () => location.href = `quiz.html?${baseQuery()}&fmt=${fmt}`;
     $("rev-home").href = "quiz.html";
     $("review-list").innerHTML = session.map(it => {
-      const promptText = fmt === "reverse" ? it.w.meaning : it.w.term;
+      const promptText = (fmt === "reverse" || fmt === "reverseType") ? it.w.meaning : it.w.term;
+      const corr = it.answers ? it.answers.join(" / ") : it.correct;
       const cardHref = it.w.deck === "ctest" ? "blanks.html" : `study.html?term=${encodeURIComponent(it.w.lemma)}`;
       const mine = it.your ? esc(it.your) : "<i>미응답</i>";
       return `<div class="review-row ${it.ok?"ok":"no"}">
         <div class="rq"><span class="rev-mark ${it.ok?"ok":"no"}">${it.ok?"✓":"✗"}</span>${esc(promptText)}</div>
-        <div class="ra"><span class="mine">내 답: ${mine}</span>${it.ok?"":` · <span class="cor">정답: ${esc(it.correct)}</span>`}</div>
+        <div class="ra"><span class="mine">내 답: ${mine}</span>${it.ok?"":` · <span class="cor">정답: ${esc(corr)}</span>`}</div>
         ${it.ok?"":`<a class="rcard" href="${cardHref}">카드 보기 →</a>`}
       </div>`;
     }).join("");

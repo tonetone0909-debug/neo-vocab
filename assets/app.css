@@ -322,6 +322,11 @@ button { font-family: inherit; cursor: pointer; }
 .fmt-btn:active { transform: translate(1px,1px); box-shadow: none; }
 .fmt-btn .fnum { font-family: var(--font-display); font-size: 13px; background: var(--neo-ink); color: var(--neo-paper); width: 26px; height: 26px; line-height: 26px; text-align: center; border-radius: 4px; flex: 0 0 auto; }
 .fmt-btn .fsub { font-size: 12px; font-weight: 700; color: var(--neo-mute); }
+.fmt-head { cursor: pointer; width: 100%; font-family: inherit; }
+.fmt-head .arw { margin-left: auto; font-size: 15px; color: var(--neo-mute); transition: transform .15s; }
+.fmt-head.open .arw { transform: rotate(90deg); }
+.fmt-sub { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 4px 16px; }
+.fmt-mode { font-size: 15px; padding: 12px 14px; }
 .quiz-q { font-size: 14px; font-weight: 700; color: var(--neo-mute); letter-spacing: 0.04em; }
 .quiz-prompt { font-family: var(--font-display); font-size: clamp(30px,8vw,42px); letter-spacing: -0.02em; margin: 6px 0 4px; word-break: break-word; }
 .quiz-prompt.kr { font-family: var(--font-display-kr); font-size: clamp(24px,6vw,32px); }
