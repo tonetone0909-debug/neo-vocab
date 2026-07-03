@@ -1,6 +1,6 @@
 // sw.js — app-shell cache. 앱 셸(HTML/JS/CSS)은 network-first(온라인이면 항상 최신),
 // 큰 데이터 파일과 폰트만 cache-first. Bump CACHE on every change.
-const CACHE = "neo-vocab-v55";
+const CACHE = "neo-vocab-v56";
 const SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const SHELL = [
   "./ctest.html",
   "./quiz.html",
   "./progress.html",
+  "./care.html",
   "./mylist.html",
   "./login.html",
   "./admin.html",
