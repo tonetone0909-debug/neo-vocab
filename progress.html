@@ -140,25 +140,39 @@
       const nm = (code || "").replace(/\s*\d{4}$/, "").trim() || code;
       if (nm && nm !== "-") { $("hello").textContent = nm + " 님, 반가워요 👋"; $("hello").style.display = ""; }
 
-      // 멤버십 배지(이름 옆) + "누적점수 확인" 버튼 (성적표에 이름이 있는 학생만)
+      // ===== VOCA CARE: 버튼은 즉시 노출, 데이터 로딩은 care.html에서 =====
       const escHtml = s => String(s).replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
       const authUrl = ((window.NEO_AUTH || {}).url || "").trim();
-      if (authUrl) {
+      const link = $("care-link"), mi = $("member-info");
+      const PKEY = "neo_profile_v1";
+      const readP = () => { try { return JSON.parse(localStorage.getItem(PKEY) || "null"); } catch (e) { return null; } };
+      function setBadge(m) {
+        const prem = /PREMIUM/i.test(m);
+        mi.innerHTML = '<span style="display:inline-block;border:2px solid #0A0A0A;border-radius:999px;'
+          + 'padding:3px 11px;font-weight:800;font-size:12px;letter-spacing:.02em;'
+          + (prem ? 'background:#E8FF3A;color:#0A0A0A;' : 'background:#0A0A0A;color:#fff;') + '">'
+          + (prem ? '★ ' : '') + escHtml(m) + '</span>';
+        mi.style.display = "flex";
+      }
+
+      // 1) 캐시로 즉시 렌더 — 버튼이 바로 뜨게 (백엔드 응답 안 기다림)
+      const cached = readP();
+      const cP = (cached && cached.code === code) ? cached.p : null;
+      const knownNotListed = cP && !cP.membership;   // 이전에 '리스트 없음' 확인됨
+      if (!knownNotListed && link) link.style.display = "flex";   // 버튼 즉시 노출
+      if (cP && cP.membership) setBadge(cP.membership);
+
+      // 2) 백그라운드 새로고침 (캐시 5분 넘었거나 없을 때만) → 상태 보정 + 캐시 갱신
+      const fresh = cached && cached.code === code && (Date.now() - cached.ts < 5 * 60 * 1000);
+      if (authUrl && !fresh) {
         fetch(authUrl + "?action=profile&code=" + encodeURIComponent(code))
           .then(r => r.json())
           .then(p => {
-            if (!p || !p.ok || !p.membership) return;   // 리스트에 없으면 표기 X
+            if (!p || !p.ok) return;
+            try { localStorage.setItem(PKEY, JSON.stringify({ code: code, p: p, ts: Date.now() })); } catch (e) {}
             try { sessionStorage.setItem("neo_profile", JSON.stringify(p)); } catch (e) {}
-            const prem = /PREMIUM/i.test(p.membership);
-            const badge = '<span style="display:inline-block;border:2px solid #0A0A0A;border-radius:999px;'
-              + 'padding:3px 11px;font-weight:800;font-size:12px;letter-spacing:.02em;'
-              + (prem ? 'background:#E8FF3A;color:#0A0A0A;' : 'background:#0A0A0A;color:#fff;') + '">'
-              + (prem ? '★ ' : '') + escHtml(p.membership) + '</span>';
-            const mi = $("member-info");
-            mi.innerHTML = badge;
-            mi.style.display = "flex";
-            const link = $("care-link");
-            if (link) link.style.display = "flex";   // 누적점수 확인 버튼 노출
+            if (p.membership) { setBadge(p.membership); if (link) link.style.display = "flex"; }
+            else { if (link) link.style.display = "none"; mi.style.display = "none"; mi.innerHTML = ""; }  // 리스트 없으면 표기 X
           })
           .catch(() => {});
       }

@@ -45,7 +45,15 @@
   .lad .lpt{font-weight:800;font-size:14px;color:var(--faint);font-variant-numeric:tabular-nums}
   .lad.reached .lpt{color:var(--green-deep)}
   .lad .lchk{font-size:12px;font-weight:800;color:var(--green-deep)}
-  @media(prefers-reduced-motion:reduce){.rw-icon,.rw-card,.rw-done{animation:none}.rw-fill{transition:none}}
+  /* 로딩 스켈레톤 (시머) */
+  .skel{position:relative;overflow:hidden;background:#E4EEE7;border:1.5px solid var(--line)}
+  .skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.65),transparent);animation:shimmer 1.25s infinite}
+  @keyframes shimmer{100%{transform:translateX(100%)}}
+  .load-note{text-align:center;color:var(--muted);font-weight:700;font-size:13px;margin-top:18px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .spin{width:15px;height:15px;border:2.5px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{100%{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){.rw-icon,.rw-card,.rw-done{animation:none}.rw-fill{transition:none}.skel::after,.spin{animation:none}}
 </style>
 </head>
 <body>
@@ -60,7 +68,13 @@
   <h1 class="title-kr" style="font-size:clamp(28px,7vw,40px);">누적 점수</h1>
 
   <div id="care-body" style="margin-top:16px;">
-    <div class="rw-card" style="text-align:center;color:#5A7A68;">불러오는 중…</div>
+    <div class="skel" style="height:150px;border-radius:20px;"></div>
+    <div class="skel" style="height:98px;border-radius:14px;margin-top:16px;"></div>
+    <div class="skel" style="height:16px;width:38%;border-radius:8px;margin-top:26px;"></div>
+    <div class="skel" style="height:50px;border-radius:12px;margin-top:12px;"></div>
+    <div class="skel" style="height:50px;border-radius:12px;margin-top:8px;"></div>
+    <div class="skel" style="height:50px;border-radius:12px;margin-top:8px;"></div>
+    <div class="load-note"><span class="spin"></span>누적 점수 불러오는 중…</div>
   </div>
 
   <a href="progress.html" class="btn btn-sm btn-ghost btn-block" style="margin-top:22px;">← 마이페이지로</a>
@@ -185,21 +199,30 @@
 
   const code = sessionStorage.getItem("neo_code") || localStorage.getItem("neo_code") || "";
   const authUrl = ((window.NEO_AUTH || {}).url || "").trim();
+  const PKEY = "neo_profile_v1";
 
-  // 세션에 저장된 프로필이 있으면 즉시 표시(빠름) 후, 항상 최신으로 새로고침
-  let shown = false;
+  // 캐시(localStorage 우선, 세션 보조)에 프로필 있으면 스켈레톤 대신 즉시 표시 후, 최신으로 새로고침
+  let shown = false, fresh = false;
   try {
-    const cached = JSON.parse(sessionStorage.getItem("neo_profile") || "null");
-    if (cached && cached.ok && cached.membership) { render(cached); shown = true; }
+    const lc = JSON.parse(localStorage.getItem(PKEY) || "null");
+    let cp = (lc && lc.code === code) ? lc.p : null;
+    if (cp) fresh = (Date.now() - lc.ts < 5 * 60 * 1000);
+    if (!cp) { const sc = JSON.parse(sessionStorage.getItem("neo_profile") || "null"); if (sc && sc.ok) cp = sc; }
+    if (cp && cp.ok) {
+      if (cp.membership) { render(cp); shown = true; }
+      else { renderEmpty("아직 성적 기록이 없어요"); shown = true; }
+    }
   } catch (e) {}
 
   if (!authUrl || !code) { if (!shown) renderEmpty("로그인이 필요해요"); return; }
+  if (shown && fresh) return;   // 캐시가 최신이면 재조회 생략(부하↓)
   fetch(authUrl + "?action=profile&code=" + encodeURIComponent(code))
     .then(r => r.json())
     .then(p => {
       if (!p || !p.ok) { if (!shown) renderEmpty("불러오지 못했어요"); return; }
-      if (!p.membership) { renderEmpty("아직 성적 기록이 없어요"); return; }
+      try { localStorage.setItem(PKEY, JSON.stringify({ code: code, p: p, ts: Date.now() })); } catch (e) {}
       try { sessionStorage.setItem("neo_profile", JSON.stringify(p)); } catch (e) {}
+      if (!p.membership) { renderEmpty("아직 성적 기록이 없어요"); return; }
       render(p);
     })
     .catch(() => { if (!shown) renderEmpty("네트워크 오류"); });
