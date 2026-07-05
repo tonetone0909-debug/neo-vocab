@@ -213,6 +213,7 @@
         <span class="wstars">${"★".repeat(e.stars||0)}</span>
         ${known?'<span class="wcheck">✓</span>':''}
         <span class="wmean">${esc(e.meaning||"")}</span>
+        ${e.synonyms && e.synonyms.length ? `<span class="wsyn">≈ ${esc(e.synonyms.join(", "))}</span>` : ""}
       </div>`;
     }).join("");
     $("wordlist").querySelectorAll(".wordrow").forEach(row =>
