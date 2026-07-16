@@ -1,7 +1,7 @@
 {
-  "name": "NEO TOEFL Reading 단어장",
-  "short_name": "NEO 단어장",
-  "description": "TOEFL Reading 어휘 트레이너 — 파생어·동의어·예문·미/영 발음, C-test 빈칸, 동의어 퀴즈",
+  "name": "NEO TOEFL",
+  "short_name": "NEO TOEFL",
+  "description": "TOEFL 학습 앱 — 어휘 트레이너(파생어·동의어·예문·미/영 발음, C-test 빈칸)와 Writing Task 1 문장 조립",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

@@ -6,21 +6,22 @@
 <title>마이페이지 · NEO VOCAB</title>
 <meta name="theme-color" content="#0A0A0A">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
-<link rel="icon" href="favicon.ico" sizes="any">
-<link rel="icon" type="image/png" href="assets/icons/icon-32.png">
-<link rel="stylesheet" href="assets/colors_and_type.css">
-<link rel="stylesheet" href="assets/app.css">
-<script src="assets/config.js"></script>
-<script src="assets/auth.js"></script>
-<script src="assets/shell.js"></script>
-<script src="assets/ui.js"></script>
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../assets/icons/apple-touch-icon.png">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="../assets/icons/icon-32.png">
+<link rel="stylesheet" href="../assets/colors_and_type.css">
+<link rel="stylesheet" href="../assets/app.css">
+<script src="../assets/config.js"></script>
+<script src="../assets/auth.js"></script>
+<script src="../assets/shell.js"></script>
+<script src="assets/swipe.js"></script>
+<script src="../assets/ui.js"></script>
 </head>
 <body>
 
 <div class="topbar">
-  <a class="brand" href="index.html"><span class="dot"></span>NEO VOCAB</a>
+  <a class="brand" href="../index.html"><span class="dot"></span>NEO&nbsp;TOEFL</a>
   <span class="crumb">MY PAGE</span>
 </div>
 
@@ -56,18 +57,15 @@
     </div>
   </div>
 
+  <!-- 설치 방법은 두 앱 공통이라 네오토플 홈(허브)이 소유한다. 여기엔 vocab 전용만. -->
   <div class="section-kr" style="margin-top:30px;">도움말</div>
   <a class="deck-card" href="guide.html" style="display:block;margin-bottom:10px;">
-    <div class="dt" style="font-size:17px;">📖 사용법 가이드</div>
-    <div class="dd">앱 쓰는 법을 화면과 함께 안내해요</div>
-  </a>
-  <a class="deck-card" href="install-guide.html" style="display:block;margin-bottom:10px;">
-    <div class="dt" style="font-size:17px;">📲 설치 방법</div>
-    <div class="dd">홈 화면에 앱처럼 추가하기 (안드로이드·아이폰)</div>
+    <div class="dt" style="font-size:17px;">📖 NEO VOCAB 사용법 가이드</div>
+    <div class="dd">단어장 쓰는 법을 화면과 함께 안내해요</div>
   </a>
   <a class="deck-card" href="voice-setup.html" style="display:block;">
-    <div class="dt" style="font-size:17px;">🔊 발음 설정 (US·UK 같을 때)</div>
-    <div class="dd">안드로이드 영국 발음 음성팩 설치</div>
+    <div class="dt" style="font-size:17px;">🔊 NEO VOCAB 발음 설정</div>
+    <div class="dd">US·UK가 똑같이 들릴 때 — 안드로이드 영국 발음 음성팩 설치</div>
   </a>
 
   <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:22px;display:none;">로그아웃 ⏏</button>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>NEO VOCAB 설치 가이드</title>
+<title>어플 설치 방법 · NEO TOEFL</title>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" href="assets/icons/icon-32.png">
 <style>
@@ -46,6 +46,12 @@ ol li::before{content:counter(s);position:absolute;left:0;top:6px;width:26px;hei
 .help{margin-top:12px;text-align:center;background:var(--blaze);color:var(--paper);border:3px solid var(--ink);
   border-radius:8px;box-shadow:var(--sh1);padding:13px 15px;font-size:14px;font-weight:700;line-height:1.5;}
 .help b{color:var(--acid);}
+/* 로그인 스샷 — .poster 계열(radius 8 · sh2)에 맞춘 폰 프레임 */
+.shot{margin-top:14px;text-align:center;}
+.shot img{width:200px;max-width:62%;display:block;margin:0 auto;border:3px solid var(--ink);
+  border-radius:8px;box-shadow:var(--sh2);background:var(--card);}
+.shot .cap{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.04em;
+  margin-top:9px;color:var(--mute);}
 .foot{margin-top:16px;text-align:center;font-family:'Archivo Black',sans-serif;font-size:14px;
   letter-spacing:-.01em;color:var(--ink);}
 .foot .dot{display:inline-block;width:11px;height:11px;background:var(--acid);border:3px solid var(--ink);
@@ -55,17 +61,17 @@ ol li::before{content:counter(s);position:absolute;left:0;top:6px;width:26px;hei
 <body>
 <div class="poster">
 
-  <a href="progress.html" style="display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:14px;border:3px solid var(--ink);background:var(--card);padding:8px 14px;border-radius:8px;box-shadow:var(--sh1);text-decoration:none;color:var(--ink);margin-bottom:16px;">← 돌아가기</a>
+  <a href="index.html" id="back" style="display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:14px;border:3px solid var(--ink);background:var(--card);padding:8px 14px;border-radius:8px;box-shadow:var(--sh1);text-decoration:none;color:var(--ink);margin-bottom:16px;">← 돌아가기</a>
 
   <div class="head">
-    <div class="mark">NV</div>
+    <div class="mark">NT</div>
     <div>
-      <div class="kick">NEO VOCAB · 설치 가이드</div>
-      <h1 class="ttl">앱처럼<br>설치해봐요</h1>
+      <div class="kick">NEO TOEFL · 설치 가이드</div>
+      <h1 class="ttl">앱처럼 설치하고<br>로그인해요</h1>
     </div>
   </div>
 
-  <p class="lead">받은 코드로 로그인한 뒤, 홈 화면에 추가하면 주소창 없이 진짜 앱처럼 써요. 1분이면 끝나요!</p>
+  <p class="lead">홈 화면에 추가하면 주소창 없이 진짜 앱처럼 써요. 설치하고 코드로 로그인하면 끝 — 1분이면 돼요!</p>
 
   <div class="url">🔗 tonetone0909-debug.github.io/neo-vocab/</div>
 
@@ -88,12 +94,37 @@ ol li::before{content:counter(s);position:absolute;left:0;top:6px;width:26px;hei
     </div>
   </div>
 
-  <div class="note">바탕화면에 <b>NV</b> 아이콘이 생겨요. 코드는 한 번 로그인하고 <b>"로그인 유지"</b> 를 체크하면 계속 쓸 수 있어요.</div>
+  <div class="note">바탕화면에 <b>NT</b> 아이콘이 생겨요.</div>
+
+  <!-- 로그인 — 예전엔 vocab 사용법 가이드 안에 있었지만, 코드 하나로 두 앱을 쓰므로 앱 공통 절차다. -->
+  <div class="steps" style="margin-top:22px;">
+    <div class="step">
+      <div class="sh">🔑 코드로 로그인 <span class="os">LOGIN</span></div>
+      <ol>
+        <li>받은 <b>코드</b>를 입력하고 <b>들어가기</b>를 눌러요</li>
+        <li>코드는 <b>자신의 한글 이름 + 전화번호 뒷 네 자리</b>예요 (예: 홍길동1123)</li>
+        <li><b>"로그인 유지"</b> 를 체크하면 다음엔 코드 없이 바로 열려요</li>
+      </ol>
+      <div class="shot">
+        <img src="assets/guide-img/01-login.png" alt="로그인 화면" loading="lazy">
+        <div class="cap">코드 입력 → 들어가기</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">로그인하면 <b>NEO VOCAB</b> 과 <b>Writing Task 1</b> 둘 다 열려요. 코드 하나면 돼요.</div>
 
   <div class="help">설치 중 문제가 있으면 <b>강사에게 직접 문의</b>해주세요 🙋</div>
 
-  <div class="foot"><span class="dot"></span>NEO VOCAB</div>
+  <div class="foot"><span class="dot"></span>NEO TOEFL</div>
 
 </div>
+<script>
+  // 허브·마이페이지 등 여러 곳에서 들어오므로 왔던 곳으로 돌아간다.
+  // (직접 URL 로 열면 history 가 없으니 href 그대로 = 허브)
+  document.getElementById("back").addEventListener("click", function (e) {
+    if (history.length > 1) { e.preventDefault(); history.back(); }
+  });
+</script>
 </body>
 </html>

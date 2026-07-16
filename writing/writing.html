@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>문제풀이 · NEO TOEFL Writing Task 1</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="stylesheet" href="../assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="../assets/config.js"></script>
+<script src="../assets/auth.js"></script>
+<script src="../assets/shell.js"></script>
+</head>
+<body>
+
+<!-- ========== PICK: 개념 목록 / 세트 목록 (페이지 전환) ========== -->
+<div id="pick">
+  <div class="top-strip"></div>
+  <div class="app-topbar">
+    <a class="brand" href="../index.html"><span class="dot"></span>NEO&nbsp;TOEFL</a>
+    <span class="crumb">문제 풀기 · PRACTICE</span>
+  </div>
+  <main class="app">
+    <!-- 세트 목록 (개념 탭의 '문제 풀기' → ?c=N 으로 진입) -->
+    <div id="set-view">
+      <a class="btn btn-sm btn-ghost" href="concepts.html" style="margin-top:8px;">← 개념 목록</a>
+      <h1 class="idx-title" id="set-h" style="font-size:clamp(28px,7vw,38px);margin-top:12px;">세트</h1>
+      <p class="idx-lead" id="set-sub">세트를 골라 시작해요.</p>
+      <div class="cgrid" id="set-list" style="margin-top:14px;"></div>
+    </div>
+  </main>
+  <nav class="tabbar">
+    <a href="index.html"><span class="ic">🏠</span>홈</a>
+    <a href="concepts.html" class="on"><span class="ic">📚</span>개념</a>
+    <a href="w1-mock.html"><span class="ic">📝</span>모의고사</a>
+    <a href="mypage.html"><span class="ic">📊</span>마이페이지</a>
+  </nav>
+</div>
+
+<!-- ========== PLAY ========== -->
+<div id="play" class="hidden">
+  <div class="play-top">
+    <a class="pt-x" id="btn-exit" href="#">✕ 나가기</a>
+    <span class="pt-q" id="pt-q">Q 1 / 10</span>
+    <span class="play-timer" id="timer">6:50</span>
+  </div>
+  <div class="app" style="padding-top:12px;padding-bottom:24px;">
+    <div class="qbar">
+      <button class="btn btn-primary btn-sm" id="btn-submit">제출하기</button>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" id="btn-prev">← 뒤로</button>
+      <button class="btn btn-ghost btn-sm" id="btn-next">앞으로 →</button>
+    </div>
+    <div class="segs" id="segs" style="margin:12px 0;"></div>
+    <div class="passage-card">
+      <div class="prompt-bubble" id="prompt"></div>
+      <div class="frame" id="frame" style="margin-top:14px;"></div>
+      <div class="tile-bank" id="bank"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== RESULT ========== -->
+<div id="result" class="hidden">
+  <div class="top-strip"></div>
+  <div class="app-topbar">
+    <a class="brand" href="../index.html"><span class="dot"></span>NEO&nbsp;TOEFL</a>
+    <span class="crumb">결과 · RESULT</span>
+  </div>
+  <main class="app">
+    <div class="idx-kicker" style="padding-top:8px;">RESULT</div>
+    <div class="res-score" id="r-score">0 / 10</div>
+    <p class="idx-lead" id="r-time" style="margin-top:2px;"></p>
+    <div class="qgrid" id="qgrid"></div>
+    <div id="review"></div>
+    <div class="deck-grid" style="margin-top:18px;">
+      <button class="btn btn-primary" id="btn-again">이 세트 다시 풀기</button>
+      <a class="btn btn-ghost" id="btn-other" href="writing.html">다른 세트 고르기</a>
+    </div>
+  </main>
+  <nav class="tabbar">
+    <a href="index.html"><span class="ic">🏠</span>홈</a>
+    <a href="concepts.html" class="on"><span class="ic">📚</span>개념</a>
+    <a href="w1-mock.html"><span class="ic">📝</span>모의고사</a>
+    <a href="mypage.html"><span class="ic">📊</span>마이페이지</a>
+  </nav>
+</div>
+
+<script src="data/w1.js"></script>
+<script src="data/w1_mock.js"></script>
+<script src="assets/w1store.js"></script>
+<script>
+const DATA = window.NEO_DATA_W1 || [];
+const MOCK = (window.NEO_DATA_W1_MOCK && window.NEO_DATA_W1_MOCK.exams) || [];
+const LIMIT = 410; // 6분 50초
+const $ = id => document.getElementById(id);
+function norm(s){ return s.toLowerCase().replace(/’/g,"'").replace(/[^a-z0-9' ]+/g," ").replace(/\s+/g," ").trim(); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+// ---- 개념/세트 목록 ----
+const concepts = [...new Map(DATA.map(d=>[d.concept_n, d.concept])).entries()].sort((a,b)=>a[0]-b[0]);
+function setsOf(cn){ return [...new Set(DATA.filter(d=>d.concept_n===cn).map(d=>d.set_id))].sort((a,b)=>a-b); }
+// 사이트 디자인 모달 (native confirm 대체)
+function neoConfirm(kicker,msg,yesLabel,onYes){
+  const bg=document.createElement("div"); bg.className="neo-modal-bg";
+  bg.innerHTML=`<div class="neo-modal"><div class="m-k">${kicker}</div><div class="m-t">${msg}</div><div class="m-actions"><button class="btn btn-ghost" id="m-no">취소</button><button class="btn btn-primary" id="m-yes">${yesLabel}</button></div></div>`;
+  document.body.appendChild(bg);
+  const close=()=>bg.remove();
+  bg.querySelector("#m-no").onclick=close;
+  bg.querySelector("#m-yes").onclick=()=>{ close(); onYes(); };
+  bg.addEventListener("click",e=>{ if(e.target===bg) close(); });
+}
+
+function showSetView(cn,name){
+  $("set-h").textContent = name.replace(/\s*\(.*\)$/,"");
+  $("set-sub").textContent = "세트를 골라 시작해요 · 한 세트 10문항.";
+  const list=$("set-list"); list.innerHTML="";
+  setsOf(cn).forEach(s=>{
+    const a=document.createElement("a"); a.className="crow"; a.href="#";
+    const done = attemptOf(cn,s);
+    a.innerHTML=`<span class="cn">${s}</span><span class="ct">세트 ${s}</span><span class="cb ${done?"learn":"soon"}">${done?done.correct+"/"+done.total:"NEW"}</span>`;
+    a.addEventListener("click",e=>{ e.preventDefault(); startSet(cn,s); });
+    list.appendChild(a);
+  });
+  window.scrollTo(0,0);
+}
+
+// ---- 저장 (코드별 네임스페이스 + 서버 동기화는 w1store.js 가 담당) ----
+const attemptOf = (cn,s) => NEO_W1_STORE.attemptOf(cn,s);
+const saveResult = (cn,s,rec) => NEO_W1_STORE.saveResult(cn,s,rec);
+const saveExam = (n,rec) => NEO_W1_STORE.saveExam(n,rec);
+
+// ---- 세트 실행 ----
+let curCN=null, curSet=null, curExam=null, items=[], state=[], qi=0, timeLeft=LIMIT, timerId=null;
+function beginPlay(){
+  state = items.map(it=>({ order: shuffle([...it.tiles.keys()]), slots:new Array(it.segments.filter(x=>x.type==="slot").length).fill(null) }));
+  qi=0; timeLeft=LIMIT;
+  $("pick").classList.add("hidden"); $("result").classList.add("hidden"); $("play").classList.remove("hidden");
+  renderQ(); startTimer(); window.scrollTo(0,0);
+}
+function startSet(cn,s){
+  curCN=cn; curSet=s; curExam=null;
+  items = shuffle(DATA.filter(d=>d.concept_n===cn && d.set_id===s).slice()); // 문항 순서 셔플(난이도 섞임)
+  beginPlay();
+}
+function startExam(n){
+  const ex = MOCK.find(e=>e.exam_id===n); if(!ex) return false;
+  curExam=n; curCN=null; curSet=null;
+  items = shuffle(ex.items.slice());
+  beginPlay(); return true;
+}
+function startTimer(){ clearInterval(timerId); tickView(); timerId=setInterval(()=>{ timeLeft--; tickView(); if(timeLeft<=0){ clearInterval(timerId); doSubmit(); } },1000); }
+function tickView(){ const m=Math.floor(timeLeft/60), s=timeLeft%60; const t=$("timer"); t.textContent=`${m}:${String(s).padStart(2,"0")}`; t.classList.toggle("warn", timeLeft<=60); }
+
+const frameEl=$("frame"), bankEl=$("bank");
+function slotEls(){ return [...frameEl.querySelectorAll(".slot")]; }
+function tileEl(i){ return bankEl.querySelector('.tile[data-tile="'+i+'"]'); }
+function curItem(){ return items[qi]; }
+function curSlots(){ return state[qi].slots; }
+
+function renderQ(){
+  const it=curItem(), st=state[qi];
+  $("pt-q").textContent=`Q ${qi+1} / ${items.length}`;
+  $("prompt").textContent=it.prompt;
+  frameEl.innerHTML=""; let si=0;
+  it.segments.forEach(seg=>{ if(seg.type==="text") frameEl.appendChild(document.createTextNode(seg.text));
+    else { const idx=si++; const s=document.createElement("span"); s.className="slot "+(st.slots[idx]===null?"empty":"filled"); s.dataset.slot=idx; if(st.slots[idx]!==null) s.textContent=it.tiles[st.slots[idx]].t; frameEl.appendChild(s); } });
+  bankEl.innerHTML="";
+  st.order.forEach(i=>{ const b=document.createElement("span"); b.className="tile"+(st.slots.includes(i)?" used":""); b.dataset.tile=i; b.textContent=it.tiles[i].t; bankEl.appendChild(b); });
+  $("btn-prev").disabled=qi===0; $("btn-next").disabled=false;
+  $("btn-next").textContent = qi===items.length-1 ? "제출 →" : "앞으로 →";
+  renderSegs();
+}
+function renderSegs(){ const segs=$("segs"); segs.innerHTML="";
+  items.forEach((_,i)=>{ const d=document.createElement("div"); d.className="seg"+(i===qi?" cur":(state[i].slots.every(v=>v!==null)?" on":"")); d.addEventListener("click",()=>{ qi=i; renderQ(); }); segs.appendChild(d); }); }
+
+function setSlot(sl,ti){ curSlots()[sl]=ti; tileEl(ti).classList.add("used"); const s=slotEls()[sl]; s.textContent=curItem().tiles[ti].t; s.classList.remove("empty"); s.classList.add("filled"); }
+function clearSlot(sl){ const ti=curSlots()[sl]; if(ti==null) return; curSlots()[sl]=null; const t=tileEl(ti); if(t) t.classList.remove("used"); const s=slotEls()[sl]; s.textContent=""; s.classList.remove("filled"); s.classList.add("empty"); }
+
+/* ---- 드래그 전용 (클릭으로 빈칸 채우기 불가, 빈칸 조각 탭=빼기) ---- */
+let drag=null; const TH=6;
+function dsrc(t){ const tile=t.closest&&t.closest("#bank .tile"); if(tile&&!tile.classList.contains("used")) return {kind:"bank",ti:+tile.dataset.tile,el:tile};
+  const slot=t.closest&&t.closest("#frame .slot"); if(slot&&curSlots()[+slot.dataset.slot]!==null) return {kind:"slot",sl:+slot.dataset.slot,ti:curSlots()[+slot.dataset.slot],el:slot}; return null; }
+function under(x,y){ for(const s of slotEls()){ const r=s.getBoundingClientRect(); if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom) return {kind:"slot",sl:+s.dataset.slot}; }
+  const br=bankEl.getBoundingClientRect(); if(x>=br.left&&x<=br.right&&y>=br.top&&y<=br.bottom) return {kind:"bank"}; return null; }
+function clearHov(){ slotEls().forEach(s=>s.classList.remove("drop-hover")); bankEl.classList.remove("drop-hover"); }
+function hov(x,y){ clearHov(); const t=under(x,y); if(t&&t.kind==="slot") slotEls()[t.sl].classList.add("drop-hover"); else if(t&&t.kind==="bank") bankEl.classList.add("drop-hover"); }
+function down(e){ if(!$("play").classList.contains("hidden")===false) {} if($("play").classList.contains("hidden")) return;
+  if(typeof e.button==="number"&&e.button!==0) return; const s=dsrc(e.target); if(!s) return; e.preventDefault();
+  drag={...s,x0:e.clientX,y0:e.clientY,moved:false,ghost:null}; window.addEventListener("pointermove",move); window.addEventListener("pointerup",up); }
+function move(e){ if(!drag) return; const dx=e.clientX-drag.x0,dy=e.clientY-drag.y0;
+  if(!drag.moved&&Math.hypot(dx,dy)>TH){ drag.moved=true; const g=document.createElement("div"); g.className="drag-ghost"; g.textContent=curItem().tiles[drag.ti].t; document.body.appendChild(g); drag.ghost=g; drag.el.classList.add("dragging"); }
+  if(drag.moved){ drag.ghost.style.left=e.clientX+"px"; drag.ghost.style.top=e.clientY+"px"; hov(e.clientX,e.clientY); } }
+function up(e){ window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",up); if(!drag) return; const d=drag; drag=null; clearHov(); if(d.ghost) d.ghost.remove(); d.el.classList.remove("dragging");
+  if(!d.moved){ // 탭: 빈칸 조각만 빼기 (뱅크 탭=무시 → 드래그 전용)
+    if(d.kind==="slot") clearSlot(d.sl); renderSegs(); return; }
+  const t=under(e.clientX,e.clientY);
+  if(t&&t.kind==="slot"){ const occ=curSlots()[t.sl];
+    if(d.kind==="bank"){ if(occ!==null) clearSlot(t.sl); setSlot(t.sl,d.ti); }
+    else if(d.sl!==t.sl){ if(occ===null){ clearSlot(d.sl); setSlot(t.sl,d.ti); } else { const o=occ; clearSlot(d.sl); clearSlot(t.sl); setSlot(t.sl,d.ti); setSlot(d.sl,o); } } }
+  else if(t&&t.kind==="bank"){ if(d.kind==="slot") clearSlot(d.sl); }
+  renderSegs(); }
+document.addEventListener("pointerdown",down);
+
+// ---- 채점/제출 ----
+function assembled(qidx){ const it=items[qidx], sl=state[qidx].slots; let si=0,out=[];
+  it.segments.forEach(seg=>{ if(seg.type==="text") out.push(seg.text); else { const ti=sl[si++]; out.push(ti===null?"":it.tiles[ti].t); } });
+  return out.join(" ").replace(/\s+([.?!,])/g,"$1").replace(/\s{2,}/g," ").trim(); }
+function doSubmit(){
+  clearInterval(timerId);
+  const marks = items.map((it,i)=> norm(assembled(i))===norm(it.answer));
+  const correct = marks.filter(Boolean).length;
+  const used = LIMIT - Math.max(timeLeft,0), m=Math.floor(used/60), s=used%60;
+  const ids = items.map(it=>it.id);
+  if(curExam){ saveExam(curExam,{ exam_id:curExam, correct, total:items.length, time:used, marks, ts:Date.now(), ids }); }
+  else { saveResult(curCN,curSet,{ correct, total:items.length, time:used, marks, concept_n:curCN, set_id:curSet, ts:Date.now(), ids }); }
+  $("r-score").textContent = `${correct} / ${items.length}`;
+  $("r-time").textContent = curExam
+    ? `풀이 시간 ${m}:${String(s).padStart(2,"0")} · 모의고사 ${curExam}`
+    : `풀이 시간 ${m}:${String(s).padStart(2,"0")} · 개념 ${curCN} 세트 ${curSet}`;
+  $("btn-other").setAttribute("href", curExam ? "w1-mock.html" : "writing.html");
+  $("btn-other").textContent = curExam ? "다른 모의고사" : "다른 세트 고르기";
+  const qg=$("qgrid"); qg.innerHTML="";
+  marks.forEach((ok,i)=>{ const c=document.createElement("div"); c.className="qcell "+(ok?"ok":"no"); c.textContent=i+1; c.addEventListener("click",()=>renderReview(i)); qg.appendChild(c); });
+  $("review").innerHTML = `<p class="idx-lead" style="font-size:13px;margin-top:14px;">번호를 눌러 문항별 리뷰를 봐요.</p>`;
+  $("play").classList.add("hidden"); $("result").classList.remove("hidden"); window.scrollTo(0,0);
+}
+function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+/* 리뷰용 정적 프레임 — 실제 문제 화면(renderQ)과 같은 칸 모양으로 렌더.
+   fills = 칸 순서대로 채울 텍스트(없으면 null), marks = 칸별 정오(있으면 초록/빨강).
+   #review 안의 .slot 은 드래그 핸들러(#frame .slot 스코프)에 안 잡혀 안전. */
+function revFrame(it, fills, marks){
+  let si=0, h="";
+  it.segments.forEach(seg=>{
+    if(seg.type==="text"){ h+=esc(seg.text); return; }
+    const j=si++, v=fills[j];
+    let cls = v==null ? "empty" : "filled";
+    if(marks && v!=null) cls = marks[j] ? "correct" : "wrong";
+    h += `<span class="slot ${cls}">${v==null?"":esc(v)}</span>`;
+  });
+  return `<div class="frame rev-frame">${h}</div>`;
+}
+function renderReview(i){
+  const it=items[i]; const ok = norm(assembled(i))===norm(it.answer);
+  const sol = it.solution||[];
+  const fills = state[i].slots.map(ti => ti===null ? null : it.tiles[ti].t);
+  const marks = fills.map((v,j)=> v!=null && norm(v)===norm(sol[j]||""));
+  const vocabHtml = (it.vocab&&it.vocab.length) ? `<div class="rev-block"><div class="bl">어휘 · 관용어</div><div class="rev-vocab">${it.vocab.map(v=>`• ${v}`).join("<br>")}</div></div>` : "";
+  const box=$("review");
+  box.innerHTML = `<div class="rev">
+    <span class="rv-k">Q${i+1} · ${ok?"정답":"오답"}</span>
+    <div class="rv-prompt">${esc(it.prompt)}</div>
+    <div class="rev-block"><div class="bl">나의 답안</div>${revFrame(it, fills, marks)}</div>
+    <button class="btn btn-primary" id="rev-reveal" style="margin-top:12px;">정답 보기</button>
+    <div id="rev-more" class="hidden">
+      <div class="rev-block"><div class="bl">정답</div>${revFrame(it, sol, null)}</div>
+      <div class="rev-block"><div class="bl">해설</div><div class="rev-explain">${it.explain||""}</div></div>
+      <div class="rev-block"><div class="bl">해석</div><div class="rev-trans">${it.trans||""}</div></div>
+      ${vocabHtml}
+      ${ok?"":`<a class="btn btn-ghost" href="w1-learn.html?c=${it.concept_n}${(it.sub_idx!=null&&it.sub_idx>=0)?`&t=${it.sub_idx}`:``}" style="margin-top:12px;">📚 개념 복습</a>`}
+    </div></div>`;
+  $("rev-reveal").addEventListener("click",()=>{ $("rev-more").classList.remove("hidden"); $("rev-reveal").classList.add("hidden"); });
+  box.querySelector(".rev").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+// ---- 버튼 ----
+function trySubmit(){ if(timeLeft>0){ neoConfirm("제출 확인","아직 시간이 남았습니다! 정말로 이동하시겠습니까?","제출하기",doSubmit); } else doSubmit(); }
+$("btn-prev").addEventListener("click",()=>{ if(qi>0){ qi--; renderQ(); } });
+$("btn-next").addEventListener("click",()=>{ if(qi<items.length-1){ qi++; renderQ(); } else trySubmit(); });
+$("btn-submit").addEventListener("click",trySubmit);
+$("btn-exit").addEventListener("click",e=>{ e.preventDefault(); neoConfirm("나가기","나가면 이 세트 풀이가 사라져요. 나갈까요?","나가기",()=>{ clearInterval(timerId); location.href= curExam ? "w1-mock.html" : "writing.html"; }); });
+$("btn-again").addEventListener("click",()=>{ if(curExam) startExam(curExam); else startSet(curCN,curSet); });
+
+// ---- 진입 ----
+const p=new URLSearchParams(location.search);
+const pe=parseInt(p.get("exam"),10);
+const pc=parseInt(p.get("c"),10), ps=parseInt(p.get("set"),10);
+const validC = pc && concepts.some(([n])=>n===pc);
+// 개념 목록은 개념 탭(concepts.html)이 담당 — 대상 없이 들어오면 그리로 보냄
+if(!pe && !validC){ location.replace("concepts.html"); }
+else if(pe){ startExam(pe); }
+else {
+  if(ps && setsOf(pc).includes(ps)) startSet(pc,ps);
+  else { const nm=(concepts.find(([n])=>n===pc)||[])[1]||""; showSetView(pc,nm); }
+}
+if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("../sw.js").catch(()=>{}));
+</script>
+</body>
+</html>

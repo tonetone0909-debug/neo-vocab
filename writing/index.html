@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>NEO TOEFL · Writing Task 1</title>
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NEO Writing">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../assets/icons/apple-touch-icon.png">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="../assets/icons/icon-32.png">
+<link rel="stylesheet" href="../assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="../assets/config.js"></script>
+<script src="../assets/auth.js"></script>
+<script src="../assets/shell.js"></script>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<div class="app-topbar">
+  <a class="brand" href="../index.html"><span class="dot"></span>NEO&nbsp;TOEFL</a>
+  <span class="crumb">Writing Task 1</span>
+</div>
+
+<main class="app">
+  <section class="idx-hero">
+    <h1 class="idx-title en">WRITING TASK 1<br>BUILD A SENTENCE</h1>
+    <p class="idx-lead">네오토플과 함께 Writing Task 1은 박살내 보아요.</p>
+  </section>
+
+  <!-- 카드는 2장 — 문제풀기는 개념 카드 안의 "✏️ 문제 풀기" 버튼으로 들어간다.
+       (예전엔 여기 '문제풀이' 카드가 writing.html 을 가리켰는데, 파라미터 없이 열면
+        concepts.html 로 리다이렉트돼 1번 카드와 같은 곳에 떨어졌다.) -->
+  <div class="deck-grid">
+    <a class="deck-card acid" href="concepts.html">
+      <span class="num">1</span><span class="k">LEARN · PRACTICE</span>
+      <div class="dt">개념 학습 · 문제풀이</div>
+      <div class="dd">개념 11개를 예문·구조 분석으로 익히고, 바로 10문항 세트로 손에 붙여요.</div>
+    </a>
+    <a class="deck-card" href="w1-mock.html">
+      <span class="num">2</span><span class="k">MOCK</span>
+      <div class="dt">모의고사</div>
+      <div class="dd">실제 출제 빈도로 개념을 섞은 100세트. 6분 50초 실전 연습.</div>
+    </a>
+  </div>
+</main>
+
+<nav class="tabbar">
+  <a href="index.html" class="on"><span class="ic">🏠</span>홈</a>
+  <a href="concepts.html"><span class="ic">📚</span>개념</a>
+  <a href="w1-mock.html"><span class="ic">📝</span>모의고사</a>
+  <a href="mypage.html"><span class="ic">📊</span>마이페이지</a>
+</nav>
+
+<script src="data/w1.js"></script>
+<script>
+(function(){
+  if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("../sw.js").catch(()=>{}));
+})();
+</script>
+</body>
+</html>

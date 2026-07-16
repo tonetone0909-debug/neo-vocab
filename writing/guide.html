@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Writing Task 1 — 사용법 가이드</title>
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="../assets/icons/icon-32.png">
+<!-- vocab/guide.html 과 같은 계열(standalone · 자체 :root 토큰). 공유 app.css 와 섞지 말 것 —
+     여기 토큰은 --ink/--acid 이고 공유 쪽은 --neo-ink/--neo-acid 라 이름이 다르다. -->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap');
+:root{
+  --ink:#0A0A0A; --paper:#FBFBF7; --paper2:#F2F2EA; --card:#FFFFFF;
+  --acid:#E8FF3A; --acid-soft:#F2FF9E; --blaze:#2B2BFF; --hot:#FF3DA6; --grind:#37CE7A;
+  --mono:'JetBrains Mono',monospace; --kr:'Noto Sans KR',sans-serif; --disp:'Jua',sans-serif; --en:'Archivo Black',sans-serif;
+  --sh-1:4px 4px 0 var(--ink); --sh-2:7px 7px 0 var(--ink);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:var(--kr);line-height:1.6;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:680px;margin:0 auto;padding:0 18px 80px;}
+
+/* ---- hero ---- */
+.topbar{display:flex;align-items:center;gap:10px;padding:18px 2px 6px;font-family:var(--en);font-size:17px;letter-spacing:-.01em;}
+.topbar .dot{width:18px;height:18px;background:var(--acid);border:3px solid var(--ink);display:inline-block;}
+.kicker{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.18em;color:var(--blaze);margin:28px 0 8px;}
+h1{font-family:var(--kr);font-weight:900;font-size:clamp(38px,9vw,64px);line-height:1.04;letter-spacing:-.03em;}
+.lead{font-size:17px;font-weight:500;margin-top:14px;color:#2A2A2A;}
+.hero-card{margin-top:22px;background:var(--acid);border:3px solid var(--ink);box-shadow:var(--sh-2);padding:18px 20px;}
+.hero-card b{font-weight:900;}
+
+/* ---- section ---- */
+.step{margin-top:46px;}
+.step-head{display:flex;align-items:center;gap:12px;}
+.num{flex:0 0 auto;width:42px;height:42px;background:var(--ink);color:var(--paper);font-family:var(--en);font-size:20px;display:flex;align-items:center;justify-content:center;}
+.num.acid{background:var(--acid);color:var(--ink);}
+.num.blaze{background:var(--blaze);color:#fff;}
+.num.hot{background:var(--hot);color:var(--ink);}
+.num.grind{background:var(--grind);color:var(--ink);}
+.step h2{font-family:var(--disp);font-weight:400;font-size:clamp(24px,5.5vw,32px);letter-spacing:-.01em;line-height:1.15;}
+.step .body{margin-top:12px;font-size:16px;font-weight:500;}
+.step .body p{margin-top:10px;}
+.step .body b{font-weight:900;}
+ul.ticks{list-style:none;margin-top:12px;}
+ul.ticks li{position:relative;padding-left:26px;margin-top:8px;font-weight:500;}
+ul.ticks li::before{content:"►";position:absolute;left:0;top:1px;color:var(--blaze);font-size:13px;}
+.tag{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;background:var(--acid-soft);border:2px solid var(--ink);padding:2px 7px;margin:0 2px;}
+
+/* ---- screenshots (phone frame) ---- */
+.shots{display:flex;flex-wrap:wrap;gap:18px;justify-content:center;margin-top:20px;}
+.phone{width:240px;max-width:46%;}
+.phone img{width:100%;display:block;border:3px solid var(--ink);box-shadow:var(--sh-2);background:var(--card);}
+.phone .cap{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;text-align:center;margin-top:9px;color:#444;}
+.phone.solo{width:280px;max-width:80%;}
+
+.note{margin-top:18px;background:var(--card);border:3px solid var(--ink);box-shadow:var(--sh-1);padding:14px 16px;font-size:15px;font-weight:500;}
+.note .nk{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--hot);text-transform:uppercase;display:block;margin-bottom:6px;}
+.note a{color:var(--blaze);font-weight:700;}
+
+.divider{height:3px;background:var(--ink);margin:54px 0 0;}
+.foot{margin-top:30px;font-family:var(--mono);font-size:12px;color:#666;text-align:center;letter-spacing:.04em;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar"><span class="dot"></span>NEO TOEFL</div>
+
+  <a href="mypage.html" id="back" style="display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:14px;border:3px solid var(--ink);background:var(--card);padding:8px 14px;box-shadow:var(--sh-1);text-decoration:none;color:var(--ink);margin:8px 0 4px;">← 돌아가기</a>
+
+  <div class="kicker">WRITING TASK 1 · 사용법 가이드</div>
+  <h1>문장 조립<br>이렇게 써요</h1>
+  <p class="lead">개념 익히고 → 조각 끼워 문장 만들고 → 틀린 건 리뷰. 화면 따라 한 번만 보면 감 잡혀요.</p>
+
+  <div class="hero-card">
+    <b>한 줄 요약</b> — ① 개념 골라 예문·구조로 익히고 → ② 10문항 세트를 6분 50초 안에 조립 → ③ 리뷰에서 틀린 칸 확인 → ④ 모의고사로 실전. 그게 다예요 🙂
+    <div style="margin-top:8px;font-size:14px;font-weight:700;">설치·로그인이 아직이면 네오토플 홈의 <b>어플 설치 방법</b>부터 봐요.</div>
+  </div>
+
+  <!-- 1 홈 -->
+  <div class="step">
+    <div class="step-head"><span class="num">1</span><h2>홈에서 시작</h2></div>
+    <div class="body">
+      <p>Writing Task 1 홈에는 갈 곳이 두 군데예요.</p>
+      <ul class="ticks">
+        <li><b>개념 학습 · 문제풀이</b> — 문법 개념 11개를 배우고 바로 문제로 이어져요</li>
+        <li><b>모의고사</b> — 여러 개념을 섞은 실전 100세트</li>
+      </ul>
+      <p>처음이면 <b>개념 학습</b>부터 가면 돼요.</p>
+    </div>
+    <div class="shots">
+      <div class="phone solo"><img src="assets/guide-img/01-home.png" alt="Writing Task 1 홈 화면" loading="lazy"><div class="cap">개념 학습 · 모의고사</div></div>
+    </div>
+  </div>
+
+  <!-- 2 개념 고르기 -->
+  <div class="step">
+    <div class="step-head"><span class="num acid">2</span><h2>개념 고르기</h2></div>
+    <div class="body">
+      <p>문장형식·간접의문문·관계절·to부정사·시제·수동태·비교급 등 <b>개념 11개</b>가 있어요. 각 카드에 버튼이 둘이에요:</p>
+      <ul class="ticks">
+        <li><span class="tag">📚 개념 학습</span> 예문과 구조부터 배우기</li>
+        <li><span class="tag">✏️ 문제 풀기</span> 바로 세트 골라 풀기</li>
+      </ul>
+      <p>개념당 <b>10세트 × 10문항</b>이 있어요.</p>
+    </div>
+    <div class="shots">
+      <div class="phone solo"><img src="assets/guide-img/02-concepts.png" alt="개념 목록" loading="lazy"><div class="cap">개념 11개 · 카드마다 버튼 2개</div></div>
+    </div>
+  </div>
+
+  <!-- 3 개념 학습 -->
+  <div class="step">
+    <div class="step-head"><span class="num grind">3</span><h2>목차에서 골라 예문·구조로</h2></div>
+    <div class="body">
+      <p>개념을 열면 <b>목차</b>가 먼저 나와요. 궁금한 세부 개념만 골라 들어가면 그 내용만 크게 보여줘요.</p>
+      <ul class="ticks">
+        <li><b>핵심 정리</b> — 짧은 불릿으로, 중요한 건 하이라이트</li>
+        <li><b>예문 + 문장성분</b> — 밑줄 아래 S·V·O·SC 라벨이 붙어 구조가 눈에 들어와요</li>
+        <li><b>흔한 실수</b>와 <b>📚 DB 레퍼런스</b>(동사 목록·변화표 등)까지</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="phone"><img src="assets/guide-img/03-learn-index.png" alt="개념 목차" loading="lazy"><div class="cap">목차에서 골라요</div></div>
+      <div class="phone"><img src="assets/guide-img/04-learn-detail.png" alt="개념 상세 · 예문 성분 분석" loading="lazy"><div class="cap">예문 아래 성분 라벨</div></div>
+    </div>
+  </div>
+
+  <!-- 4 문제 풀기 -->
+  <div class="step">
+    <div class="step-head"><span class="num hot">4</span><h2>조각을 끌어다 문장 만들기</h2></div>
+    <div class="body">
+      <p>세트를 고르면 <b>10문항</b>을 <b>6분 50초</b> 안에 풀어요. 실제 시험과 같은 방식이에요.</p>
+      <ul class="ticks">
+        <li>위에 상대방 말이 나와요 — 거기에 <b>답이 되는 문장</b>을 만들면 돼요</li>
+        <li>아래 <b>조각을 끌어다</b> 빈칸에 놓아요. 놓은 조각을 탭하면 다시 빠져요</li>
+        <li>조각 중엔 <b>못 들어가는 함정</b>이 하나씩 섞여 있어요</li>
+        <li><span class="tag">← 뒤로</span> <span class="tag">앞으로 →</span> 로 문항을 오가고, 마지막 문항의 <b>제출 →</b> 로 채점해요</li>
+      </ul>
+      <div class="note" style="margin-top:14px;"><span class="nk">참고</span>시간이 남았는데 제출하면 한 번 더 물어봐요. 시간이 다 되면 자동으로 채점돼요.</div>
+    </div>
+    <div class="shots">
+      <div class="phone"><img src="assets/guide-img/05-sets.png" alt="세트 목록" loading="lazy"><div class="cap">세트 10개 · 점수 배지</div></div>
+      <div class="phone"><img src="assets/guide-img/06-play.png" alt="문제 풀이 화면" loading="lazy"><div class="cap">조각을 끌어 빈칸에</div></div>
+    </div>
+  </div>
+
+  <!-- 5 리뷰 -->
+  <div class="step">
+    <div class="step-head"><span class="num blaze">5</span><h2>채점하고 리뷰</h2></div>
+    <div class="body">
+      <p>제출하면 점수와 <b>문항별 정오</b>가 한눈에 보여요. 번호를 누르면 그 문항 리뷰가 열려요.</p>
+      <ul class="ticks">
+        <li><b>나의 답안</b> — 칸마다 <b>초록(맞음) · 빨강(틀림)</b> 으로 어디서 어긋났는지 바로 보여요</li>
+        <li><b>정답 보기</b> 를 누르면 정답 · <b>해설</b>(함정이 왜 못 들어가는지) · <b>해석</b>이 나와요</li>
+        <li><b>📚 개념 복습</b> 버튼으로 그 문항이 나온 세부 개념 페이지로 바로 가요</li>
+      </ul>
+    </div>
+    <div class="shots">
+      <div class="phone"><img src="assets/guide-img/07-result.png" alt="채점 결과" loading="lazy"><div class="cap">점수 + 문항별 정오</div></div>
+      <div class="phone"><img src="assets/guide-img/08-review.png" alt="문항 리뷰" loading="lazy"><div class="cap">칸별 정오 · 해설 · 해석</div></div>
+    </div>
+  </div>
+
+  <!-- 6 모의고사 + 마이페이지 -->
+  <div class="step">
+    <div class="step-head"><span class="num">6</span><h2>모의고사로 실전, 마이페이지로 점검</h2></div>
+    <div class="body">
+      <p><b>모의고사</b>는 여러 개념을 <b>실제 출제 빈도</b>로 섞은 <b>100세트</b>예요. 개념이 어느 정도 잡히면 여기서 실전 감각을 붙여요. 위의 <b>이어서 풀기</b>를 누르면 안 푼 세트부터 바로 시작해요.</p>
+      <p><b>마이페이지</b>에선 학습 달성량, <b>개념별 정답률</b>, 모의고사 기록, 최근 푼 세트를 봐요. 정답률이 낮은 개념이 보이면 그 개념부터 다시 가면 돼요.</p>
+    </div>
+    <div class="shots">
+      <div class="phone"><img src="assets/guide-img/09-mock.png" alt="모의고사 목록" loading="lazy"><div class="cap">100세트 · 이어서 풀기</div></div>
+      <div class="phone"><img src="assets/guide-img/10-mypage.png" alt="마이페이지" loading="lazy"><div class="cap">개념별 정답률</div></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="foot">NEO TOEFL · Writing Task 1 사용법 · 2026-07-15</div>
+
+</div>
+<script>
+  // 네오토플 홈·마이페이지 양쪽에서 들어오므로 왔던 곳으로 돌아간다.
+  document.getElementById("back").addEventListener("click", function (e) {
+    if (history.length > 1) { e.preventDefault(); history.back(); }
+  });
+</script>
+</body>
+</html>

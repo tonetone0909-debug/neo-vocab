@@ -6,23 +6,23 @@
 <title>VOCA CARE 누적점수 · NEO VOCAB</title>
 <meta name="theme-color" content="#0A0A0A">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
-<link rel="icon" href="favicon.ico" sizes="any">
-<link rel="icon" type="image/png" href="assets/icons/icon-32.png">
-<link rel="stylesheet" href="assets/colors_and_type.css">
-<link rel="stylesheet" href="assets/app.css">
-<script src="assets/config.js"></script>
-<script src="assets/auth.js"></script>
-<script src="assets/shell.js"></script>
-<script src="assets/ui.js"></script>
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../assets/icons/apple-touch-icon.png">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="../assets/icons/icon-32.png">
+<link rel="stylesheet" href="../assets/colors_and_type.css">
+<link rel="stylesheet" href="../assets/app.css">
+<script src="../assets/config.js"></script>
+<script src="../assets/auth.js"></script>
+<script src="../assets/shell.js"></script>
+<script src="assets/swipe.js"></script>
+<script src="../assets/ui.js"></script>
 <style>
   #care-wrap{--green:#2ECC71;--green-deep:#0B6E3A;--ink:#0B2E1C;--mint:#E8FFF3;--line:#D4EDDE;--muted:#5A7A68;--faint:#8A9F92}
   /* hero */
   .care-hero{background:linear-gradient(160deg,#0B2E1C,#0B6E3A);color:#fff;border-radius:20px;
     padding:26px 24px;text-align:center;box-shadow:5px 5px 0 #0A0A0A;border:2px solid #0A0A0A}
-  .care-hero .lbl{font-size:11px;font-weight:800;letter-spacing:.14em;color:rgba(255,255,255,.6);text-transform:uppercase}
-  .care-hero .score{font-size:66px;font-weight:900;line-height:1;letter-spacing:-.03em;margin:10px 0 2px;font-variant-numeric:tabular-nums}
+  .care-hero .score{font-size:66px;font-weight:900;line-height:1;letter-spacing:-.03em;margin:0 0 2px;font-variant-numeric:tabular-nums}
   .care-hero .score small{font-size:24px;font-weight:800;color:rgba(255,255,255,.7);letter-spacing:0}
   .care-hero .mbadge{display:inline-block;margin-top:12px;border:2px solid #fff;border-radius:999px;
     padding:4px 14px;font-weight:800;font-size:13px;letter-spacing:.02em}
@@ -59,7 +59,7 @@
 <body>
 
 <div class="topbar">
-  <a class="brand" href="progress.html"><span class="dot"></span>NEO VOCAB</a>
+  <a class="brand" href="../index.html"><span class="dot"></span>NEO&nbsp;TOEFL</a>
   <span class="crumb">VOCA CARE</span>
 </div>
 
@@ -104,8 +104,8 @@
     { pt: 900, name: "커피 쿠폰", icon: "☕" },
     { pt: 1000, name: "배달의민족 기프티콘", icon: "🎉", val: "5만원" },
     { pt: 1200, name: "TOEFL 응시료 지원", icon: "🎫", val: "5만원" },
-    { pt: 1400, name: "TOEFL 응시료 지원", icon: "🎫", val: "5만원 (총10만원)" },
-    { pt: 1550, name: "TOEFL 응시료 지원", icon: "🏆", val: "10만원 (총20만원)" }
+    { pt: 1400, name: "TOEFL 응시료 지원", icon: "🎫", val: "추가 5만원" },
+    { pt: 1550, name: "TOEFL 응시료 지원", icon: "🏆", val: "추가 10만원" }
   ];
 
   function countUp(el, to, dur) {
@@ -128,7 +128,6 @@
 
     // --- hero ---
     let html = '<div class="care-hero">'
-      + '<div class="lbl">누적 점수</div>'
       + '<div class="score"><span id="hero-score">0</span><small> 점</small></div>'
       + '<div class="mbadge' + (prem ? ' prem' : '') + '">' + (prem ? '★ ' : '') + esc(p.membership || "") + '</div>'
       + '</div>';

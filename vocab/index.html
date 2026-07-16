@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>NEO TOEFL 단어장</title>
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="NEO 단어장">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../assets/icons/apple-touch-icon.png">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="icon" type="image/png" href="../assets/icons/icon-32.png">
+<link rel="stylesheet" href="../assets/colors_and_type.css">
+<link rel="stylesheet" href="../assets/app.css">
+<script src="../assets/config.js"></script>
+<script src="../assets/auth.js"></script>
+<script src="../assets/shell.js"></script>
+<script src="assets/swipe.js"></script>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html"><span class="dot"></span>NEO&nbsp;TOEFL</a>
+  <span class="crumb">TOEFL VOCAB</span>
+</div>
+
+<main class="app">
+  <div class="kicker">VOCAB TRAINER</div>
+  <h1 class="title-kr">토플 단어,<br>NEO VOCAB으로 씹어먹어요</h1>
+  <p class="lead">합본 어휘를 Day로 나눠서. 파생어·동의어·예문·미/영 발음까지 한 번에.</p>
+
+  <a class="today-review" id="review-card" href="study.html?mode=review">
+    <div>
+      <div class="tr-k">TODAY · 오늘 복습</div>
+      <div class="tr-t" id="tr-title">복습할 단어를 확인해요</div>
+    </div>
+    <div class="tr-n" id="tr-count">0</div>
+  </a>
+
+  <div class="deck-grid">
+    <a class="deck-card acid" href="study.html?deck=practical">
+      <span class="num">1</span><span class="kicker" style="margin-left:8px;">PRACTICAL · 실용</span>
+      <div class="dt">실용어휘</div>
+      <div class="dd">이메일·대화·공지 등 실생활 어휘.</div>
+      <div class="mini-stats"><span class="ms" id="st-practical">…</span></div>
+    </a>
+    <a class="deck-card accent" href="study.html?deck=academic">
+      <span class="num">2</span><span class="kicker" style="margin-left:8px;">ACADEMIC · 학술</span>
+      <div class="dt">학술어휘</div>
+      <div class="dd">학술 지문·강의 어휘.</div>
+      <div class="mini-stats"><span class="ms" id="st-academic">…</span></div>
+    </a>
+    <a class="deck-card" href="blanks.html">
+      <span class="num">3</span><span class="kicker" style="margin-left:8px;">READING TASK1 · 빈칸</span>
+      <div class="dt">Reading Task1 빈칸어휘</div>
+      <div class="dd">글자+빈칸을 보고 단어를 떠올린 뒤 탭해서 뜻 확인.</div>
+      <div class="mini-stats"><span class="ms" id="st-blanks">…</span></div>
+    </a>
+    <a class="deck-card" href="quiz.html">
+      <span class="num">4</span><span class="kicker" style="margin-left:8px;">QUICK QUIZ</span>
+      <div class="dt">Quick Quiz</div>
+      <div class="dd">실용·학술·빈칸 어휘를 Day별로 풀어봐요. 4지선다·듣기·타이핑.</div>
+      <div class="mini-stats"><span class="ms" id="st-quiz">…</span></div>
+    </a>
+  </div>
+
+</main>
+
+<nav class="tabbar">
+  <a href="index.html" class="on"><span class="ic">🏠</span>홈</a>
+  <a href="study.html?deck=practical"><span class="ic">📝</span>어휘</a>
+  <a href="quiz.html"><span class="ic">✅</span>퀴즈</a>
+  <a href="progress.html"><span class="ic">📊</span>마이페이지</a>
+</nav>
+
+<script src="data/meta.js"></script>
+<script src="data/vocab.js"></script>
+<script src="data/blanks.js"></script>
+<script src="data/ctest.js"></script>
+<script src="assets/store.js"></script>
+<script src="assets/deck.js"></script>
+<script>
+(function () {
+  function vocabStat(deck, stId) {
+    const items = NEO_DECK.vocab(null, deck);
+    const s = NEO_STORE.deckStats(items);
+    const ndays = NEO_DECK.days(deck).length;
+    document.getElementById(stId).innerHTML = `<b>${items.length}</b>단어 · <b>${ndays}</b> Day · 학습 ${s.studied}`;
+  }
+  vocabStat("practical", "st-practical");
+  vocabStat("academic", "st-academic");
+  const bd = NEO_DECK.blanksDays();
+  const bw = bd.reduce((n,d)=>n+d.count,0);
+  document.getElementById("st-blanks").innerHTML = `<b>${bw}</b>단어 · <b>${bd.length}</b> Day`;
+  document.getElementById("st-quiz").innerHTML = `실용·학술·빈칸 · Day별`;
+  // 오늘 복습 (실용+학술 SRS due)
+  const due = NEO_STORE.dueReview().filter(it => it.deck === "practical" || it.deck === "academic");
+  const n = due.length;
+  document.getElementById("tr-count").textContent = n;
+  const rc = document.getElementById("review-card");
+  if (n > 0) { document.getElementById("tr-title").textContent = `${n}개, 지금 복습해요`; }
+  else { document.getElementById("tr-title").textContent = "오늘은 복습할 단어가 없어요"; rc.classList.add("empty"); }
+  if ("serviceWorker" in navigator) window.addEventListener("load", () => {
+    navigator.serviceWorker.register("../sw.js").catch(()=>{});
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloaded) return; reloaded = true; location.reload();  // 새 버전 적용 시 1회 자동 새로고침
+    });
+  });
+})();
+</script>
+</body>
+</html>

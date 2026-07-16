@@ -3,7 +3,7 @@
    ========================================================= */
 
 /* ---------- Web fonts (Google Fonts substitutions flagged in README) ---------- */
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&family=Gaegu:wght@400;700&family=Black+Han+Sans&family=Jua&family=Do+Hyeon&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&family=Gaegu:wght@400;700&family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Jua&family=Do+Hyeon&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Serif+KR:wght@400;500;700;900&display=swap');
 
 :root {
   /* =========================================================
@@ -31,7 +31,11 @@
   --neo-paper:       #FBFBF7;  /* DEFAULT page — soft warm white */
   --neo-paper-2:     #F4F4EE;  /* sunken / band background */
   --neo-card:        #FFFFFF;  /* card surface — only when on top of paper */
-  --neo-mute:        #7A7A75;  /* muted ink */
+  /* muted ink — 브랜드 원값 #7A7A75 는 paper 대비 4.2:1 로 작은 텍스트 AA(4.5) 미달.
+     이 앱에서 --neo-mute 는 22곳 전부 text color 로만 쓰이므로(테두리·배경 의존 없음)
+     AA 통과값(6.2:1)으로 조정. --neo-mute-aa 는 명시적 별칭. */
+  --neo-mute:        #5F5F5A;
+  --neo-mute-aa:     #5F5F5A;
   --neo-line:        #0A0A0A;  /* borders — always ink, 2-3px */
 
   /* Legacy aliases (existing files reference --neo-bone / --neo-cream) */
@@ -105,6 +109,7 @@
 
   /* Mono / HUD */
   --font-mono:       'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  --font-label-kr:   'IBM Plex Sans KR', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif; /* 한국어 소형 라벨/섹션헤더 — 가독성 높은 라벨용 */
 
   /* =========================================================
      TYPE — Scale (fluid, aggressive)

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>모의고사 · NEO TOEFL Writing Task 1</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="stylesheet" href="../assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="../assets/config.js"></script>
+<script src="../assets/auth.js"></script>
+<script src="../assets/shell.js"></script>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<div class="app-topbar">
+  <a class="brand" href="../index.html"><span class="dot"></span>NEO&nbsp;TOEFL</a>
+  <span class="crumb">모의고사 · MOCK</span>
+</div>
+
+<main class="app">
+  <div class="idx-kicker" style="padding-top:8px;">MOCK</div>
+  <h1 class="idx-title" style="font-size:clamp(34px,9vw,48px);">실전 모의고사</h1>
+
+  <a class="today-review" id="mk-sum" href="#">
+    <div><div class="tr-k" id="mk-sum-k">CONTINUE · 이어서 풀기</div><div class="tr-t" id="mk-sum-t">세트를 골라 시작해요</div></div>
+    <div class="tr-n" id="mk-sum-n">0</div>
+  </a>
+
+  <div id="mk-list" style="margin-top:14px;"></div>
+  <p class="idx-lead" id="mk-empty" style="display:none;">모의고사 문항을 준비 중이에요. 곧 만나요!</p>
+</main>
+
+<nav class="tabbar">
+  <a href="index.html"><span class="ic">🏠</span>홈</a>
+  <a href="concepts.html"><span class="ic">📚</span>개념</a>
+  <a href="w1-mock.html" class="on"><span class="ic">📝</span>모의고사</a>
+  <a href="mypage.html"><span class="ic">📊</span>마이페이지</a>
+</nav>
+
+<script src="data/w1_mock.js"></script>
+<script src="assets/w1store.js"></script>
+<script>
+(function(){
+  const EX = (window.NEO_DATA_W1_MOCK && window.NEO_DATA_W1_MOCK.exams) || [];
+  const R = NEO_W1_STORE.load();
+  const list = document.getElementById("mk-list");
+  const exams = EX.slice().sort((a,b)=>a.exam_id-b.exam_id);
+  const doneOf = e => R["mock"+e.exam_id];
+  const doneCount = exams.filter(doneOf).length;
+
+  if(!exams.length){ document.getElementById("mk-empty").style.display="block";
+    document.getElementById("mk-sum").classList.add("state-empty");
+    document.getElementById("mk-sum-t").textContent="모의고사 준비 중이에요"; return; }
+
+  // ── 이어서 풀기: 첫 미완료 세트 ──
+  const next = exams.find(e=>!doneOf(e));
+  const sum=document.getElementById("mk-sum");
+  if(next){
+    sum.href = "writing.html?exam="+next.exam_id;
+    document.getElementById("mk-sum-k").textContent = doneCount ? "CONTINUE · 이어서 풀기" : "START · 처음부터";
+    document.getElementById("mk-sum-t").textContent = `모의고사 ${next.exam_id} · ${exams.length}세트 중 ${doneCount}개 완료`;
+    document.getElementById("mk-sum-n").textContent = next.exam_id;
+  } else {
+    sum.href = "writing.html?exam=1";
+    document.getElementById("mk-sum-k").textContent = "DONE · 전체 완료";
+    document.getElementById("mk-sum-t").textContent = `${exams.length}세트 모두 완료했어요 · 다시 도전`;
+    document.getElementById("mk-sum-n").textContent = "✓";
+  }
+
+  // ── 10개씩 묶어 아코디언 ──
+  const GROUP = 10;
+  for(let start=0; start<exams.length; start+=GROUP){
+    const chunk = exams.slice(start, start+GROUP);
+    const from=chunk[0].exam_id, to=chunk[chunk.length-1].exam_id;
+    const gDone = chunk.filter(doneOf).length;
+    const d=document.createElement("details"); d.className="mk-group";   // 기본 전부 접힘 (상단 '이어서 풀기' CTA 로 바로 진입)
+    d.innerHTML = `<summary><span class="g-t">모의고사 ${from}–${to}</span>
+      <span class="cb ${gDone===chunk.length?"learn":"soon"}">${gDone}/${chunk.length}</span></summary>
+      <div class="cgrid"></div>`;
+    const grid=d.querySelector(".cgrid");
+    chunk.forEach(e=>{
+      const done=doneOf(e);
+      const a=document.createElement("a"); a.className="crow"; a.href="writing.html?exam="+e.exam_id;
+      a.innerHTML=`<span class="cn">${e.exam_id}</span><span class="ct">모의고사 ${e.exam_id}</span><span class="cb ${done?"learn":"soon"}">${done?done.correct+"/"+done.total:"NEW"}</span>`;
+      grid.appendChild(a);
+    });
+    list.appendChild(d);
+  }
+})();
+if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("../sw.js").catch(()=>{}));
+</script>
+</body>
+</html>

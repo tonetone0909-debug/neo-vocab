@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>관리자 · NEO VOCAB</title>
+<title>관리자 · NEO TOEFL</title>
 <meta name="theme-color" content="#0A0A0A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
@@ -32,7 +32,7 @@
 <body>
 
 <div class="topbar">
-  <span class="brand"><span class="dot"></span>NEO VOCAB</span>
+  <span class="brand"><span class="dot"></span>NEO&nbsp;TOEFL</span>
   <span class="crumb">ADMIN</span>
 </div>
 
@@ -103,7 +103,9 @@
         <div class="detail-head" style="margin:0 0 10px;gap:8px;">
           <span class="sc-l" style="flex:0 0 auto;">정렬</span>
           <span style="display:flex;gap:6px;">
-            <button class="btn btn-sm btn-grind psort" data-sort="rate">학습률</button>
+            <button class="btn btn-sm btn-grind psort" data-sort="rate">어휘 학습률</button>
+            <button class="btn btn-sm btn-ghost psort" data-sort="w1">W1 학습률</button>
+            <button class="btn btn-sm btn-ghost psort" data-sort="both">합산</button>
             <button class="btn btn-sm btn-ghost psort" data-sort="recent">최근접속</button>
             <button class="btn btn-sm btn-ghost psort" data-sort="name">이름</button>
           </span>
@@ -122,10 +124,12 @@
   </div>
 </main>
 
-<script src="data/meta.js"></script>
-<script src="data/vocab.js"></script>
-<script src="data/blanks.js"></script>
-<script src="assets/deck.js"></script>
+<script src="vocab/data/meta.js"></script>
+<script src="vocab/data/vocab.js"></script>
+<script src="vocab/data/blanks.js"></script>
+<script src="vocab/assets/deck.js"></script>
+<!-- Writing 진도 분모(개념·세트 수)만 필요 → 소형 메타(908B). w1.js/w1_mock.js 는 로드하지 않음. -->
+<script src="writing/data/w1_meta.js"></script>
 <script src="assets/config.js"></script>
 <script>
 (function () {
@@ -467,6 +471,30 @@
     const rate = TOT && TOT.all ? Math.round(studied / TOT.all * 100) : 0;
     return { known, learning, viewed, seen, correct, st, studied, rate };
   }
+  // ---------- Writing Task 1 진도 ----------
+  // 분모는 writing/data/w1_meta.js(908B) 에서. 2.1MB 짜리 w1.js/w1_mock.js 는 로드하지 않는다.
+  // 집계 기준은 writing/mypage.html 과 동일: 완료=푼 세트 수(점수 무관), 정답률=Σcorrect/Σtotal(마이크로 평균).
+  // ※ writing 저장 정책이 "최고점만 남김"이라 여기 정답률은 상한선이고, 시도 횟수·향상 곡선은 산출 불가.
+  const W1META = window.NEO_DATA_W1_META || { concepts: [], mocks: 0, conceptSets: 0, totalSets: 0 };
+  function statOfW1(dataStr) {
+    let db = {}; try { db = JSON.parse(dataStr || "{}") || {}; } catch (e) {}
+    const byC = {};                       // concept_n → {correct,total,sets:Set}
+    const mocks = new Set();
+    let correct = 0, total = 0, done = 0;
+    for (const k in db) {
+      const v = db[k] || {}; done++;
+      correct += v.correct || 0; total += v.total || 0;
+      if (k.indexOf("mock") === 0) { mocks.add(v.exam_id != null ? v.exam_id : k); continue; }
+      const cn = v.concept_n;
+      if (cn == null) continue;
+      if (!byC[cn]) byC[cn] = { correct: 0, total: 0, sets: new Set() };
+      byC[cn].correct += v.correct || 0; byC[cn].total += v.total || 0;
+      if (v.set_id != null) byC[cn].sets.add(v.set_id);
+    }
+    const rate = W1META.totalSets ? Math.round(done / W1META.totalSets * 100) : 0;   // 학습률 = 완료 세트 비율
+    const acc = total ? Math.round(correct / total * 100) : 0;
+    return { done, rate, acc, correct, total, byC, mocksDone: mocks.size };
+  }
   function tsOf(at) { const t = Date.parse(at || ""); return isNaN(t) ? 0 : t; }
   function relTime(at) {
     const t = tsOf(at); if (!t) return "기록 없음";
@@ -488,7 +516,11 @@
         $("pmsg").textContent = "불러오지 못했어요. (서버에 최신 gs 배포가 필요할 수 있어요)"; $("pmsg").className = "verdict no"; return;
       }
       $("pmsg").textContent = "";
-      students = (d.students || []).map(s => Object.assign({}, s, { stat: statOf(s.data) }));
+      // 한 학생 = 두 앱. getallprog 가 vocab(data/at)과 writing(data_w1/at_w1)을 함께 준다.
+      students = (d.students || []).map(s => Object.assign({}, s, {
+        stat: statOf(s.data),
+        w1: statOfW1(s.data_w1),
+      }));
       renderProg();
     }).catch(() => { $("pmsg").textContent = "인터넷 연결이 필요해요."; $("pmsg").className = "verdict no"; });
   }
@@ -496,31 +528,40 @@
     ensureTot();
     const q = ($("psearch").value || "").trim().toLowerCase();
     let list = students.filter(s => !q || (s.label || "").toLowerCase().includes(q) || (s.code || "").toLowerCase().includes(q));
+    // 마지막 접속 = 두 앱 중 더 최근 것
+    const lastOf = s => Math.max(tsOf(s.at), tsOf(s.at_w1));
+    const sortKey = s => psort === "w1" ? s.w1.rate
+                       : psort === "both" ? Math.round((s.stat.rate + s.w1.rate) / 2)
+                       : s.stat.rate;
     list.sort((a, z) => {
       if (psort === "name") return (a.label || a.code).localeCompare(z.label || z.code, "ko");
-      if (psort === "recent") return tsOf(z.at) - tsOf(a.at);
-      return (z.stat.rate - a.stat.rate) || (z.stat.known - a.stat.known);
+      if (psort === "recent") return lastOf(z) - lastOf(a);
+      return (sortKey(z) - sortKey(a)) || (z.stat.known - a.stat.known);
     });
     $("pcount").textContent = students.length;
     if (!students.length) { $("plist").innerHTML = '<p class="lead">아직 학생(코드)이 없어요.</p>'; return; }
     if (!list.length) { $("plist").innerHTML = '<p class="lead">검색 결과가 없어요.</p>'; return; }
     $("plist").innerHTML = list.map(s => {
-      const started = s.stat.studied > 0 || s.stat.known || s.stat.viewed || tsOf(s.at);
+      const vStarted = s.stat.studied > 0 || s.stat.known || s.stat.viewed || tsOf(s.at);
+      const wStarted = s.w1.done > 0 || tsOf(s.at_w1);
+      const started = vStarted || wStarted;                 // 두 앱 다 미시작일 때만 dim
+      const badge = psort === "w1" ? s.w1.rate : psort === "both" ? Math.round((s.stat.rate + s.w1.rate) / 2) : s.stat.rate;
       return '<div class="wordrow prow" data-code="' + esc(s.code) + '" style="align-items:center;cursor:pointer;' + (started ? '' : 'opacity:.55;') + '">' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="font-weight:800;">' + esc(s.label || s.code) + (started ? '' : ' <span class="sc-l" style="color:var(--neo-mute);font-weight:700;">· 미시작</span>') + '</div>' +
-          '<div class="sc-l" style="opacity:.7;">외운 ' + s.stat.known + ' · 학습률 ' + s.stat.rate + '% · ' + relTime(s.at) + '</div>' +
+          '<div class="sc-l" style="opacity:.7;">어휘 ' + s.stat.rate + '% · W1 ' + s.w1.rate + '% · ' + relTime(lastOf(s) ? new Date(lastOf(s)).toISOString() : "") + '</div>' +
         '</div>' +
-        '<span class="sc-l" style="font-weight:900;font-size:15px;">' + s.stat.rate + '%</span>' +
+        '<span class="sc-l" style="font-weight:900;font-size:15px;">' + badge + '%</span>' +
       '</div>';
     }).join("");
     Array.from(document.querySelectorAll(".prow")).forEach(r => r.addEventListener("click", () => showStudent(r.getAttribute("data-code"))));
   }
-  function pbar(label, st, tot) {
+  // countLabel 을 주면 "N / M · P%" 대신 그 문자열을 쓴다(정답률 막대처럼 분모가 무의미할 때).
+  function pbar(label, st, tot, countLabel) {
     const pct = tot ? Math.round(st / tot * 100) : 0;
     return '<div class="deck-card" style="margin-bottom:10px;">' +
-      '<div style="display:flex;justify-content:space-between;align-items:baseline;"><span class="dt" style="font-size:16px;">' + label + '</span>' +
-      '<span class="dcount">' + st + ' / ' + tot + ' · ' + pct + '%</span></div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;"><span class="dt" style="font-size:16px;">' + label + '</span>' +
+      '<span class="dcount">' + (countLabel || (st + ' / ' + tot + ' · ' + pct + '%')) + '</span></div>' +
       '<div class="bar" style="margin-top:8px;"><div class="fill" style="width:' + pct + '%"></div></div></div>';
   }
   function showStudent(code) {
@@ -528,19 +569,47 @@
     ensureTot();
     const st = s.stat, acc = st.seen ? Math.round(st.correct / st.seen * 100) : 0;
     const tp = TOT || { practical: 0, academic: 0, ctest: 0 };
+    const w = s.w1;
+    const last = Math.max(tsOf(s.at), tsOf(s.at_w1));
+
+    // --- Writing Task 1 섹션 ---
+    let w1html;
+    if (!w.done) {
+      w1html = '<p class="lead">아직 푼 세트가 없어요.</p>';
+    } else {
+      const conceptRows = W1META.concepts.map(c => {
+        const b = w.byC[c.n];
+        if (!b) return "";
+        const pct = b.total ? Math.round(b.correct / b.total * 100) : 0;
+        return pbar(c.short + ' <span class="sc-l" style="opacity:.7;font-weight:700;">' + b.sets.size + '/' + c.sets + ' 세트</span>', pct, 100, pct + '%');
+      }).filter(Boolean).join("");
+      w1html =
+        '<div class="prog-cards" style="margin-bottom:16px;">' +
+          '<div class="stat-card"><div class="sc-v">' + w.done + '</div><div class="sc-l">완료 세트</div></div>' +
+          '<div class="stat-card acid"><div class="sc-v">' + w.rate + '%</div><div class="sc-l">학습률</div></div>' +
+          '<div class="stat-card grind"><div class="sc-v">' + w.acc + '%</div><div class="sc-l">정답률</div></div>' +
+          '<div class="stat-card"><div class="sc-v">' + w.mocksDone + '</div><div class="sc-l">모의고사</div></div>' +
+        '</div>' +
+        pbar("전체 진도", w.done, W1META.totalSets) +
+        pbar("모의고사", w.mocksDone, W1META.mocks) +
+        (conceptRows ? '<div class="sc-l" style="margin:14px 0 8px;font-weight:800;">개념별 정답률</div>' + conceptRows : "");
+    }
+
     $("pdetail").innerHTML =
       '<div style="font-weight:900;font-size:22px;">' + esc(s.label || s.code) + '</div>' +
-      '<div class="sc-l" style="opacity:.7;margin:2px 0 14px;">코드 ' + esc(s.code) + ' · 마지막 접속 ' + relTime(s.at) + '</div>' +
+      '<div class="sc-l" style="opacity:.7;margin:2px 0 14px;">코드 ' + esc(s.code) + ' · 마지막 접속 ' + relTime(last ? new Date(last).toISOString() : "") + '</div>' +
+      '<div class="section-kr" style="margin-bottom:8px;">📚 어휘</div>' +
       '<div class="prog-cards" style="margin-bottom:16px;">' +
         '<div class="stat-card"><div class="sc-v">' + st.viewed + '</div><div class="sc-l">확인한 단어</div></div>' +
         '<div class="stat-card acid"><div class="sc-v">' + st.learning + '</div><div class="sc-l">헷갈리는 단어</div></div>' +
         '<div class="stat-card grind"><div class="sc-v">' + st.known + '</div><div class="sc-l">외운 단어</div></div>' +
         '<div class="stat-card"><div class="sc-v">' + acc + '%</div><div class="sc-l">퀴즈 정답률</div></div>' +
       '</div>' +
-      '<div class="section-kr" style="margin-bottom:8px;">덱별 진도</div>' +
       pbar("실용어휘", st.st.practical, tp.practical) +
       pbar("학술어휘", st.st.academic, tp.academic) +
-      pbar("Reading Task1 빈칸어휘", st.st.ctest, tp.ctest);
+      pbar("Reading Task1 빈칸어휘", st.st.ctest, tp.ctest) +
+      '<div class="section-kr" style="margin:22px 0 8px;">✏️ Writing Task 1</div>' +
+      w1html;
     $("plist-view").style.display = "none"; $("pdetail-view").style.display = "block";
   }
   function switchTab(which) {

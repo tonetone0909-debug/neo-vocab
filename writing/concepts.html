@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>개념 학습 · NEO TOEFL Writing Task 1</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="stylesheet" href="../assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="../assets/config.js"></script>
+<script src="../assets/auth.js"></script>
+<script src="../assets/shell.js"></script>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<div class="app-topbar">
+  <a class="brand" href="../index.html"><span class="dot"></span>NEO&nbsp;TOEFL</a>
+  <span class="crumb">개념 학습 · LEARN</span>
+</div>
+
+<main class="app">
+  <div class="idx-kicker" style="padding-top:8px;">LEARN</div>
+  <h1 class="idx-title" style="font-size:clamp(34px,9vw,48px);">개념을<br>골라 배워요</h1>
+  <div class="deck-grid" id="cgrid" style="margin-top:20px;"></div>
+</main>
+
+<nav class="tabbar">
+  <a href="index.html"><span class="ic">🏠</span>홈</a>
+  <a href="concepts.html" class="on"><span class="ic">📚</span>개념</a>
+  <a href="w1-mock.html"><span class="ic">📝</span>모의고사</a>
+  <a href="mypage.html"><span class="ic">📊</span>마이페이지</a>
+</nav>
+
+<script src="data/w1_learn.js"></script>
+<script src="data/w1.js"></script>
+<script>
+(function(){
+  const concepts = (window.NEO_DATA_W1_LEARN && NEO_DATA_W1_LEARN.concepts) || [];
+  const DATA = window.NEO_DATA_W1 || [];
+  const setsOf = cn => new Set(DATA.filter(d => d.concept_n === cn).map(d => d.set_id)).size;
+  const grid = document.getElementById("cgrid");
+  concepts.forEach((c, i) => {
+    const nsets = setsOf(c.n);
+    const card = document.createElement("div");
+    card.className = "deck-card" + (i % 2 ? " blaze" : " acid");
+    card.innerHTML =
+      `<span class="num">${c.n}</span><span class="k">${nsets}개 세트</span>` +
+      `<div class="dt">${c.title.replace(/\s*\(.*\)$/, "")}</div>` +
+      `<div class="dd">예문·구조 분석으로 개념을 익히고, 10문항 세트로 손에 붙여요.</div>` +
+      `<div class="dc-actions">` +
+        `<a class="btn btn-sm btn-ghost" href="w1-learn.html?c=${c.n}">📚 개념 학습</a>` +
+        (nsets ? `<a class="btn btn-sm btn-primary" href="writing.html?c=${c.n}">✏️ 문제 풀기</a>` : "") +
+      `</div>`;
+    grid.appendChild(card);
+  });
+  if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("../sw.js").catch(()=>{}));
+})();
+</script>
+</body>
+</html>

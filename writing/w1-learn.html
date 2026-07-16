@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>개념 학습 · Writing Task 1 · NEO TOEFL</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="stylesheet" href="../assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="../assets/config.js"></script>
+<script src="../assets/auth.js"></script>
+<script src="../assets/shell.js"></script>
+<style>
+.w1l-head { margin: 4px 0 8px; }
+.w1l-title { font-family: var(--font-display-kr); font-size: clamp(26px,4vw,38px); line-height:1.12; margin:0; }
+.w1l-summary { font-size:15px; line-height:1.6; color:var(--neo-ink-soft); margin:10px 0 0; max-width:64ch; }
+.w1l-sub { border:3px solid var(--neo-ink); background:var(--neo-card); box-shadow:var(--sh-2);
+  border-radius:var(--r-2); padding:18px; margin-top:16px; }
+.w1l-sub .st { font-family:var(--font-display-kr); font-size:20px; margin:0 0 8px; }
+.w1l-sub .ex { font-size:15px; line-height:1.6; color:var(--neo-ink); }
+.w1l-eg { border-left:3px solid var(--neo-blaze); padding:6px 0 6px 12px; margin:12px 0 0; }
+.w1l-eg .en { font-family:var(--font-reading); font-weight:700; font-size:16px; }
+.w1l-eg .ko { font-size:13px; color:var(--neo-ink-soft); margin-top:2px; }
+.w1l-mis { display:flex; gap:8px; align-items:flex-start; margin-top:10px; font-size:14px; line-height:1.5; }
+/* --neo-fail(#FF3D3D) 은 paper 대비 3.5:1 → 배경용. 텍스트 마크는 진한 적색으로 AA(5.9:1) 확보. */
+.w1l-mis .x { font-family:var(--font-mono); font-weight:700; color:#C81E1E; flex-shrink:0; }
+.w1l-mis .o { font-family:var(--font-mono); font-weight:700; }
+.w1l-mis .bad { text-decoration:line-through; color:var(--neo-mute); }
+.w1l-block-k { font-family:var(--font-label-kr); font-size:14px; font-weight:700; letter-spacing:0; text-transform:none; color:var(--neo-mute); margin:14px 0 4px; }
+.w1l-outline { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+.w1l-outline .row { border:2px solid var(--neo-ink); border-radius:8px; padding:11px 14px; background:var(--neo-paper-2); font-weight:700; font-size:15px; }
+.w1l-soon { display:inline-block; margin-left:8px; font-family:var(--font-label-kr); font-size:11px; font-weight:600; letter-spacing:0;
+  background:var(--neo-ink); color:var(--neo-acid); padding:2px 8px; border-radius:999px; }
+.w1l-cta { margin-top:22px; }
+.w1l-acc { margin-top:12px; border:2px solid var(--neo-ink); border-radius:8px; overflow:hidden; }
+.w1l-acc summary { list-style:none; cursor:pointer; min-height:44px; padding:11px 14px; font-family:var(--font-label-kr); font-size:14px;
+  letter-spacing:0; text-transform:none; color:var(--neo-ink); background:var(--neo-paper-2);
+  display:flex; align-items:center; justify-content:space-between; font-weight:700; }
+.w1l-acc summary::-webkit-details-marker { display:none; }
+.w1l-acc summary::after { content:"▾"; font-size:13px; transition:transform var(--dur-fast) var(--ease-snap); }
+.w1l-acc[open] summary::after { transform:rotate(180deg); }
+.w1l-acc-body { padding:2px 14px 12px; }
+.w1l-acc-body .w1l-eg:first-child { margin-top:8px; }
+.w1l-db .st { font-family:var(--font-display-kr); }
+.db-note { font-size:13px; line-height:1.5; color:var(--neo-ink-soft); margin:8px 0 4px; }
+.db-list { margin-top:4px; }
+.db-item { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; padding:7px 0; font-size:14px; }
+.db-item + .db-item { border-top:2px solid var(--neo-paper-2); }
+.db-item b { font-family:var(--font-reading); font-weight:700; min-width:66px; color:var(--neo-ink); }
+.db-item .db-ko { color:var(--neo-ink-soft); font-size:13px; font-weight:700; }
+.db-item .db-ex { flex-basis:100%; font-family:var(--font-label-kr); font-size:12px; color:var(--neo-mute); margin-top:1px; }
+.hidden { display:none !important; }
+.w1l-master { display:flex; align-items:center; gap:14px; margin:18px 0 4px; text-decoration:none;
+  border:3px solid var(--neo-ink); background:var(--neo-acid); color:var(--neo-ink);
+  box-shadow:var(--sh-2); border-radius:var(--r-2); padding:14px 18px;
+  transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-fast) var(--ease-snap); }
+.w1l-master:hover { transform:translate(-3px,-3px); box-shadow:var(--sh-3); }
+.w1l-master .mi { font-size:24px; flex-shrink:0; }
+.w1l-master .mt { font-family:var(--font-display-kr); font-size:19px; line-height:1.2; }
+.w1l-master .md { font-size:13px; color:var(--neo-ink-soft); }
+
+/* ===== PHASE 5 — 개조식 · 성분 다이어그램 ===== */
+.w1l-toc { display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 2px; }
+.w1l-toc .tchip { border:2px solid var(--neo-ink); border-radius:999px; padding:6px 12px; background:var(--neo-card);
+  font-size:13px; font-weight:700; color:var(--neo-ink); cursor:pointer; text-decoration:none;
+  transition:transform var(--dur-fast) var(--ease-snap); }
+.w1l-toc .tchip:active { transform:translateY(1px); }
+.w1l-toc .tn { font-family:var(--font-mono); font-size:11px; color:var(--neo-mute); margin-right:5px; }
+
+.w1l-legend { margin:10px 0 2px; border:2px solid var(--neo-ink); border-radius:8px; overflow:hidden; background:var(--neo-card); }
+.w1l-legend > summary { list-style:none; cursor:pointer; min-height:44px; display:flex; align-items:center;
+  padding:9px 13px; font-family:var(--font-label-kr);
+  font-size:14px; letter-spacing:0; font-weight:700; background:var(--neo-paper-2); }
+.w1l-legend > summary::-webkit-details-marker { display:none; }
+.w1l-legend .lg { display:flex; flex-wrap:wrap; gap:8px 16px; padding:12px 14px; font-size:14px; font-weight:700; }
+.w1l-legend .lg span b { font-family:var(--font-mono); font-weight:700; margin-right:4px; }
+
+.w1l-topic { border:3px solid var(--neo-ink); background:var(--neo-card); box-shadow:var(--sh-2);
+  border-radius:var(--r-2); margin-top:14px; overflow:hidden; }
+.w1l-topic > summary { list-style:none; cursor:pointer; padding:15px 18px; display:flex; gap:10px; align-items:flex-start;
+  font-family:var(--font-display-kr); font-size:18px; line-height:1.28; }
+.w1l-topic > summary::-webkit-details-marker { display:none; }
+.w1l-topic > summary::after { content:"▾"; margin-left:auto; font-size:14px; flex-shrink:0;
+  transition:transform var(--dur-fast) var(--ease-snap); }
+.w1l-topic[open] > summary::after { transform:rotate(180deg); }
+.w1l-topic > summary .tn { font-family:var(--font-mono); font-size:12px; color:var(--neo-mute); flex-shrink:0; padding-top:3px; }
+.w1l-topic-body { padding:0 18px 18px; }
+
+.pts { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:9px; }
+.pts li { position:relative; padding-left:17px; font-size:15px; line-height:1.6; color:var(--neo-ink); }
+.pts li::before { content:"▪"; position:absolute; left:0; top:0; color:var(--neo-ink); }
+.pts b { font-weight:800; }
+mark.hl { background:#FFF08A; color:var(--neo-ink); padding:0 3px; border-radius:3px; font-weight:700; }
+
+.eg { margin:14px 0 0; padding-top:12px; border-top:2px solid var(--neo-paper-2); }
+.eg:first-child { border-top:none; padding-top:2px; }
+.eg-diag { display:flex; flex-wrap:wrap; gap:9px 11px; align-items:flex-end; font-family:var(--font-reading); }
+.eg-part { display:inline-flex; flex-direction:column; align-items:center; gap:3px; }
+.eg-part .w { font-size:16px; font-weight:700; line-height:1.2; border-bottom:2px solid var(--rc,var(--neo-ink)); padding:0 1px 3px; color:var(--neo-ink); }
+.eg-part .r { font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:0.03em; color:var(--rc,var(--neo-ink)); }
+.eg-ko { font-size:14px; color:var(--neo-ink-soft); margin-top:9px; line-height:1.55; }
+
+/* ===== PHASE 6 — 목차 ↔ 상세 뷰 ===== */
+.w1l-index { display:flex; flex-direction:column; gap:10px; margin-top:16px; }
+.ix-row { display:flex; align-items:center; gap:12px; min-height:56px; padding:12px 16px; text-decoration:none;
+  border:3px solid var(--neo-ink); background:var(--neo-card); box-shadow:var(--sh-2); border-radius:var(--r-2);
+  color:var(--neo-ink); transition:transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-fast) var(--ease-snap); }
+.ix-row:active { transform:translate(2px,2px); box-shadow:var(--sh-1); }
+.ix-row .ix-n { flex-shrink:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-mono); font-size:14px; font-weight:700; border:2px solid var(--neo-ink); border-radius:8px;
+  background:var(--neo-ink); color:var(--neo-acid); }
+.ix-row .ix-t { flex:1; font-family:var(--font-display-kr); font-size:16px; line-height:1.3; }
+.ix-row .ix-go { flex-shrink:0; font-size:22px; font-weight:700; color:var(--neo-mute); }
+.ix-row.ix-db { background:var(--neo-paper-2); }
+.ix-row.ix-db .ix-n { background:var(--neo-ink); color:var(--neo-acid); border-color:var(--neo-ink); }
+
+.w1l-back { display:inline-flex; align-items:center; gap:6px; min-height:44px; margin:14px 0 4px; padding:8px 16px; text-decoration:none;
+  border:2px solid var(--neo-ink); border-radius:999px; background:var(--neo-card); color:var(--neo-ink);
+  font-size:14px; font-weight:700; transition:transform var(--dur-fast) var(--ease-snap); }
+.w1l-back:active { transform:translateY(1px); }
+.w1l-detail { border:3px solid var(--neo-ink); background:var(--neo-card); box-shadow:var(--sh-2);
+  border-radius:var(--r-2); padding:18px; margin-top:12px; }
+.w1l-detail-k { font-family:var(--font-mono); font-size:11px; letter-spacing:0.1em; color:var(--neo-mute); margin-bottom:4px; }
+.w1l-detail-t { font-family:var(--font-display-kr); font-size:21px; line-height:1.28; margin:0 0 6px; }
+.w1l-intro { font-size:15px; line-height:1.6; color:var(--neo-ink-soft); margin:8px 0 4px; }
+.w1l-seck { font-family:var(--font-label-kr); font-size:14px; letter-spacing:0; text-transform:none;
+  color:var(--neo-mute); font-weight:700; margin:20px 0 6px; padding-top:14px; border-top:2px solid var(--neo-paper-2); }
+.eg-wrap { margin-top:2px; }
+
+.w1l-prevnext { display:flex; justify-content:space-between; gap:10px; margin-top:14px; }
+.w1l-prevnext .pn { flex:1; text-align:center; padding:12px; text-decoration:none; border:3px solid var(--neo-ink);
+  border-radius:var(--r-2); background:var(--neo-card); box-shadow:var(--sh-1); color:var(--neo-ink); font-weight:700; font-size:14px;
+  transition:transform var(--dur-fast) var(--ease-snap); }
+.w1l-prevnext .pn:active { transform:translate(1px,1px); box-shadow:none; }
+.w1l-prevnext .pn.dis { visibility:hidden; box-shadow:none; border:none; }
+</style>
+</head>
+<body>
+
+<div class="top-strip"></div>
+<div class="app-topbar">
+  <a class="brand" href="../index.html"><span class="dot"></span>NEO&nbsp;TOEFL</a>
+  <span class="crumb">개념 학습</span>
+</div>
+
+<div class="controls" style="max-width:560px;margin:0 auto;">
+  <a class="btn btn-sm btn-ghost" href="concepts.html">← 개념</a>
+</div>
+
+<div class="wrap-narrow" style="max-width:560px;padding-bottom:calc(84px + env(safe-area-inset-bottom));">
+  <div class="w1l-head">
+    <h1 class="w1l-title" id="c-title"></h1>
+    <p class="w1l-summary" id="c-summary"></p>
+  </div>
+  <div id="c-body"></div>
+  <div class="w1l-cta">
+    <a class="btn btn-primary" id="practice-cta" href="writing.html">이 개념 연습하기 →</a>
+  </div>
+</div>
+
+<script src="data/w1_learn.js"></script>
+<script>
+const LEARN = (window.NEO_DATA_W1_LEARN && NEO_DATA_W1_LEARN.concepts) || [];
+const $ = id => document.getElementById(id);
+function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+let cur = parseInt(new URLSearchParams(location.search).get("c"),10) || 1;
+
+// 강조 마커 → HTML (escape 후 **볼드**·==하이라이트== 만 변환)
+function mk(s){
+  let t = esc(s);
+  t = t.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  t = t.replace(/==([^=]+)==/g, '<mark class="hl">$1</mark>');
+  return t;
+}
+const ROLE_KO = {S:"주어",V:"동사",Aux:"조동사",O:"목적어",IO:"간접목적어",DO:"직접목적어",SC:"주격보어",OC:"목적격보어",M:"수식어",Conj:"접속사",Wh:"의문사",RP:"관계대명사",Det:"한정사",Num:"수사",Adj:"형용사",N:"핵심명사",Pm:"후치수식"};
+/* 역할 색은 paper(#FBFBF7) 위 AA(4.5:1) 이상: 파랑 #2f49c8 ≈8.0 · 갈색 #8F5417 ≈5.9(원래 #b06a1f 는 4.26 미달) · 보라 #7a3fb0 ≈6.4 */
+const ROLE_COL = {S:"var(--neo-ink)",V:"var(--neo-ink)",Aux:"var(--neo-ink)",O:"#2f49c8",IO:"#2f49c8",DO:"#2f49c8",SC:"#2f49c8",OC:"#2f49c8",M:"#8F5417",Conj:"#8F5417",Wh:"#8F5417",RP:"#7a3fb0",Det:"#2f49c8",Num:"#2f49c8",Adj:"#8F5417",N:"var(--neo-ink)",Pm:"#8F5417"};
+function diagram(e){
+  if (!e || typeof e !== "object"){ // 구형 [EN,KO] 폴백
+    const a = Array.isArray(e)?e:[e,""];
+    return `<div class="eg"><div class="eg-diag"><span class="eg-part"><span class="w">${esc(a[0])}</span></span></div><div class="eg-ko">${esc(a[1]||"")}</div></div>`;
+  }
+  const parts = (e.parts||[]).map(p =>
+    `<span class="eg-part" style="--rc:${ROLE_COL[p.role]||"var(--neo-ink)"}"><span class="w">${esc(p.t)}</span><span class="r">${esc(p.role||"")}</span></span>`
+  ).join("");
+  return `<div class="eg"><div class="eg-diag">${parts}</div>${e.ko?`<div class="eg-ko">${esc(e.ko)}</div>`:""}</div>`;
+}
+const legendHTML = `<details class="w1l-legend"><summary>문장성분 약어 보기</summary><div class="lg">${
+  Object.keys(ROLE_KO).map(r=>`<span style="color:${ROLE_COL[r]}"><b>${r}</b>${ROLE_KO[r]}</span>`).join("")
+}</div></details>`;
+function shortTitle(t){ return String(t||"").split(/\s*[(（]/)[0].trim() || t; }
+
+// ===== 목차 ↔ 상세 뷰 (URL ?c=N&t=<i|"db">) =====
+function getT(){ return new URLSearchParams(location.search).get("t"); }
+function go(t){
+  const u = new URL(location.href);
+  if (t === null || t === undefined) u.searchParams.delete("t");
+  else u.searchParams.set("t", t);
+  history.pushState({}, "", u);
+  render();
+  window.scrollTo(0, 0);
+}
+window.addEventListener("popstate", render);
+
+function dbHTML(c){
+  let h = `<div class="w1l-detail-t">📚 ${esc(c.db.title||"DB 레퍼런스")}</div>`;
+  if (c.db.intro) h += `<p class="w1l-intro">${mk(c.db.intro)}</p>`;
+  (c.db.groups||[]).forEach((g,gi) => {
+    h += `<details class="w1l-acc"${gi===0?" open":""}><summary>${esc(g.label)} · ${(g.items||[]).length}개</summary><div class="w1l-acc-body">`;
+    if (g.note) h += `<div class="db-note">${mk(g.note)}</div>`;
+    h += `<div class="db-list">` + (g.items||[]).map(it =>
+      `<div class="db-item"><b>${esc(it.w)}</b><span class="db-ko">${esc(it.ko||"")}</span>${it.ex?`<span class="db-ex">${esc(it.ex)}</span>`:""}</div>`).join("") + `</div>`;
+    h += `</div></details>`;
+  });
+  return h;
+}
+function detailHTML(s){
+  let h = `<ul class="pts">${(s.points||[]).map(p=>`<li>${mk(p)}</li>`).join("")}</ul>`;
+  if ((s.examples||[]).length){
+    h += `<div class="w1l-seck">예문 EXAMPLES · ${s.examples.length}개</div>`;
+    h += legendHTML;
+    h += `<div class="eg-wrap">` + s.examples.map(diagram).join("") + `</div>`;
+  }
+  if ((s.mistakes||[]).length){
+    h += `<details class="w1l-acc" style="margin-top:16px"><summary>흔한 실수 COMMON MISTAKES · ${s.mistakes.length}개</summary><div class="w1l-acc-body">`;
+    h += s.mistakes.map(m => `<div class="w1l-mis"><span class="x">✗</span><span><span class="bad">${esc(m[0])}</span> → <span class="o">${mk(m[1])}</span></span></div>`).join("");
+    h += `</div></details>`;
+  }
+  return h;
+}
+
+function render(){
+  const c = LEARN.find(x => x.n === cur) || LEARN[0];
+  if (!c) return;
+  $("c-title").textContent = `${c.n}. ${c.title}`;
+  $("practice-cta").href = `writing.html?c=${c.n}`;
+  const body = $("c-body"); body.innerHTML = "";
+  const sumEl = $("c-summary");
+  const subs = c.subtopics || [];
+  const t = getT();
+
+  if (c.status !== "detailed"){
+    sumEl.innerHTML = mk(c.summary || ""); sumEl.style.display = "";
+    const card = document.createElement("div");
+    card.className = "w1l-sub";
+    card.innerHTML = `<div class="w1l-block-k">다룰 서브토픽 SUBTOPICS <span class="w1l-soon">상세 준비 중</span></div>
+      <div class="w1l-outline">${subs.map(s=>`<div class="row">${esc(s.title)}</div>`).join("")}</div>`;
+    body.appendChild(card);
+    return;
+  }
+
+  if (t === null){
+    // ── 목차 랜딩 ──
+    sumEl.innerHTML = mk(c.summary || ""); sumEl.style.display = "";
+    const idx = document.createElement("div");
+    idx.className = "w1l-index";
+    let rows = subs.map((s,i)=>
+      `<a class="ix-row" href="?c=${c.n}&t=${i}" data-t="${i}"><span class="ix-n">${i+1}</span><span class="ix-t">${esc(s.title)}</span><span class="ix-go">›</span></a>`
+    ).join("");
+    if (c.db && (c.db.groups||[]).length)
+      rows += `<a class="ix-row ix-db" href="?c=${c.n}&t=db" data-t="db"><span class="ix-n">📚</span><span class="ix-t">${esc(c.db.title||"DB 레퍼런스")}</span><span class="ix-go">›</span></a>`;
+    idx.innerHTML = rows;
+    body.appendChild(idx);
+  } else {
+    // ── 상세 뷰 ──
+    sumEl.style.display = "none";
+    const back = document.createElement("a");
+    back.className = "w1l-back"; back.href = `?c=${c.n}`; back.dataset.back = "1";
+    back.innerHTML = `← 목차`;
+    body.appendChild(back);
+    const card = document.createElement("div");
+    card.className = "w1l-detail";
+    if (t === "db"){
+      card.innerHTML = dbHTML(c);
+      body.appendChild(card);
+    } else {
+      const i = parseInt(t,10);
+      const s = subs[i];
+      if (!s){ go(null); return; }
+      card.innerHTML = `<div class="w1l-detail-k">${i+1} / ${subs.length}</div><h2 class="w1l-detail-t">${esc(s.title)}</h2>` + detailHTML(s);
+      body.appendChild(card);
+      // 이전 / 다음 서브토픽
+      const nav = document.createElement("div");
+      nav.className = "w1l-prevnext";
+      nav.innerHTML =
+        (i>0 ? `<a class="pn" href="?c=${c.n}&t=${i-1}" data-t="${i-1}">← 이전</a>` : `<span class="pn dis"></span>`) +
+        (i<subs.length-1 ? `<a class="pn" href="?c=${c.n}&t=${i+1}" data-t="${i+1}">다음 →</a>` : `<span class="pn dis"></span>`);
+      body.appendChild(nav);
+    }
+  }
+
+  // 링크 → SPA 전환 (pushState)
+  body.querySelectorAll("[data-t]").forEach(a => a.addEventListener("click", ev => { ev.preventDefault(); go(a.dataset.t); }));
+  body.querySelectorAll("[data-back]").forEach(a => a.addEventListener("click", ev => { ev.preventDefault(); go(null); }));
+}
+render();
+</script>
+
+<nav class="tabbar">
+  <a href="index.html"><span class="ic">🏠</span>홈</a>
+  <a href="concepts.html" class="on"><span class="ic">📚</span>개념</a>
+  <a href="w1-mock.html"><span class="ic">📝</span>모의고사</a>
+  <a href="mypage.html"><span class="ic">📊</span>마이페이지</a>
+</nav>
+<script>if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("../sw.js").catch(()=>{}));</script>
+</body>
+</html>

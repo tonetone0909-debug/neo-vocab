@@ -1,62 +1,24 @@
-/* shell.js — 공용 셸: 탭 간 스와이프. 전 페이지 <head>에서 로드.
- * config/auth 다음, 본문 스크립트 전에 둠. */
+/* shell.js — 앱 공용 셸: 우측 상단 사용자 이름 칩 + 우클릭 차단. 전 페이지 <head>에서 로드.
+ * config/auth 다음, 본문 스크립트 전에 둠.
+ * vocab 전용 탭 스와이프는 vocab/assets/swipe.js 로 분리(앱마다 탭 구성이 다르고,
+ * index.html 같은 파일명이 앱마다 겹쳐 파일명만으로 탭을 판정하면 오작동함). */
 (function () {
   // 이전 버전 다크모드 흔적 정리(다크모드 기능 제거됨)
   try { document.documentElement.removeAttribute("data-theme"); localStorage.removeItem("neo_theme"); } catch (e) {}
 
-  // ---------- 탭 간 스와이프 ----------
-  var TABS = ["index.html", "study.html", "quiz.html", "progress.html"];
-  var URLS = ["index.html", "study.html?deck=practical", "quiz.html", "progress.html"];
-  function currentTabIndex() {
-    var f = (location.pathname.split("/").pop() || "index.html").toLowerCase();
-    if (f === "" ) f = "index.html";
-    if (f === "blanks.html" || f === "study.html") return 1;        // 어휘
-    if (f === "ctest.html" || f === "quiz.html") return 2;          // 퀴즈
-    if (f === "mylist.html" || f === "progress.html") return 3;     // 성취
-    if (f === "index.html") return 0;
-    return -1;                                                      // login/admin 등 → 스와이프 없음
-  }
+  var page = (location.pathname.split("/").pop() || "").toLowerCase();
 
-  var sx = 0, sy = 0, tracking = false;
-  function onStart(x, y, target) {
-    tracking = false;
-    if (target && target.closest && (target.closest("[data-swipe-card]") || target.closest(".no-tabswipe") || target.closest("input,textarea,[contenteditable]"))) return;
-    if (currentTabIndex() < 0) return;
-    sx = x; sy = y; tracking = true;
-  }
-  function onEnd(x, y) {
-    if (!tracking) return; tracking = false;
-    var dx = x - sx, dy = y - sy;
-    if (Math.abs(dx) < 60 || Math.abs(dx) < 1.8 * Math.abs(dy)) return;
-    var i = currentTabIndex(); if (i < 0) return;
-    var ni = dx < 0 ? i + 1 : i - 1;                               // 좌=다음, 우=이전
-    if (ni < 0 || ni >= TABS.length || ni === i) return;
-    location.href = URLS[ni];
-  }
-
-  document.addEventListener("touchstart", function (e) {
-    if (e.touches.length !== 1) { tracking = false; return; }
-    onStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
-  }, { passive: true });
-  document.addEventListener("touchend", function (e) {
-    var t = e.changedTouches && e.changedTouches[0]; if (t) onEnd(t.clientX, t.clientY);
-  }, { passive: true });
-  // 데스크톱(마우스 드래그)도 지원
-  var md = false;
-  document.addEventListener("mousedown", function (e) { md = true; onStart(e.clientX, e.clientY, e.target); });
-  document.addEventListener("mouseup", function (e) { if (md) { md = false; onEnd(e.clientX, e.clientY); } });
-
-  // ---------- 우측 상단 사용자 이름(전 페이지 공통, 항상 표시) ----------
+  // ---------- 우측 상단 사용자 이름(전 앱 공통, 항상 표시) ----------
   function showUserName() {
     try {
       if (!((window.NEO_AUTH || {}).url || "").trim()) return;        // 인증 OFF → 표시 안 함
       if (sessionStorage.getItem("neo_role") === "admin") return;
-      var page = (location.pathname.split("/").pop() || "").toLowerCase();
       if (page === "login.html" || page === "admin.html") return;
       var code = sessionStorage.getItem("neo_code") || (localStorage.getItem("neo_keep") === "1" ? localStorage.getItem("neo_code") : "") || "";
       if (!code) return;
       var name = code.replace(/\s*\d{4}$/, "").trim() || code;        // 박태환4355 → 박태환
-      var bar = document.querySelector(".topbar");
+      // vocab 은 .topbar, writing/허브는 .app-topbar 를 쓴다.
+      var bar = document.querySelector(".topbar, .app-topbar");
       if (!bar || bar.querySelector(".user-name")) return;
       var crumb = bar.querySelector(".crumb"); if (crumb) crumb.style.display = "none";  // 우측 자리 양보
       var el = document.createElement("span");
@@ -67,4 +29,17 @@
   }
   if (document.readyState !== "loading") showUserName();
   else document.addEventListener("DOMContentLoaded", showUserName);
+
+  // ---------- 우클릭(컨텍스트 메뉴) 차단 ----------
+  // 학습 앱이라 우클릭 메뉴가 쓸 일이 없고, 모바일 길게누르기 팝업이 드래그를 방해한다.
+  // 단 ① 입력칸(퀴즈 타이핑·코드 입력)에서는 붙여넣기가 필요하니 허용
+  //    ② 관리자 페이지는 운영자용이라 통째로 예외(코드 복사/붙여넣기).
+  (function blockContextMenu() {
+    if (page === "admin.html") return;
+    document.addEventListener("contextmenu", function (e) {
+      var t = e.target;
+      if (t && t.closest && t.closest("input, textarea, [contenteditable]")) return;
+      e.preventDefault();
+    });
+  })();
 })();
