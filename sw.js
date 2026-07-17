@@ -2,7 +2,7 @@
 // 앱 셸(HTML/JS/CSS)은 network-first(온라인이면 항상 최신), 큰 데이터 파일과 폰트만 cache-first.
 // ★ 캐시 무효화 손잡이는 이 CACHE 이름 하나뿐 — 코드/데이터 바꾸면 반드시 올릴 것.
 //   (HTML 의 ?v= 쿼리 방식은 프리캐시 키와 어긋나 히트하지 않으므로 쓰지 않는다.)
-const CACHE = "neo-toefl-v2";
+const CACHE = "neo-toefl-v3";
 const SHELL = [
   "./",
   "./index.html",

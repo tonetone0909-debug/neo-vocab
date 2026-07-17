@@ -76,7 +76,9 @@ body {
 
 /* ---------- 페이지 컨테이너 ---------- */
 .wrap { max-width: 1040px; margin: 0 auto; padding: var(--s-7) var(--s-5); }
-.wrap-narrow { max-width: 820px; margin: 0 auto; padding: var(--s-7) var(--s-5); }
+/* ★ 위 여백은 s-7(48px) 이었는데, 바로 위 .controls 의 뒤로가기 버튼과 제목 사이가 68px 이나
+   벌어져 따로 노는 느낌이었다 → s-3 으로 좁혀 버튼-제목을 한 덩어리로. (아래 여백은 사용처에서 지정) */
+.wrap-narrow { max-width: 820px; margin: 0 auto; padding: var(--s-3) var(--s-5) var(--s-7); }
 
 /* ---------- 허브 카드 ---------- */
 .hero-kicker {
@@ -141,10 +143,12 @@ body {
 .hud .score.good { background: var(--neo-grind); border-color: var(--neo-grind); color: var(--neo-ink); }
 
 /* ---------- 셀렉트 / 컨트롤 바 ---------- */
+/* 상단 뒤로가기 줄. w1-learn.html 전용(writing/ 안에서 유일 사용처).
+   ★ 예전엔 background + border-bottom 으로 별도 섹션처럼 보였는데, 뒤로가기 하나만 있는 줄을
+     띠로 가르면 본문과 단절돼 보인다 → 배경·구분선 없이 본문 흐름에 붙인다. */
 .controls {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 14px 20px; background: var(--neo-paper-2);
-  border-bottom: 2px solid var(--neo-ink);
+  padding: 10px 20px 0;
 }
 .select {
   padding: 9px 12px; border: 3px solid var(--neo-ink); background: var(--neo-card);

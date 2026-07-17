@@ -114,8 +114,11 @@
   function syncPull() {
     return pull(false).then(function (res) {
       // 받아온 진도를 화면에 반영(페이지가 동기화 전에 렌더됐으므로).
-      // 단 문제 푸는 중(#play 표시 상태)이면 reload 하면 안 됨 → 타이머·배치가 날아감.
-      if (res && res.changed && !document.querySelector("#play:not(.hidden)")) location.reload();
+      // 단 작업 중이면 reload 금지:
+      //  · #play  = 문제 푸는 중 → 타이머·배치가 날아감
+      //  · #result = 채점/리뷰 보는 중 → items·state 가 라이브 변수라 리뷰가 통째로 날아감
+      var busy = document.querySelector("#play:not(.hidden)") || document.querySelector("#result:not(.hidden)");
+      if (res && res.changed && !busy) location.reload();
     });
   }
   // 수동 동기화 — pull+push 후 요약 반환. reload 안 함(호출측이 다시 그림).

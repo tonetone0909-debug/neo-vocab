@@ -132,7 +132,26 @@ const saveResult = (cn,s,rec) => NEO_W1_STORE.saveResult(cn,s,rec);
 const saveExam = (n,rec) => NEO_W1_STORE.saveExam(n,rec);
 
 // ---- 세트 실행 ----
-let curCN=null, curSet=null, curExam=null, items=[], state=[], qi=0, timeLeft=LIMIT, timerId=null;
+let curCN=null, curSet=null, curExam=null, items=[], state=[], qi=0, timeLeft=LIMIT, timerId=null, lastUsed=0;
+
+/* ---- 리뷰 상태 보존 ----
+   리뷰(#result)는 items/state 라는 라이브 변수에만 의존한다. "개념 복습"으로 페이지를 떠나면
+   둘 다 소멸하고, items·타일 순서는 시드 없는 셔플이라 재현조차 불가능하다.
+   → 떠나기 직전 통째로 sessionStorage 에 넣어두고 돌아오면 되살린다(10문항 ≈ 20KB). */
+const RKEY = "neo_w1_review";
+function saveReviewState(idx){
+  try { sessionStorage.setItem(RKEY, JSON.stringify(
+    { items, state, cn:curCN, set:curSet, exam:curExam, used:lastUsed, idx })); } catch(e){}
+}
+function clearReviewState(){ try { sessionStorage.removeItem(RKEY); } catch(e){} }
+function restoreReview(){
+  let d; try { d = JSON.parse(sessionStorage.getItem(RKEY)||"null"); } catch(e){ return false; }
+  if(!d || !Array.isArray(d.items) || !d.items.length || !Array.isArray(d.state)) return false;
+  items=d.items; state=d.state; curCN=d.cn; curSet=d.set; curExam=d.exam; lastUsed=d.used||0;
+  renderResult(lastUsed, d.idx);
+  return true;
+}
+
 function beginPlay(){
   state = items.map(it=>({ order: shuffle([...it.tiles.keys()]), slots:new Array(it.segments.filter(x=>x.type==="slot").length).fill(null) }));
   qi=0; timeLeft=LIMIT;
@@ -140,12 +159,14 @@ function beginPlay(){
   renderQ(); startTimer(); window.scrollTo(0,0);
 }
 function startSet(cn,s){
+  clearReviewState();   // 새 판 시작 = 옛 리뷰 무효
   curCN=cn; curSet=s; curExam=null;
   items = shuffle(DATA.filter(d=>d.concept_n===cn && d.set_id===s).slice()); // 문항 순서 셔플(난이도 섞임)
   beginPlay();
 }
 function startExam(n){
   const ex = MOCK.find(e=>e.exam_id===n); if(!ex) return false;
+  clearReviewState();
   curExam=n; curCN=null; curSet=null;
   items = shuffle(ex.items.slice());
   beginPlay(); return true;
@@ -207,14 +228,13 @@ document.addEventListener("pointerdown",down);
 function assembled(qidx){ const it=items[qidx], sl=state[qidx].slots; let si=0,out=[];
   it.segments.forEach(seg=>{ if(seg.type==="text") out.push(seg.text); else { const ti=sl[si++]; out.push(ti===null?"":it.tiles[ti].t); } });
   return out.join(" ").replace(/\s+([.?!,])/g,"$1").replace(/\s{2,}/g," ").trim(); }
-function doSubmit(){
-  clearInterval(timerId);
+/* 결과 화면 렌더 — 채점 직후(doSubmit)와 복원(restoreReview) 양쪽에서 쓴다.
+   marks 는 items/state 로부터 매번 재계산하므로 따로 저장할 필요가 없다.
+   재계산 불가능한 건 풀이 시간(used) 하나뿐이라 그것만 인자로 받는다. */
+function renderResult(used, focusIdx){
   const marks = items.map((it,i)=> norm(assembled(i))===norm(it.answer));
   const correct = marks.filter(Boolean).length;
-  const used = LIMIT - Math.max(timeLeft,0), m=Math.floor(used/60), s=used%60;
-  const ids = items.map(it=>it.id);
-  if(curExam){ saveExam(curExam,{ exam_id:curExam, correct, total:items.length, time:used, marks, ts:Date.now(), ids }); }
-  else { saveResult(curCN,curSet,{ correct, total:items.length, time:used, marks, concept_n:curCN, set_id:curSet, ts:Date.now(), ids }); }
+  const m=Math.floor(used/60), s=used%60;
   $("r-score").textContent = `${correct} / ${items.length}`;
   $("r-time").textContent = curExam
     ? `풀이 시간 ${m}:${String(s).padStart(2,"0")} · 모의고사 ${curExam}`
@@ -223,8 +243,22 @@ function doSubmit(){
   $("btn-other").textContent = curExam ? "다른 모의고사" : "다른 세트 고르기";
   const qg=$("qgrid"); qg.innerHTML="";
   marks.forEach((ok,i)=>{ const c=document.createElement("div"); c.className="qcell "+(ok?"ok":"no"); c.textContent=i+1; c.addEventListener("click",()=>renderReview(i)); qg.appendChild(c); });
-  $("review").innerHTML = `<p class="idx-lead" style="font-size:13px;margin-top:14px;">번호를 눌러 문항별 리뷰를 봐요.</p>`;
-  $("play").classList.add("hidden"); $("result").classList.remove("hidden"); window.scrollTo(0,0);
+  // ★ #pick 도 반드시 숨긴다 — 복원 경로는 beginPlay()(가 #pick 을 숨김)를 거치지 않으므로
+  //   여기서 세 뷰의 상태를 전부 확정해야 한다. 안 그러면 세트 목록이 결과 위에 겹쳐 보인다.
+  $("pick").classList.add("hidden"); $("play").classList.add("hidden"); $("result").classList.remove("hidden");
+  if(focusIdx!=null && items[focusIdx]) renderReview(focusIdx);
+  else { $("review").innerHTML = `<p class="idx-lead" style="font-size:13px;margin-top:14px;">번호를 눌러 문항별 리뷰를 봐요.</p>`; window.scrollTo(0,0); }
+}
+function doSubmit(){
+  clearInterval(timerId);
+  const marks = items.map((it,i)=> norm(assembled(i))===norm(it.answer));
+  const correct = marks.filter(Boolean).length;
+  const used = LIMIT - Math.max(timeLeft,0);
+  const ids = items.map(it=>it.id);
+  if(curExam){ saveExam(curExam,{ exam_id:curExam, correct, total:items.length, time:used, marks, ts:Date.now(), ids }); }
+  else { saveResult(curCN,curSet,{ correct, total:items.length, time:used, marks, concept_n:curCN, set_id:curSet, ts:Date.now(), ids }); }
+  lastUsed = used;
+  renderResult(used, null);
 }
 function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
 /* 리뷰용 정적 프레임 — 실제 문제 화면(renderQ)과 같은 칸 모양으로 렌더.
@@ -255,12 +289,21 @@ function renderReview(i){
     <button class="btn btn-primary" id="rev-reveal" style="margin-top:12px;">정답 보기</button>
     <div id="rev-more" class="hidden">
       <div class="rev-block"><div class="bl">정답</div>${revFrame(it, sol, null)}</div>
-      <div class="rev-block"><div class="bl">해설</div><div class="rev-explain">${it.explain||""}</div></div>
       <div class="rev-block"><div class="bl">해석</div><div class="rev-trans">${it.trans||""}</div></div>
       ${vocabHtml}
-      ${ok?"":`<a class="btn btn-ghost" href="w1-learn.html?c=${it.concept_n}${(it.sub_idx!=null&&it.sub_idx>=0)?`&t=${it.sub_idx}`:``}" style="margin-top:12px;">📚 개념 복습</a>`}
+      ${ok?"":`<a class="btn btn-ghost" id="rev-concept" href="w1-learn.html?c=${it.concept_n}${(it.sub_idx!=null&&it.sub_idx>=0)?`&t=${it.sub_idx}`:``}" style="margin-top:12px;">📚 개념 복습</a>`}
     </div></div>`;
   $("rev-reveal").addEventListener("click",()=>{ $("rev-more").classList.remove("hidden"); $("rev-reveal").classList.add("hidden"); });
+  /* 개념 복습으로 떠나기 직전 — 리뷰를 저장하고 "현재" 히스토리 항목의 URL 을 ?review=1 로 갈아끼운다.
+     이걸 안 하면 뒤로가기가 원래 URL(?c=3&set=1)로 돌아가 세트를 새로 시작해버린다.
+     이 덕분에 앱의 ← 뒤로 버튼과 폰·브라우저의 시스템 뒤로가기가 똑같이 동작한다.
+     setItem·replaceState 둘 다 동기라 preventDefault 없이 그대로 이동시켜도 안전. */
+  const cta = box.querySelector("#rev-concept");
+  if(cta) cta.addEventListener("click",()=>{
+    saveReviewState(i);
+    const u = new URL(location.href); u.searchParams.set("review","1");
+    history.replaceState({}, "", u);
+  });
   box.querySelector(".rev").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
@@ -277,8 +320,11 @@ const p=new URLSearchParams(location.search);
 const pe=parseInt(p.get("exam"),10);
 const pc=parseInt(p.get("c"),10), ps=parseInt(p.get("set"),10);
 const validC = pc && concepts.some(([n])=>n===pc);
+// ★ 복원 분기는 반드시 아래 리다이렉트보다 먼저 — ?review=1 은 c/exam 이 없어 개념 탭으로 튕긴다.
+//   복원 실패(세션 없음·파싱 실패)면 false 를 받아 기존 분기로 그대로 흘러간다.
+if(p.get("review")==="1" && restoreReview()){ /* 리뷰 복원 완료 */ }
 // 개념 목록은 개념 탭(concepts.html)이 담당 — 대상 없이 들어오면 그리로 보냄
-if(!pe && !validC){ location.replace("concepts.html"); }
+else if(!pe && !validC){ location.replace("concepts.html"); }
 else if(pe){ startExam(pe); }
 else {
   if(ps && setsOf(pc).includes(ps)) startSet(pc,ps);
