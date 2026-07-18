@@ -288,7 +288,8 @@ function renderResult(used, focusIdx){
   $("r-time").textContent = curExam
     ? `풀이 시간 ${m}:${String(s).padStart(2,"0")} · 모의고사 ${curExam}`
     : `풀이 시간 ${m}:${String(s).padStart(2,"0")} · 개념 ${curCN} 세트 ${curSet}`;
-  $("btn-other").setAttribute("href", curExam ? "w1-mock.html" : "writing.html");
+  // 개념 세트는 그 개념의 세트 목록(10개)으로 — 파라미터 없는 writing.html 은 개념탭으로 리다이렉트된다.
+  $("btn-other").setAttribute("href", curExam ? "w1-mock.html" : (curCN ? `writing.html?c=${curCN}` : "writing.html"));
   $("btn-other").textContent = curExam ? "다른 모의고사" : "다른 세트 고르기";
   const qg=$("qgrid"); qg.innerHTML="";
   marks.forEach((ok,i)=>{ const c=document.createElement("div"); c.className="qcell"+(gridKnown?(ok?" ok":" no"):""); c.textContent=i+1; c.addEventListener("click",()=>renderReview(i)); qg.appendChild(c); });
