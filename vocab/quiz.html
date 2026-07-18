@@ -16,6 +16,13 @@
 <script src="../assets/auth.js"></script>
 <script src="../assets/shell.js"></script>
 <script src="assets/swipe.js"></script>
+<style>
+  /* 양식 선택 행 — 제목/라벨 왼쪽, Review·다시풀기·풀기 버튼 오른쪽 */
+  .fmt-row .fmt-label { flex: 1; }
+  .fmt-acts { display: flex; gap: 6px; flex: 0 0 auto; }
+  .fmt-acts .btn { min-height: 38px; padding: 6px 12px; }
+  .fmt-row:active { transform: none; box-shadow: var(--sh-1); }
+</style>
 </head>
 <body>
 
@@ -94,6 +101,7 @@
 <script src="assets/tts.js"></script>
 <script src="assets/store.js"></script>
 <script src="assets/deck.js"></script>
+<script src="../assets/ui.js"></script>
 <script>
 (function () {
   const $ = id => document.getElementById(id);
@@ -159,6 +167,44 @@
   function baseQuery() {
     return isList ? `mode=list&list=${list}&size=${size||"all"}` : `mode=${mode}&day=${day}`;
   }
+
+  // ---------- 퀴즈 세션 저장 (SRS 진도와 분리된 로컬 전용 key. 서버 동기화 안 함) ----------
+  // Review 버튼이 "채점된 세션"을 그대로 되살리는 데 쓴다. vocab 은 오답 보기·정답 유의어가 매번
+  // 랜덤이라 재생성이 불가능 → 세션을 통째로 저장해야만 리뷰를 복원할 수 있다.
+  const QKEY_BASE = "neo_vocab_quiz_v1";
+  function quizCode(){ try { return sessionStorage.getItem("neo_code") || localStorage.getItem("neo_code") || ""; } catch(e){ return ""; } }
+  function quizKey(){ const c = quizCode(); return c ? QKEY_BASE+":"+c : QKEY_BASE; }
+  function quizLoad(){ try { return JSON.parse(localStorage.getItem(quizKey())) || {}; } catch(e){ return {}; } }
+  function quizSlot(fmtKey){ return `${baseQuery()}|${fmtKey}`; }   // Day(또는 list)+양식 단위. 세션당 1개(덮어씀).
+  function quizGet(fmtKey){ return quizLoad()[quizSlot(fmtKey)]; }
+  function quizSaveSession(){
+    try {
+      const db = quizLoad();
+      db[quizSlot(fmt)] = {
+        score: session.filter(it=>it.ok).length, total: session.length, ts: Date.now(),
+        // 리뷰 렌더가 읽는 필드만 slim 저장(promptHtml/options 제외).
+        session: session.map(it => ({ w:{ term:it.w.term, lemma:it.w.lemma, meaning:it.w.meaning, deck:it.w.deck },
+          your:it.your, ok:it.ok, correct:it.correct, answers:it.answers||null }))
+      };
+      localStorage.setItem(quizKey(), JSON.stringify(db));
+    } catch(e){}
+  }
+  function restoreReview(){
+    const saved = quizGet(fmt);
+    if(!saved || !Array.isArray(saved.session) || !saved.session.length) return false;
+    session = saved.session.slice(); graded = true;
+    showReview();
+    return true;
+  }
+  // 양식별 액션 버튼 — 푼 적 있으면 [Review][다시풀기], 없으면 [풀기].
+  function fmtActs(fmtKey){
+    const done = quizGet(fmtKey);
+    return `<span class="fmt-acts" data-fmt="${fmtKey}">`
+      + (done ? `<button class="btn btn-sm btn-ghost" data-act="review">Review</button>`
+                + `<button class="btn btn-sm btn-primary" data-act="again">다시풀기</button>`
+              : `<button class="btn btn-sm btn-primary" data-act="play">풀기</button>`)
+      + `</span>`;
+  }
   function showFmt() {
     $("hub").classList.add("hidden"); $("fmtview").classList.remove("hidden");
     const label = isList ? deckKr : `${deckKr} · DAY ${day}`;
@@ -167,20 +213,29 @@
     $("fmt-grid").innerHTML = GROUPS.map(g => {
       if (g.modes.length === 1) {
         const m = g.modes[0];
-        return `<a class="fmt-btn" href="quiz.html?${baseQuery()}&fmt=${m.key}"><span class="fnum">${g.n}</span><span><div>${g.title}</div><div class="fsub">${m.label}</div></span></a>`;
+        return `<div class="fmt-btn fmt-row"><span class="fnum">${g.n}</span><span class="fmt-label"><div>${g.title}</div><div class="fsub">${m.label}</div></span>${fmtActs(m.key)}</div>`;
       }
       return `<div class="fmt-group">
         <button class="fmt-btn fmt-head" type="button"><span class="fnum">${g.n}</span><span><div>${g.title}</div><div class="fsub">유형 선택</div></span><span class="arw">▸</span></button>
         <div class="fmt-sub" style="display:none;">
-          ${g.modes.map(m => `<a class="fmt-btn fmt-mode" href="quiz.html?${baseQuery()}&fmt=${m.key}"><span>${m.label}</span></a>`).join("")}
+          ${g.modes.map(m => `<div class="fmt-btn fmt-mode fmt-row"><span class="fmt-label">${m.label}</span>${fmtActs(m.key)}</div>`).join("")}
         </div>
       </div>`;
     }).join("");
+    // 접이식 그룹 토글
     $("fmt-grid").querySelectorAll(".fmt-head").forEach(h => h.addEventListener("click", () => {
       const sub = h.nextElementSibling, open = sub.style.display !== "none";
       sub.style.display = open ? "none" : "flex";
       h.classList.toggle("open", !open);
     }));
+    // 양식별 버튼 핸들러
+    $("fmt-grid").querySelectorAll(".fmt-acts").forEach(box => {
+      const k = box.dataset.fmt, playUrl = `quiz.html?${baseQuery()}&fmt=${k}`;
+      const b = a => box.querySelector(`[data-act="${a}"]`);
+      if (b("play"))   b("play").addEventListener("click", () => location.href = playUrl);
+      if (b("review")) b("review").addEventListener("click", () => location.href = playUrl + "&view=review");
+      if (b("again"))  b("again").addEventListener("click", () => neoConfirm("이 양식을 다시 풀어볼까요?", { okText:"다시 풀기" }).then(ok => { if(ok) location.href = playUrl; }));
+    });
   }
 
   // ---------- SESSION (deferred grading) ----------
@@ -207,7 +262,7 @@
   function buildSession() {
     let words = wordSet();
     if (fmt === "synonym" || fmt === "synonymType") words = words.filter(w => (w.synonyms||[]).length);
-    words = shuffle(words);
+    // 문항 순서 고정(wordSet 순서 유지) — 사용자 요청. 보기(options) 셔플은 아래에서 유지.
     session = words.map(w => {
       const it = { w, your: null };
       if (fmt === "meaning") {
@@ -291,6 +346,7 @@
         NEO_STORE.record(it.w.skill, it.w.deck, it.w.lemma, ok);
         if (!ok) NEO_STORE.setStatus(it.w.skill, it.w.deck, it.w.lemma, "learning"); // 오답 → 학습중
       }
+      quizSaveSession();   // 채점된 세션 저장 → 나중에 Review 버튼이 되살린다(SRS 와 별도 key)
     }
     showReview();
   }
@@ -303,7 +359,7 @@
     $("rev-chip").textContent = fmtDef.title;
     $("rev-score").textContent = `${correct} / ${session.length}`;
     $("rev-msg").textContent = `푼 ${ansered}문제 · 정답 ${correct} · 오답 ${session.length - correct}`;
-    $("rev-again").onclick = () => location.href = `quiz.html?${baseQuery()}&fmt=${fmt}`;
+    $("rev-again").onclick = () => neoConfirm("이 양식을 다시 풀어볼까요?", { okText:"다시 풀기" }).then(ok => { if(ok) location.href = `quiz.html?${baseQuery()}&fmt=${fmt}`; });
     $("rev-home").href = "quiz.html";
     $("review-list").innerHTML = session.map(it => {
       const promptText = (fmt === "reverse" || fmt === "reverseType") ? it.w.meaning : it.w.term;
@@ -325,7 +381,11 @@
   $("q-input").addEventListener("keydown", e => { if (e.key==="Enter") nextTyping(); });
 
   // route
-  if (fmt && fmtDef && (day || isList)) startSession();
+  if (fmt && fmtDef && (day || isList)) {
+    // ?view=review → 저장 세션으로 리뷰 복원. 없으면 그냥 새 세션 시작(폴백).
+    if (params.get("view") === "review" && restoreReview()) { /* 복원 완료 */ }
+    else startSession();
+  }
   else if (day || isList) showFmt();
   else showDayGrid();
 })();

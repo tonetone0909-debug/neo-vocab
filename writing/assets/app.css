@@ -592,4 +592,10 @@ body {
 .ach-chip b { font-family: var(--font-body); font-weight: 800; }
 .ach-chip.part { background: var(--neo-acid); }
 .ach-chip.full { background: var(--neo-ink); color: var(--neo-acid); }
-.mp-recent-row .mp-redo { flex: 0 0 auto; padding: 5px 12px; }
+/* 최근 기록 행 — 라벨·점수(윗줄) + Review·다시풀기(아랫줄, 우측 정렬) */
+.mp-recent-row { flex-direction: column; align-items: stretch; gap: 8px; }
+.mp-recent-top { display: flex; align-items: center; gap: 10px; }
+.mp-recent-top .mp-name { flex: 1 1 auto; }
+.mp-recent-top .mp-pct { flex: 0 0 auto; }
+.mp-recent-btns { display: flex; gap: 6px; justify-content: flex-end; }
+.mp-recent-btns .btn { min-height: 36px; padding: 6px 14px; }

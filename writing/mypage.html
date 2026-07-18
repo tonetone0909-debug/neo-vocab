@@ -132,7 +132,14 @@
     if(a.isMock){ label=`모의고사 ${a.exam_id}`; href=`writing.html?exam=${a.exam_id}`; }
     else { label=`${shortName(a.concept_n)} · 세트 ${a.set_id}`; href=`writing.html?c=${a.concept_n}&set=${a.set_id}`; }
     const div=document.createElement("div"); div.className="mp-row mp-recent-row";
-    div.innerHTML=`<span class="mp-name" style="flex:1">${label}</span><span class="mp-pct" style="flex:0 0 auto">${a.correct}/${a.total} · ${m}:${String(s).padStart(2,"0")}</span><a class="btn btn-ghost btn-sm mp-redo" href="${href}">다시 풀기</a>`;
+    // Review = 저장된 결과로 리뷰(&view=review) · 다시 풀기 = 처음부터 새로. 세트/모의 목록의 버튼과 동일 기능.
+    div.innerHTML=
+      `<div class="mp-recent-top"><span class="mp-name">${label}</span>`
+      +`<span class="mp-pct">${a.correct}/${a.total} · ${m}:${String(s).padStart(2,"0")}</span></div>`
+      +`<div class="mp-recent-btns">`
+      +`<a class="btn btn-ghost btn-sm" href="${href}&view=review">Review</a>`
+      +`<a class="btn btn-primary btn-sm mp-redo" href="${href}">다시 풀기</a>`
+      +`</div>`;
     rec.appendChild(div);
   });
 
