@@ -30,36 +30,35 @@
     <div class="day-grid" id="day-grid"></div>
   </div>
 
-  <!-- DAY DRILL -->
+  <!-- DAY DRILL — 지연 채점(정오 즉시표시 X). 엔터/다음으로 진행, 다 풀거나 '채점·Review'로 채점 -->
   <div id="drillview" class="hidden">
     <div class="detail-head">
       <a class="back-btn" id="to-list">← Day 목록</a>
-      <span class="detail-chip" id="day-chip"></span>
+      <button class="back-btn" id="btn-review" style="background:var(--neo-acid);">채점·Review ▶</button>
     </div>
     <div class="progress-row">
       <span id="pos">0 / 0</span>
-      <span id="score">정답 0</span>
+      <span class="detail-chip" id="day-chip"></span>
     </div>
     <div class="bar"><div class="fill" id="fill"></div></div>
 
     <div class="card" id="card" style="margin-top:12px;">
       <div class="kicker" id="meta" style="color:var(--neo-mute);">TEST · ITEM</div>
       <div class="ctest-sentence" id="sentence"></div>
-      <div class="verdict" id="verdict"></div>
-      <div class="actions" style="margin-top:14px;">
-        <button class="btn btn-ghost" id="btn-reveal">정답 보기</button>
-        <button class="btn btn-grind" id="btn-check">확인</button>
-      </div>
+      <button class="btn btn-grind btn-block" id="btn-next" style="margin-top:14px;">다음 →</button>
     </div>
+  </div>
 
-    <div class="center-state hidden" id="done">
-      <div class="big">🏁</div>
-      <p id="done-msg"></p>
-      <div class="actions" style="margin-top:14px;max-width:320px;margin-left:auto;margin-right:auto;">
-        <button class="btn btn-ghost" id="btn-again">다시</button>
-        <a class="btn btn-blaze" id="done-list">← Day 목록</a>
-      </div>
+  <!-- REVIEW — 다 풀면 정답 공개 (quiz.html 과 동일 패턴) -->
+  <div id="reviewview" class="hidden">
+    <div class="detail-head"><span class="detail-chip" id="rev-chip"></span></div>
+    <div class="center-state" style="padding:18px 0 8px;"><div class="big" id="rev-score">0 / 0</div><p id="rev-msg"></p></div>
+    <div class="actions" style="max-width:340px;margin:0 auto 14px;">
+      <button class="btn btn-ghost" id="rev-again">다시 풀기</button>
+      <a class="btn btn-blaze" id="rev-home">Day 목록</a>
     </div>
+    <div class="section-kr">문항 리뷰</div>
+    <div id="review-list" style="margin-top:10px;"></div>
   </div>
 </main>
 
@@ -78,12 +77,12 @@
   const $ = id => document.getElementById(id);
   const params = new URLSearchParams(location.search);
   const dayParam = params.get("day");
-  let deck = [], idx = 0, score = 0, answered = false;
+  let deck = [], idx = 0, graded = false;
 
   function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
   function showDayList() {
-    $("daylist").classList.remove("hidden"); $("drillview").classList.add("hidden");
+    $("daylist").classList.remove("hidden"); $("drillview").classList.add("hidden"); $("reviewview").classList.add("hidden");
     $("crumb").textContent = "빈칸어휘 Quiz · Day";
     const days = NEO_DECK.ctestDays();
     const totalW = days.reduce((n,d)=>n+d.count,0);
@@ -104,75 +103,92 @@
     let items, label;
     if (dayParam === "all") { items = NEO_DECK.ctest(); label = "전체"; }
     else { const d = parseInt(dayParam,10); items = NEO_DECK.ctestDayDrills(d); label = `DAY ${d}`; }
-    deck = NEO_DECK.shuffle(items); idx = 0; score = 0;
-    $("daylist").classList.add("hidden"); $("drillview").classList.remove("hidden");
-    $("done").classList.add("hidden"); $("card").classList.remove("hidden");
+    // 문항별 답을 담을 수 있게 복제(your). 채점은 다 풀고 한 번에.
+    deck = NEO_DECK.shuffle(items).map(c => Object.assign({}, c, { your: null, ok: false }));
+    idx = 0; graded = false;
+    $("daylist").classList.add("hidden"); $("reviewview").classList.add("hidden");
+    $("drillview").classList.remove("hidden"); $("card").classList.remove("hidden");
     $("day-chip").textContent = label;
-    $("to-list").href = "ctest.html"; $("done-list").href = "ctest.html";
+    $("to-list").href = "ctest.html"; $("rev-home").href = "ctest.html";
     render();
   }
 
   function render() {
-    answered = false;
     const c = deck[idx];
-    if (!c) return finish();
+    if (!c) return grade();
     $("meta").textContent = `DAY ${c.day} · ${c.item}`;
-    // inline blank: prefix + one char-box per missing letter (auto-advance)
+    // inline blank: prefix + one char-box per missing letter (auto-advance). 정오 표시 없음.
     $("sentence").innerHTML = esc(c.sentence || "").replace(/([A-Za-z]*)(_+)/, (m, pre, u) => {
       let boxes = "";
       for (let i = 0; i < u.length; i++) boxes += `<input class="char-box" data-i="${i}" type="text" inputmode="latin" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="1">`;
       return `<span class="inline-prefix">${pre}</span><span class="char-wrap">${boxes}</span>`;
     });
-    $("verdict").textContent = ""; $("verdict").className = "verdict"; $("btn-check").textContent = "확인";
     $("pos").textContent = `${idx + 1} / ${deck.length}`;
-    $("score").textContent = `정답 ${score}`;
     $("fill").style.width = (idx / deck.length * 100) + "%";
-    bindBoxes();
+    bindBoxes(c);
   }
 
   function boxes() { return [...document.querySelectorAll("#sentence .char-box")]; }
-  function bindBoxes() {
+  function curValue() { return boxes().map(b => b.value).join("").trim(); }
+  function bindBoxes(c) {
     const bs = boxes();
+    if (c.your) { const chs = c.your.split(""); bs.forEach((b,i)=>{ b.value = chs[i] || ""; }); }  // 되돌아오면 답 복원
     bs.forEach((b, i) => {
       b.addEventListener("input", () => { b.value = b.value.replace(/[^A-Za-z]/g, ""); if (b.value && bs[i+1]) bs[i+1].focus(); });
       b.addEventListener("keydown", e => {
-        if (e.key === "Backspace" && !b.value && bs[i-1]) { bs[i-1].focus(); }
-        else if (e.key === "Enter") check();
+        if (e.key === "Backspace" && !b.value && bs[i-1]) bs[i-1].focus();
+        else if (e.key === "Enter") { e.preventDefault(); next(); }   // 엔터 = 바로 다음 문제
       });
     });
     if (bs[0]) bs[0].focus();
   }
 
-  function fullWord(c) {
-    const v = boxes().map(b => b.value).join("").trim().toLowerCase();
-    const ans = c.answer.toLowerCase();
-    return v === ans || (c.prefix.toLowerCase() + v) === ans;
-  }
-  function check() {
-    const c = deck[idx]; if (!c) return; if (answered) return nextCard();
-    const ok = fullWord(c); answered = true;
-    boxes().forEach(b => { b.disabled = true; b.classList.add(ok ? "ok" : "no"); });
-    if (ok) { score++; $("verdict").textContent = "정답이에요! ✓"; $("verdict").className = "verdict ok"; }
-    else { $("verdict").innerHTML = `아쉬워요 — 정답은 <b>${esc(c.answer)}</b> 예요.`; $("verdict").className = "verdict no"; }
-    NEO_STORE.record(c.skill, c.deck, c.lemma, ok);
-    $("score").textContent = `정답 ${score}`; $("btn-check").textContent = "다음 →";
-  }
-  function reveal() {
-    const c = deck[idx]; if (!c || answered) return; answered = true;
-    const missing = c.answer.slice(c.prefix.length).split("");
-    boxes().forEach((b, i) => { b.value = missing[i] || ""; b.disabled = true; b.classList.add("no"); });
-    $("verdict").innerHTML = `정답은 <b>${esc(c.answer)}</b> 예요.`; $("verdict").className = "verdict no";
-    NEO_STORE.record(c.skill, c.deck, c.lemma, false); $("btn-check").textContent = "다음 →";
-  }
-  function nextCard() { idx++; if (idx >= deck.length) finish(); else render(); }
-  function finish() {
-    $("card").classList.add("hidden"); $("done").classList.remove("hidden");
-    $("done-msg").innerHTML = `총 ${deck.length}문제 중 <b>${score}개</b> 맞혔어요.`; $("fill").style.width = "100%";
+  function saveAnswer() { const c = deck[idx]; if (c) c.your = curValue(); }
+  function next() { saveAnswer(); idx++; if (idx >= deck.length) grade(); else render(); }
+
+  function isOk(c) {
+    const v = (c.your || "").trim().toLowerCase();
+    const ans = (c.answer || "").toLowerCase();
+    return v !== "" && (v === ans || (c.prefix.toLowerCase() + v) === ans);
   }
 
-  $("btn-check").addEventListener("click", check);
-  $("btn-reveal").addEventListener("click", reveal);
-  $("btn-again").addEventListener("click", start);
+  function grade() {
+    if (!graded) {
+      graded = true;
+      deck.forEach(c => {
+        c.ok = isOk(c);
+        NEO_STORE.record(c.skill, c.deck, c.lemma, c.ok);
+        if (!c.ok) NEO_STORE.setStatus(c.skill, c.deck, c.lemma, "learning");   // 오답 → 학습중
+      });
+    }
+    showReview();
+  }
+
+  // 빈칸을 정답으로 채운 완성 문장
+  function fullSentence(c) { return esc(c.sentence || "").replace(/([A-Za-z]*)(_+)/, `<b>${esc(c.answer)}</b>`); }
+
+  function showReview() {
+    $("drillview").classList.add("hidden"); $("daylist").classList.add("hidden"); $("reviewview").classList.remove("hidden");
+    const correct = deck.filter(c => c.ok).length;
+    const answered = deck.filter(c => (c.your || "").trim() !== "").length;
+    $("crumb").textContent = "빈칸어휘 Quiz · 리뷰";
+    $("rev-chip").textContent = $("day-chip").textContent || "받아쓰기";
+    $("rev-score").textContent = `${correct} / ${deck.length}`;
+    $("rev-msg").textContent = `푼 ${answered}문제 · 정답 ${correct} · 오답 ${deck.length - correct}`;
+    $("review-list").innerHTML = deck.map(c => {
+      const mine = (c.your || "").trim() ? esc(c.your.trim()) : "<i>미응답</i>";
+      return `<div class="review-row ${c.ok?"ok":"no"}">
+        <div class="rq"><span class="rev-mark ${c.ok?"ok":"no"}">${c.ok?"✓":"✗"}</span>${fullSentence(c)}</div>
+        <div class="ra"><span class="mine">내 답: ${mine}</span>${c.ok?"":` · <span class="cor">정답: ${esc(c.answer)}</span>`}</div>
+        ${c.ok?"":`<a class="rcard" href="blanks.html">카드 보기 →</a>`}
+      </div>`;
+    }).join("");
+    window.scrollTo(0,0);
+  }
+
+  $("btn-next").addEventListener("click", next);
+  $("btn-review").addEventListener("click", () => { saveAnswer(); grade(); });   // 지금 채점(미응답 → 오답)
+  $("rev-again").addEventListener("click", start);
 
   if (dayParam) start(); else showDayList();
 })();
