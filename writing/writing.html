@@ -137,13 +137,15 @@ function showSetView(cn,name){
 
 // ---- 저장 (코드별 네임스페이스 + 서버 동기화는 w1store.js 가 담당) ----
 const attemptOf = (cn,s) => NEO_W1_STORE.attemptOf(cn,s);
+const examOf = n => NEO_W1_STORE.examOf(n);   // ★ 누락돼 있어 모의고사 Review 가 크래시(blank)했음
 const saveResult = (cn,s,rec) => NEO_W1_STORE.saveResult(cn,s,rec);
 const saveExam = (n,rec) => NEO_W1_STORE.saveExam(n,rec);
 
 // ---- 세트 실행 ----
 let curCN=null, curSet=null, curExam=null, items=[], state=[], qi=0, timeLeft=LIMIT, timerId=null, lastUsed=0;
-// 저장된 결과를 Review 로 열 때만 세팅. savedMarks=저장 정오(부분 리뷰 정오 판정용), reviewPartial=slots 없어 "나의 답안" 복원 불가.
-let savedMarks=null, reviewPartial=false;
+// 저장된 결과를 Review 로 열 때만 세팅.
+//  savedReview=저장 리뷰 모드 · savedMarks=저장 정오(없으면 null=정오 그리드 중립) · savedCorrect=저장 점수(서버형 대비) · reviewPartial=slots 없어 "나의 답안" 복원 불가.
+let savedMarks=null, reviewPartial=false, savedReview=false, savedCorrect=null;
 
 /* ---- 리뷰 상태 보존 ----
    리뷰(#result)는 items/state 라는 라이브 변수에만 의존한다. "개념 복습"으로 페이지를 떠나면
@@ -152,7 +154,7 @@ let savedMarks=null, reviewPartial=false;
 const RKEY = "neo_w1_review";
 function saveReviewState(idx){
   try { sessionStorage.setItem(RKEY, JSON.stringify(
-    { items, state, cn:curCN, set:curSet, exam:curExam, used:lastUsed, idx, savedMarks, reviewPartial })); } catch(e){}
+    { items, state, cn:curCN, set:curSet, exam:curExam, used:lastUsed, idx, savedMarks, reviewPartial, savedReview, savedCorrect })); } catch(e){}
 }
 function clearReviewState(){ try { sessionStorage.removeItem(RKEY); } catch(e){} }
 
@@ -171,7 +173,14 @@ function openSavedReview(cn, s, exam){
   const okSlots = Array.isArray(rec.slots) && rec.slots.length===items.length
     && items.every((it,i)=> Array.isArray(rec.slots[i]) && rec.slots[i].length===slotCount(it));
   reviewPartial = !okSlots;
-  savedMarks = Array.isArray(rec.marks) && rec.marks.length===items.length ? rec.marks.slice() : null;
+  savedReview = true; savedCorrect = (typeof rec.correct==="number") ? rec.correct : null;
+  // 정오(marks)를 현재 고정 순서에 맞춘다. 옛 기록의 marks 는 그때의 셔플 순서라, 저장된 ids 로 재매핑해야
+  // 정오 그리드·정오 판정이 정확하다(안 하면 엉뚱한 문항에 색이 붙는다). ids 없으면 위치 그대로, marks 없으면(서버형) null.
+  if(Array.isArray(rec.marks) && rec.marks.length===items.length){
+    if(Array.isArray(rec.ids) && rec.ids.length===items.length){
+      savedMarks = items.map(it => { const j = rec.ids.indexOf(it.id); return j>=0 ? !!rec.marks[j] : false; });
+    } else { savedMarks = rec.marks.slice(); }
+  } else { savedMarks = null; }
   state = items.map((it,i)=>({ order:[...it.tiles.keys()],
     slots: okSlots ? rec.slots[i].slice() : new Array(slotCount(it)).fill(null) }));
   lastUsed = rec.time || 0;
@@ -182,13 +191,13 @@ function restoreReview(){
   let d; try { d = JSON.parse(sessionStorage.getItem(RKEY)||"null"); } catch(e){ return false; }
   if(!d || !Array.isArray(d.items) || !d.items.length || !Array.isArray(d.state)) return false;
   items=d.items; state=d.state; curCN=d.cn; curSet=d.set; curExam=d.exam; lastUsed=d.used||0;
-  savedMarks=d.savedMarks||null; reviewPartial=!!d.reviewPartial;
+  savedMarks=d.savedMarks||null; reviewPartial=!!d.reviewPartial; savedReview=!!d.savedReview; savedCorrect=(typeof d.savedCorrect==="number")?d.savedCorrect:null;
   renderResult(lastUsed, d.idx);
   return true;
 }
 
 function beginPlay(){
-  savedMarks=null; reviewPartial=false;   // 새 풀이 = 라이브 채점(저장 리뷰 상태 해제)
+  savedMarks=null; reviewPartial=false; savedReview=false; savedCorrect=null;   // 새 풀이 = 라이브 채점(저장 리뷰 상태 해제)
   state = items.map(it=>({ order: shuffle([...it.tiles.keys()]), slots:new Array(it.segments.filter(x=>x.type==="slot").length).fill(null) }));
   qi=0; timeLeft=LIMIT;
   $("pick").classList.add("hidden"); $("result").classList.add("hidden"); $("play").classList.remove("hidden");
@@ -271,7 +280,9 @@ function assembled(qidx){ const it=items[qidx], sl=state[qidx].slots; let si=0,o
 function renderResult(used, focusIdx){
   // 저장된 결과를 되살릴 땐 저장 정오(savedMarks) 우선 — 부분 리뷰는 slots 가 없어 재계산이 전부 오답이 된다.
   const marks = savedMarks || items.map((it,i)=> norm(assembled(i))===norm(it.answer));
-  const correct = marks.filter(Boolean).length;
+  const gridKnown = !savedReview || savedMarks!=null;   // 서버형(점수만)은 정오를 모름 → 그리드 중립
+  // 점수: 서버형 기록은 저장 점수(savedCorrect) 사용(재계산하면 slots 없어 0 이 된다).
+  const correct = (savedReview && savedMarks==null && savedCorrect!=null) ? savedCorrect : marks.filter(Boolean).length;
   const m=Math.floor(used/60), s=used%60;
   $("r-score").textContent = `${correct} / ${items.length}`;
   $("r-time").textContent = curExam
@@ -280,7 +291,7 @@ function renderResult(used, focusIdx){
   $("btn-other").setAttribute("href", curExam ? "w1-mock.html" : "writing.html");
   $("btn-other").textContent = curExam ? "다른 모의고사" : "다른 세트 고르기";
   const qg=$("qgrid"); qg.innerHTML="";
-  marks.forEach((ok,i)=>{ const c=document.createElement("div"); c.className="qcell "+(ok?"ok":"no"); c.textContent=i+1; c.addEventListener("click",()=>renderReview(i)); qg.appendChild(c); });
+  marks.forEach((ok,i)=>{ const c=document.createElement("div"); c.className="qcell"+(gridKnown?(ok?" ok":" no"):""); c.textContent=i+1; c.addEventListener("click",()=>renderReview(i)); qg.appendChild(c); });
   // ★ #pick 도 반드시 숨긴다 — 복원 경로는 beginPlay()(가 #pick 을 숨김)를 거치지 않으므로
   //   여기서 세 뷰의 상태를 전부 확정해야 한다. 안 그러면 세트 목록이 결과 위에 겹쳐 보인다.
   $("pick").classList.add("hidden"); $("play").classList.add("hidden"); $("result").classList.remove("hidden");
@@ -318,6 +329,8 @@ function revFrame(it, fills, marks){
 }
 function renderReview(i){
   const it=items[i];
+  // 서버형(점수만) 기록은 문항별 정오를 모름 → 정오 라벨 숨김. 그 외엔 저장 정오 or 재계산.
+  const okKnown = !(savedReview && savedMarks==null);
   const ok = savedMarks ? !!savedMarks[i] : (norm(assembled(i))===norm(it.answer));
   const sol = it.solution||[];
   const fills = state[i].slots.map(ti => ti===null ? null : it.tiles[ti].t);
@@ -329,7 +342,7 @@ function renderReview(i){
     : `<div class="rev-block"><div class="bl">나의 답안</div>${revFrame(it, fills, marks)}</div>`;
   const box=$("review");
   box.innerHTML = `<div class="rev">
-    <span class="rv-k">Q${i+1} · ${ok?"정답":"오답"}</span>
+    <span class="rv-k">Q${i+1}${okKnown ? " · "+(ok?"정답":"오답") : ""}</span>
     <div class="rv-prompt">${esc(it.prompt)}</div>
     ${myAnswerBlock}
     <button class="btn btn-primary" id="rev-reveal" style="margin-top:12px;">정답 보기</button>
