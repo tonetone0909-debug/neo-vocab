@@ -43,6 +43,16 @@
 <script src="data/w1_mock.js"></script>
 <script src="assets/w1store.js"></script>
 <script>
+// writing.html 의 neoConfirm 과 동일 — 이 페이지엔 없어 인라인 복사(다시풀기 확인용).
+function mkConfirm(kicker,msg,yesLabel,onYes){
+  const bg=document.createElement("div"); bg.className="neo-modal-bg";
+  bg.innerHTML=`<div class="neo-modal"><div class="m-k">${kicker}</div><div class="m-t">${msg}</div><div class="m-actions"><button class="btn btn-ghost" id="mk-no">취소</button><button class="btn btn-primary" id="mk-yes">${yesLabel}</button></div></div>`;
+  document.body.appendChild(bg);
+  const close=()=>bg.remove();
+  bg.querySelector("#mk-no").onclick=close;
+  bg.querySelector("#mk-yes").onclick=()=>{ close(); onYes(); };
+  bg.addEventListener("click",ev=>{ if(ev.target===bg) close(); });
+}
 (function(){
   const EX = (window.NEO_DATA_W1_MOCK && window.NEO_DATA_W1_MOCK.exams) || [];
   const R = NEO_W1_STORE.load();
@@ -83,9 +93,19 @@
     const grid=d.querySelector(".cgrid");
     chunk.forEach(e=>{
       const done=doneOf(e);
-      const a=document.createElement("a"); a.className="crow"; a.href="writing.html?exam="+e.exam_id;
-      a.innerHTML=`<span class="cn">${e.exam_id}</span><span class="ct">모의고사 ${e.exam_id}</span><span class="cb ${done?"learn":"soon"}">${done?done.correct+"/"+done.total:"NEW"}</span>`;
-      grid.appendChild(a);
+      const row=document.createElement("div"); row.className="crow";
+      row.innerHTML=`<span class="cn">${e.exam_id}</span><span class="ct">모의고사 ${e.exam_id}</span>`
+        + `<span class="crow-btns">`
+        + (done?`<button class="btn btn-sm btn-ghost" data-act="review">Review</button>`:``)
+        + `<button class="btn btn-sm btn-primary" data-act="play">${done?"다시풀기":"풀기"}</button>`
+        + `</span>`;
+      const rev=row.querySelector('[data-act="review"]');
+      if(rev) rev.addEventListener("click",()=>{ location.href="writing.html?exam="+e.exam_id+"&view=review"; });
+      row.querySelector('[data-act="play"]').addEventListener("click",()=>{
+        if(done) mkConfirm("다시 풀기","이전 기록 위로 새로 풀어요. 시작할까요?","다시 풀기",()=>{ location.href="writing.html?exam="+e.exam_id; });
+        else location.href="writing.html?exam="+e.exam_id;
+      });
+      grid.appendChild(row);
     });
     list.appendChild(d);
   }

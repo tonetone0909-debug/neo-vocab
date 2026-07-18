@@ -500,6 +500,11 @@ body {
 /* NEW/점수 배지 = 핵심 상태 신호 → mute(3.9:1) 금지, ink 로 */
 .crow .cb.soon { background: var(--neo-paper-2); color: var(--neo-ink); }
 .crow.dim { opacity: 0.55; }
+/* 세트/모의 행의 Review·다시풀기 버튼 묶음 (배지 .cb 자리) */
+.crow-btns { display: flex; gap: 6px; flex: 0 0 auto; }
+.crow-btns .btn { min-height: 38px; padding: 6px 12px; }
+/* 버튼이 자식이므로 행 전체 눌림 효과는 끈다(버튼만 눌림) */
+.crow:has(.crow-btns):active { transform: none; box-shadow: var(--sh-1); }
 
 /* stat strip (모바일) */
 .mstat { display: flex; gap: 8px; margin-top: 18px; }
