@@ -1,0 +1,354 @@
+/* report.css — 리포트 · 리뷰 전용 (report.html · review.html)
+ *
+ * app.css(mock) 위에 얹어 쓴다. 전역 assets/app.css 는 싣지 않는다 —
+ * .btn / .card / .choice / .choices 가 mock 쪽과 충돌한다.
+ * 문제 화면을 그대로 재사용해 정오만 덧칠하는 구조라, 시험 화면과 같은
+ * app.css 를 쓰는 것이 전제다.
+ */
+
+.report-body { background: var(--neo-paper); padding-bottom: 60px; }
+
+/* 시험 화면(.exam-topbar)과 같은 ink 바. 리포트만 밝은 헤더면 다른 앱처럼 보인다. */
+.app-topbar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 20px; background: var(--neo-ink); color: var(--neo-cream);
+  border-bottom: var(--border-w) solid var(--neo-ink);
+}
+.app-topbar .brand {
+  font-family: var(--font-display); font-size: 18px;
+  text-decoration: none; color: var(--neo-cream);
+  letter-spacing: var(--tracking-tight); text-transform: uppercase;
+}
+.app-topbar .brand .n { color: var(--neo-acid); }   /* NEO 만 형광 */
+.app-topbar .crumb {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+  padding: 3px 8px; border: 2px solid var(--neo-cream); color: var(--neo-cream);
+}
+
+.rp { max-width: 860px; margin: 0 auto; padding: 22px 18px; }
+
+/* ---- 총점 히어로 ---- */
+/* 총점 — 확정되면 acid 판으로 성취감을 준다. 미채점이면 조용한 카드로 둔다
+   (아직 점수가 아닌데 축하하는 화면이 되면 안 된다). */
+.rp-hero {
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-card);
+  box-shadow: var(--sh-3); padding: 26px 22px; text-align: center;
+}
+.rp-hero.done {
+  background: var(--neo-acid); box-shadow: var(--sh-4);
+}
+.rp-kicker {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+  color: var(--neo-ink-soft);
+}
+.rp-band {
+  font-family: var(--font-display); font-size: clamp(64px, 14vw, 108px);
+  line-height: 1; margin: 6px 0 10px; letter-spacing: -0.03em;
+}
+.rp-band.pending { color: var(--neo-mute); }
+.rp-chips {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+}
+.rp-120, .rp-sum {
+  font-size: 15px; font-weight: 700; padding: 7px 14px;
+  border: var(--border-w) solid var(--neo-ink); box-shadow: var(--sh-1);
+}
+/* acid 판 위에 acid 칩을 얹으면 안 보인다 — 칩은 카드 흰색으로 띄운다 */
+.rp-120 { background: var(--neo-card); }
+.rp-sum { background: var(--neo-ink); color: var(--neo-cream); }
+.rp-sub {
+  font-size: 14px; font-weight: 500; color: var(--neo-ink-soft);
+  margin: 12px 0 0; line-height: 1.55;
+}
+
+/* ---- 영역 카드 ---- */
+.rp-sec-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px; margin-top: 18px;
+}
+/* 영역별 색. 카드를 통째로 칠하지 않고 상단 띠 + 숫자 + 게이지에만 쓴다 —
+   본문은 ink/paper 로 두어야 점수가 읽힌다. */
+.rp-sec {
+  --sec: var(--neo-ink);
+  position: relative; overflow: hidden;
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-card);
+  box-shadow: var(--sh-2); padding: 18px 14px 14px;
+}
+.rp-sec::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 10px;
+  background: var(--sec); border-bottom: 2px solid var(--neo-ink);
+}
+.rp-sec-head { display: flex; align-items: baseline; gap: 8px; }
+.rp-sec-ko { font-size: 14px; font-weight: 700; }
+.rp-sec-en {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+  color: var(--neo-mute-aa);
+}
+.rp-sec-band {
+  font-family: var(--font-display); font-size: 44px; line-height: 1.05;
+  margin: 8px 0 2px; color: var(--neo-ink);
+  -webkit-text-stroke: 0;
+}
+.rp-sec-band.pending { color: var(--neo-mute); }
+.rp-sec-raw {
+  font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--neo-ink-soft);
+}
+.rp-bar {
+  height: 8px; border: 2px solid var(--neo-ink);
+  background: var(--neo-paper-2); margin-top: 8px;
+}
+.rp-bar-fill { height: 100%; background: var(--sec); }
+.rp-path {
+  margin-top: 8px; font-size: 12px; font-weight: 700; color: var(--neo-ink-soft);
+}
+.rp-pending-tag {
+  margin-top: 8px; display: inline-block;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+  padding: 4px 8px; border: 2px solid var(--neo-ink); background: var(--neo-paper-2);
+}
+
+/* ---- 리뷰 버튼 ---- */
+.rp-reviews { margin-top: 26px; }
+.rp-h2 { font-family: var(--font-display-kr); font-size: 24px; margin: 0 0 6px; }
+.rv-wrap .rp-h2 { margin-bottom: 18px; }
+.rp-rv-grid { display: grid; gap: 10px; margin-top: 14px; }
+.rp-rv {
+  --sec: var(--neo-ink);
+  position: relative; display: flex; align-items: center;
+  justify-content: space-between; padding: 15px 18px 15px 26px;
+  text-decoration: none; color: var(--neo-ink);
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-card);
+  box-shadow: var(--sh-2);
+}
+.rp-rv::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 12px;
+  background: var(--sec); border-right: 2px solid var(--neo-ink);
+}
+.rp-rv:active { transform: translate(2px, 2px); box-shadow: var(--sh-1); }
+
+/* 영역 색. .rp-sec 과 .rp-rv 가 각각 --sec 기본값을 두므로, 이 규칙이
+   **둘보다 뒤에** 와야 덮어쓴다(같은 특정도라 순서가 승부를 가른다). */
+.sec-R { --sec: var(--neo-blaze); }   /* Reading   파랑 */
+.sec-L { --sec: var(--neo-fail); }    /* Listening 빨강 */
+.sec-W { --sec: var(--neo-grind); }   /* Writing   초록 */
+.sec-S { --sec: var(--neo-acid); }    /* Speaking  노랑 */
+.rp-rv-ko { font-size: 16px; font-weight: 700; }
+.rp-rv-go { font-family: var(--font-display); font-size: 20px; }
+.rp-foot {
+  margin-top: 24px; font-size: 13px; font-weight: 500;
+  color: var(--neo-ink-soft); text-align: center;
+}
+
+.center-state { text-align: center; padding: 60px 20px; }
+.center-state .big {
+  font-family: var(--font-display-kr); font-size: 28px; margin-bottom: 8px;
+}
+.center-state .btn { margin-top: 16px; display: inline-block; }
+
+/* ---- 리뷰: 문항 그리드 ---- */
+.rv-wrap { max-width: 900px; margin: 0 auto; padding: 22px 18px; }
+.rv-mod { margin-bottom: 22px; }
+.rv-mod-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.rv-mod-ko { font-size: 15px; font-weight: 700; }
+.rv-mod-n {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+  color: var(--neo-mute-aa);
+}
+.rv-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+  gap: 7px;
+}
+.rv-cell {
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-card);
+  padding: 9px 4px; text-align: center; cursor: pointer;
+  font-weight: 700; font-variant-numeric: tabular-nums;
+  box-shadow: var(--sh-1); font-family: inherit;
+}
+.rv-cell:active { transform: translate(2px, 2px); box-shadow: none; }
+.rv-cell .rv-n { display: block; font-size: 14px; }
+.rv-cell .rv-v {
+  display: block; font-family: var(--font-mono);
+  font-size: 9px; letter-spacing: 0.06em; margin-top: 3px;
+}
+.rv-cell.ok { background: #DFF5E4; }
+.rv-cell.no { background: #FBE0E0; }
+
+/* ---- 리뷰: 상세 ---- */
+.rv-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 20px;
+}
+.rv-verdict {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;
+  padding: 4px 10px; border: var(--border-w) solid var(--neo-ink);
+}
+.rv-verdict.ok { background: #A9E5B8; }
+.rv-verdict.no { background: #F5AFAF; }
+.rv-back {
+  /* 뒤로 가기 버튼은 아래 내용과 확실히 떨어뜨린다.
+     붙어 있으면 제목·정오 배지와 한 덩어리로 읽힌다. */
+  display: inline-block; margin-bottom: 18px; padding: 8px 14px;
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-card);
+  box-shadow: var(--sh-1); text-decoration: none; color: var(--neo-ink);
+  font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit;
+}
+.rv-back:active { transform: translate(2px, 2px); box-shadow: none; }
+
+/* 리뷰 중에는 조작이 먹으면 안 된다.
+   렌더러는 모드 개념이 없어 항상 리스너를 단다. ctx.set 이 no-op 이라 저장은
+   안 되지만, 화면이 반응하면 학생은 답을 바꿨다고 오해한다. */
+.reviewing .choices, .reviewing .sen, .reviewing .ins-mark,
+.reviewing .bas-tile, .reviewing .bas-slot { pointer-events: none; }
+.reviewing .q-actions, .reviewing .btn-flag { display: none; }
+.reviewing input.bcell { pointer-events: none; background: var(--neo-paper-2); }
+
+/* 정오 색 — .choice.picked 위에 얹는다 */
+.choice.ans-correct { background: #DFF5E4; border-color: #1B7F3B; }
+.choice.ans-correct .letter { background: #1B7F3B; color: #fff; }
+.choice.ans-wrong { background: #FBE0E0; border-color: #B32020; }
+.choice.ans-wrong .letter { background: #B32020; color: #fff; }
+.choice.ans-miss { border-style: dashed; border-color: #1B7F3B; }
+.ans-note { font-size: 13px; font-weight: 700; color: #B32020; margin-bottom: 6px; }
+.blank.ans-correct input.bcell { border-color: #1B7F3B; background: #DFF5E4; }
+.blank.ans-wrong input.bcell { border-color: #B32020; background: #FBE0E0; }
+.ans-fix {
+  font-weight: 700; color: #1B7F3B; margin-left: 4px;
+  border-bottom: 2px solid #1B7F3B;
+}
+
+/* 해석 · 해설 — 눌러야 열린다.
+   문제를 다시 보기 전에 답이 눈에 들어오면 리뷰가 의미를 잃는다. */
+.rv-fold {
+  margin-top: 12px;
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-paper-2);
+}
+.rv-fold > summary {
+  padding: 12px 14px; font-size: 14px; font-weight: 700; cursor: pointer;
+  list-style: none; display: flex; justify-content: space-between;
+  align-items: center;
+}
+.rv-fold > summary::-webkit-details-marker { display: none; }
+.rv-fold > summary::after { content: "▾"; font-size: 13px; }
+.rv-fold[open] > summary { border-bottom: 2px solid var(--neo-ink); }
+.rv-fold[open] > summary::after { content: "▴"; }
+.rv-fold-body { padding: 14px; }
+.rv-optkr { margin: 6px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.7; }
+.rv-optkr .kr-correct { color: #1B7F3B; font-weight: 700; }
+.rv-optkr .kr-wrong { color: #B32020; }
+
+.rv-explain, .rv-script {
+  margin-top: 18px; padding: 14px;
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-paper-2);
+}
+.rv-k {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+  color: var(--neo-ink-soft); margin-bottom: 5px;
+}
+.rv-body { font-size: 15px; line-height: 1.65; margin: 0 0 10px; }
+/* 스크립트 화자 라벨. M=파랑 / W=빨강 배지로 발화를 구분한다. */
+.rv-line { font-size: 15px; line-height: 1.7; margin: 0 0 6px; }
+.rv-sp {
+  display: inline-block; min-width: 20px; text-align: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  padding: 1px 5px; border: 2px solid var(--neo-ink); color: #fff;
+}
+.rv-sp-M { background: var(--neo-blaze); }
+.rv-sp-W { background: var(--neo-hot); }
+.rv-wrong { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; }
+.rv-script summary { font-size: 14px; font-weight: 700; cursor: pointer; }
+
+/* ---- Writing / Speaking 리뷰 ---- */
+.rv-essay {
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-card);
+  padding: 16px; margin-bottom: 14px;
+}
+.rv-essay-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 10px; margin-bottom: 10px;
+}
+.rv-essay-ko { font-size: 15px; font-weight: 700; }
+.rv-essay-wc {
+  font-family: var(--font-mono); font-size: 11px; color: var(--neo-mute-aa);
+}
+.rv-essay-text {
+  font-family: var(--font-reading); font-size: 15px; line-height: 1.7;
+  white-space: pre-wrap; word-break: break-word;
+}
+.rv-prompt {
+  font-size: 14px; line-height: 1.6; color: var(--neo-ink-soft);
+  padding-bottom: 10px; margin-bottom: 10px;
+  border-bottom: 2px solid var(--neo-line);
+}
+.rv-bas-row {
+  display: grid; grid-template-columns: 34px 1fr; gap: 10px;
+  padding: 10px 0; border-bottom: 2px solid var(--neo-line);
+}
+.rv-bas-n { font-weight: 700; font-variant-numeric: tabular-nums; }
+.rv-bas-mine { font-size: 15px; line-height: 1.5; }
+.rv-bas-want { font-size: 14px; color: #1B7F3B; font-weight: 700; margin-top: 3px; }
+.rv-audio { width: 100%; margin-top: 8px; }
+.rv-target { font-size: 15px; line-height: 1.6; font-weight: 500; }
+.rv-pending {
+  margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--neo-ink-soft);
+}
+
+/* ---- 모의고사 진입 (mock/index.html) ---- */
+.rp-h1 {
+  font-family: var(--font-title-kr); font-weight: 900;
+  font-size: clamp(38px, 8vw, 56px); line-height: 1.05;
+  letter-spacing: -0.025em; margin: 4px 0 0;
+  text-rendering: geometricPrecision; -webkit-font-smoothing: antialiased;
+}
+.mk-list { display: grid; gap: 12px; margin-top: 22px; }
+.mk-card {
+  display: block; padding: 18px 16px 16px; text-decoration: none;
+  color: var(--neo-ink);
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-card);
+  box-shadow: var(--sh-2);
+}
+.mk-card:active { transform: translate(2px, 2px); box-shadow: var(--sh-1); }
+.mk-top { display: flex; align-items: center; gap: 8px; }
+.mk-n {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+  color: var(--neo-ink-soft);
+}
+.mk-state {
+  margin-left: auto; font-size: 12px; font-weight: 700;
+  padding: 3px 9px; border: 2px solid var(--neo-ink);
+  background: var(--neo-paper-2);
+}
+.mk-state.on { background: var(--neo-acid); }
+.mk-t {
+  font-family: var(--font-display-kr); font-size: 26px; line-height: 1.2;
+  margin: 6px 0 2px;
+}
+.mk-band {
+  font-family: var(--font-display); font-size: 22px; margin: 2px 0 2px;
+}
+.mk-when {
+  font-size: 13px; font-weight: 500; color: var(--neo-ink-soft);
+  line-height: 1.5;
+}
+.mk-card .hgo {
+  display: inline-block; margin-top: 12px;
+  font-size: 14px; font-weight: 700;
+}
+.mk-note {
+  margin-top: 26px; padding: 16px;
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-paper-2);
+}
+.mk-note ul { margin: 0; padding-left: 18px; }
+.mk-note li {
+  font-size: 14px; line-height: 1.7; font-weight: 500; color: var(--neo-ink);
+}
+
+/* 관리자 전용 초기화 버튼 — 카드 안에 있지만 눈에 덜 띄게 둔다.
+   자주 쓰는 동작이 아니고, 실수로 누르면 응시 기록이 사라진다. */
+.mk-reset {
+  display: inline-block; margin-top: 12px; margin-left: 12px;
+  padding: 6px 12px; font-family: inherit; font-size: 13px; font-weight: 700;
+  border: 2px solid var(--neo-ink); background: var(--neo-paper-2);
+  color: var(--neo-ink); cursor: pointer;
+}
+.mk-reset:hover { background: var(--neo-fail); color: #fff; }

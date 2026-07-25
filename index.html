@@ -26,9 +26,12 @@
     letter-spacing: 0.14em; text-transform: uppercase; color: var(--neo-mute-aa);
   }
   .hub-card .ht {
-    font-family: var(--font-display); font-size: 26px; letter-spacing: -0.01em;
+    /* 라틴(NEO/Writing)은 Archivo Black, 한글(모의고사)은 Jua 로 — 폴백 노토(기본두께) 방지 */
+    font-family: 'Archivo Black', var(--font-display-kr); font-size: 26px; letter-spacing: -0.01em;
     margin: 6px 0 4px; text-transform: uppercase;
   }
+  /* 한글 카드 타이틀은 Jua 기준으로 자간 0 · 살짝 크게(획 균형) */
+  .hub-card .ht.ht-kr { letter-spacing: 0; font-size: 28px; }
   .hub-card .hd { font-size: 14px; line-height: 1.55; color: var(--neo-ink-soft); }
   .hub-card .hgo {
     display: inline-block; margin-top: 12px; font-family: var(--font-label-kr);
@@ -65,6 +68,13 @@
       <div class="hd">문법 개념 11개를 예문으로 익히고, 조각을 끼워 맞추며 문장을 조립해요. 모의고사 100세트까지.</div>
       <span class="hgo">문장 조립 열기 →</span>
     </a>
+    <a class="deck-card hub-card" id="mock-card" href="mock/index.html">
+      <span class="num">3</span>
+      <div class="hk" style="display:inline-block;margin-left:8px;">MOCK EXAM</div>
+      <div class="ht ht-kr">NEO 모의고사</div>
+      <div class="hd">최신경향 100프로 반영! NEO MOCK EXAM!</div>
+      <span class="hgo">모의고사 열기 →</span>
+    </a>
   </div>
 
   <!-- 가이드 — .deck-card 는 <a> 라서 그 안에 <a> 를 못 넣는다.
@@ -100,6 +110,14 @@
   var c = code();
   var who = document.getElementById("who");
   if (c) who.textContent = (c.replace(/\s*\d{4}$/, "").trim() || c) + " 님, 어서와요";
+
+  // 모의고사: 랍슨4355(또는 admin 역할)만 열람. 나머지는 COMING SOON 으로 잠금.
+  var FREE_CODES = ["랍슨4355"];
+  var canMock = false;
+  try { canMock = sessionStorage.getItem("neo_role") === "admin" || FREE_CODES.indexOf(c) >= 0; }
+  catch (e) { canMock = false; }
+  var mock = document.getElementById("mock-card");
+  if (mock && !canMock) { mock.parentNode.removeChild(mock); }
 
   // 가이드 아코디언 (vocab/quiz.html 의 토글과 동일)
   var gh = document.getElementById("guide-head"), gs = document.getElementById("guide-sub");

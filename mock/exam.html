@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>NEO TOEFL · 모의고사</title>
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .free-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--neo-acid,#E8FF3A);
+    border-bottom:3px solid var(--neo-ink,#0A0A0A);padding:6px 12px;position:sticky;top:0;z-index:40}
+  .free-tag{font-family:var(--font-mono,monospace);font-size:11px;font-weight:700;
+    background:var(--neo-ink,#0A0A0A);color:var(--neo-paper,#FBFBF7);padding:2px 8px;margin-right:4px}
+  .free-jump{font-size:12px;font-weight:700;border:2px solid var(--neo-ink,#0A0A0A);background:#fff;padding:3px 9px;cursor:pointer}
+  .free-jump:hover{background:var(--neo-ink,#0A0A0A);color:#fff}
+  .free-reset{margin-left:auto;font-size:12px;font-weight:700;border:2px solid var(--neo-ink,#0A0A0A);
+    background:var(--neo-hot,#FF3DA6);color:#fff;padding:3px 11px;cursor:pointer}
+</style>
+<script src="../assets/config.js"></script>
+<script src="../assets/auth.js"></script>
+<script src="../assets/shell.js"></script>
+</head>
+<body class="exam-body">
+
+<!-- 시험 화면은 .exam-topbar 를 쓴다. shell.js 는 .app-topbar / .topbar 에만
+     이름칩을 붙이므로 여기엔 안 붙는다 — 시험 중엔 타이머·진행률만 보여야 한다.
+     shell.js 자체는 로드한다(우클릭 차단 등 공통 동작 때문). -->
+<div class="exam-topbar">
+  <div class="brand"><span class="n">NEO</span><span>TOEFL</span>
+    <span style="opacity:.5">·</span><span id="hd-set">MOCK</span></div>
+  <div id="vol-slot"></div>
+  <div class="session" id="hd-who"></div>
+  <div class="timer" id="hd-timer">--:--</div>
+  <button class="pill" id="btn-review">Review</button>
+  <button class="pill" id="btn-pause">Pause</button>
+</div>
+
+<!-- 좌측 = 문항 번호, 우측 = 이동 버튼. 섹션 탭은 두지 않는다
+     (실제 시험에도 없고, 시험 중엔 지금 문항에만 집중하면 된다) -->
+<div class="subbar" id="subbar">
+  <span class="qnum" id="qnum"></span>
+  <div class="nav">
+    <button class="btn" id="btn-prev">Previous</button>
+    <button class="btn btn-next" id="btn-next">Next</button>
+  </div>
+</div>
+
+<div id="stage"></div>
+
+<!-- 엔진·렌더러가 먼저 정의돼야 아래 부팅 스크립트가 참조할 수 있다 -->
+<script src="assets/volume.js"></script>
+<script src="assets/examdb.js"></script>
+<script src="assets/score.js"></script>
+<script src="assets/intro.js"></script>
+<script src="assets/engine.js"></script>
+<script src="assets/render-r.js"></script>
+<script src="assets/render-l.js"></script>
+<script src="assets/render-w.js"></script>
+<script src="assets/render-s.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  var qs = new URLSearchParams(location.search);
+  var SET = parseInt(qs.get("set") || "1", 10);
+  var stage = document.getElementById("stage");
+  var timerEl = document.getElementById("hd-timer");
+  var qnumEl = document.getElementById("qnum");
+  var prevBtn = document.getElementById("btn-prev");
+  var nextBtn = document.getElementById("btn-next");
+  var reviewBtn = document.getElementById("btn-review");
+  var pauseBtn = document.getElementById("btn-pause");
+  var subbar = document.getElementById("subbar");   // 설명 화면에서 잠시 감춘다
+  var eng = null;
+
+  prevBtn.addEventListener("click", function () { if (eng) eng.go(-1); });
+  nextBtn.addEventListener("click", function () {
+    if (!eng) return;
+    if (nextBtn.dataset.submit === "1") submitNow();
+    else eng.go(1);
+  });
+
+  /* 시험 중 화면 확대·축소 차단.
+   * 배율이 바뀌면 지문 분량과 레이아웃이 학생마다 달라져 조건이 흐트러진다.
+   * Ctrl+휠 / Ctrl +,-,0 / 트랙패드 핀치(Safari gesture) 세 경로를 모두 막는다.
+   * 브라우저 메뉴로 하는 확대는 막을 방법이 없다 — 그건 페이지 권한 밖이다. */
+  window.addEventListener("wheel", function (e) {
+    if (e.ctrlKey) e.preventDefault();
+  }, { passive: false });
+  window.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) &&
+        ["+", "-", "=", "0", "_"].indexOf(e.key) >= 0) {
+      e.preventDefault();
+    }
+  });
+  ["gesturestart", "gesturechange", "gestureend"].forEach(function (t) {
+    window.addEventListener(t, function (e) { e.preventDefault(); });
+  });
+
+  function code() {
+    return sessionStorage.getItem("neo_code") || localStorage.getItem("neo_code") || "";
+  }
+  /* 자유 모드: 강사(admin 역할) 또는 지정 코드. 시간 무제한 + 섹션 자유이동 + 언제든 리셋. */
+  var FREE_CODES = ["랍슨4355"];
+  function isFree() {
+    return sessionStorage.getItem("neo_role") === "admin" || FREE_CODES.indexOf(code()) >= 0;
+  }
+  function el(t, c, x) {
+    var e = document.createElement(t);
+    if (c) e.className = c;
+    if (x !== undefined) e.textContent = x;
+    return e;
+  }
+  function mmss(ms) {
+    var s = Math.max(0, Math.round(ms / 1000));
+    return String(Math.floor(s / 60)).padStart(2, "0") + ":" +
+           String(s % 60).padStart(2, "0");
+  }
+
+  NEO_VOL.mount(document.getElementById("vol-slot"));
+  document.getElementById("hd-set").textContent = "MOCK " + SET;
+  document.getElementById("hd-who").textContent =
+    (code() || "").replace(/\s*\d{4}$/, "");
+
+  /* 데이터는 세트별로 하나만 읽는다. 시험 중엔 key(정답·해설)를 로드하지만
+     화면에는 절대 내보내지 않는다 — 라우팅 판정에만 쓴다. */
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      var s = document.createElement("script");
+      s.src = src; s.onload = res; s.onerror = function () { rej(src); };
+      document.head.appendChild(s);
+    });
+  }
+
+  /* ---------- 진행 표시 ---------- */
+  function paint(info) {
+    // Complete the Words 는 한 화면이 10문항이라 번호가 범위로 나온다
+    // ("QUESTION 1-10 of 20"). 객관식은 단일 번호 ("QUESTION 11 of 20").
+    var n = info.nums[info.cursor];
+    qnumEl.textContent = n
+      ? "QUESTION " + (n.from === n.to ? n.from : n.from + "-" + n.to) +
+        " of " + info.secTotal
+      : "";
+    // Listening 은 되돌아갈 수 없다 — 오디오를 다시 들을 수 없으니 앞 문항으로
+    // 돌아가는 게 의미가 없고, 실제 시험도 그렇다.
+    // Speaking 은 재생->녹음->다음 이 자동이라 이동 버튼 자체가 없다.
+    var auto = info.sec === "S";
+    prevBtn.style.display = (info.sec === "L" || auto) ? "none" : "";
+    // Speaking 은 자동 진행이라 Next 를 숨기지만, 강사 자유 모드에선 수동 이동용으로 노출한다.
+    nextBtn.style.display = (auto && !isFree()) ? "none" : "";
+    // Writing 은 태스크 경계를 뒤로 넘을 수 없다 (앞 태스크의 남은 시간을 다시 쓰지 못하게)
+    prevBtn.disabled = !info.canBack;
+    // 마지막 화면에서는 Next 가 곧 제출이다. 별도 제출 버튼을 두면
+    // 학생이 Next 를 눌러도 아무 일이 없어 막힌 것으로 오해한다.
+    var last = info.cursor >= info.total - 1;
+    nextBtn.disabled = false;
+    nextBtn.textContent = last ? "Submit" : "Next";
+    nextBtn.dataset.submit = last ? "1" : "";
+    /* Review 는 '앞뒤로 오갈 수 있는 구간' 에서만 의미가 있다.
+       Listening 은 되돌아갈 수 없고(오디오 1회 재생), Speaking 은 자동 진행이라
+       뺀다. Writing 은 Task 1(Build a Sentence)만 문항이 여러 개라 그때만 둔다. */
+    var canReview = info.sec === "R" || (info.sec === "W" && info.gt === "bas");
+    reviewBtn.style.display = canReview ? "" : "none";
+    // Listening 은 문항별 카운트다운이라 멈출 지점이 없고, Speaking 은 자동 진행이다.
+    var canPause = info.sec === "R" || info.sec === "W";
+    pauseBtn.style.display = canPause ? "" : "none";
+  }
+
+  function tick(ms, budget) {
+    if (eng && eng.free) { timerEl.textContent = "자유 ∞"; return; }   // 자유 모드: 시간 무제한
+    // Listening 은 오디오가 끝나야 타이머가 시작된다. 그전엔 대기 표시.
+    if (ms === null || ms === undefined) {
+      timerEl.textContent = "--:--";
+      return;
+    }
+    timerEl.textContent = mmss(ms);
+  }
+
+  /* **굵게** 만 지원한다. 설명 문구에 필요한 강조가 이것뿐이고,
+     innerHTML 을 통째로 받으면 데이터가 곧 스크립트가 된다. */
+  function rich(tag, cls, text) {
+    var n = el(tag, cls);
+    String(text).split(/\*\*/).forEach(function (part, i) {
+      if (!part) return;
+      if (i % 2) n.appendChild(el("b", null, part));
+      else n.appendChild(document.createTextNode(part));
+    });
+    return n;
+  }
+
+  function introTable(t) {
+    var tb = el("table", "intro-table" + (t.tone ? " tone-" + t.tone : ""));
+    if (t.head) {
+      var tr = el("tr");
+      t.head.forEach(function (h) { tr.appendChild(el("th", null, h)); });
+      tb.appendChild(tr);
+    }
+    (t.rows || []).forEach(function (row) {
+      var r = el("tr");
+      row.forEach(function (c, i) {
+        r.appendChild(rich("td", i === 0 ? "td-k" : null, c));
+      });
+      tb.appendChild(r);
+    });
+    return tb;
+  }
+
+  /* ---------- 일시정지 ----------
+     남은 시간을 얼려 두고 화면을 가린다. 문항이 보이면 멈춘 동안 읽을 수 있어
+     정지가 곧 부정행위가 된다. */
+  function showPause() {
+    if (!eng) return;
+    eng.pause();
+    var ov = el("div", "overlay");
+    var box = el("div", "overlay-box");
+    box.appendChild(el("div", "ov-k", "PAUSED"));
+    box.appendChild(el("h2", "ov-t", "Your test is paused"));
+    box.appendChild(el("p", "ov-p",
+      "The timer is stopped and your answers are saved. " +
+      "Questions are hidden while paused."));
+    var go = el("button", "btn btn-next", "Resume");
+    go.addEventListener("click", function () {
+      ov.remove();
+      eng.resume();
+    });
+    box.appendChild(go);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+  }
+  pauseBtn.addEventListener("click", showPause);
+
+  /* ---------- Review ----------
+     이 모듈의 문항을 한눈에 보여주고 바로 이동한다. 응답 여부만 알려주고
+     정답 여부는 알려주지 않는다 — 시험 중이다. */
+  function showReview() {
+    if (!eng) return;
+    var rows = eng.progress();
+    var ov = el("div", "overlay");
+    var box = el("div", "overlay-box rv-box");
+    box.appendChild(el("div", "ov-k", "REVIEW"));
+    box.appendChild(el("h2", "ov-t", "Questions in this module"));
+
+    var left = rows.filter(function (r) { return !r.answered; }).length;
+    box.appendChild(el("p", "ov-p", left
+      ? left + " of " + rows.length + " not answered yet."
+      : "All " + rows.length + " questions answered."));
+
+    var grid = el("div", "ov-grid");
+    rows.forEach(function (r) {
+      var b = el("button", "ov-cell " + (r.answered ? "on" : "off"));
+      var label = r.num
+        ? (r.num.from === r.num.to ? r.num.from : r.num.from + "-" + r.num.to)
+        : (r.cursor + 1);
+      b.appendChild(el("span", "ov-n", label));
+      b.appendChild(el("span", "ov-s", r.answered ? "ANSWERED" : "NOT ANSWERED"));
+      b.addEventListener("click", function () {
+        ov.remove();
+        eng.jump(r.cursor);
+      });
+      grid.appendChild(b);
+    });
+    box.appendChild(grid);
+
+    var close = el("button", "btn", "Close");
+    close.addEventListener("click", function () { ov.remove(); });
+    box.appendChild(close);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+  }
+  reviewBtn.addEventListener("click", showReview);
+
+  /* ---------- 단계 설명 화면 ----------
+     내용은 data/intro.js 가 들고 있다. 여러 장이면 '다음'으로 넘기고
+     마지막 장에서 '시작'을 누르면 그때 타이머가 돈다(engine.begin). */
+  function showIntro(info, pages, done) {
+    document.body.classList.add("intro-open");
+    timerEl.textContent = "--:--";
+
+    var i = 0;
+    function page() {
+      var p = pages[i];
+      stage.innerHTML = "";
+      var box = el("div", "intro");
+      if (p.kicker) box.appendChild(el("div", "intro-kicker", p.kicker));
+      if (p.title) box.appendChild(el("h1", "intro-title", p.title));
+      (p.body || []).forEach(function (t) {
+        box.appendChild(rich("p", "intro-body", t));
+      });
+      if (p.table) box.appendChild(introTable(p.table));
+      if (p.list && p.list.length) {
+        var ul = el("ul", "intro-list");
+        p.list.forEach(function (t) { ul.appendChild(rich("li", null, t)); });
+        box.appendChild(ul);
+      }
+      if (p.note) box.appendChild(rich("div", "intro-note", p.note));
+
+      var last = i === pages.length - 1;
+      var btn = el("button", "btn btn-next intro-go", "Next");
+      btn.addEventListener("click", function () {
+        if (last) {
+          document.body.classList.remove("intro-open");
+          done();
+        } else { i++; page(); }
+      });
+      box.appendChild(btn);
+
+      if (pages.length > 1) {
+        var dots = el("div", "intro-dots");
+        pages.forEach(function (_, k) {
+          dots.appendChild(el("span", "intro-dot" + (k === i ? " on" : "")));
+        });
+        box.appendChild(dots);
+      }
+      stage.appendChild(box);
+    }
+    page();
+  }
+
+  /* ---------- 환경 준비 ----------
+     게이트 화면을 없앴으므로 여기서 처리한다.
+     - 코덱 감지: 제스처가 필요 없다. 페이지 로드 때 해둔다.
+     - 오디오 언락: **사용자 제스처 안에서만** 된다(iOS·모바일 크롬).
+       설명 화면의 Next 가 첫 제스처라 거기서 열린다. 설명이 없는 경우까지
+       대비해 문서 전체의 첫 클릭·키 입력에도 한 번 걸어 둔다. */
+  (function detectMime() {
+    var mimes = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+    var mime = "";
+    if (window.MediaRecorder) {
+      for (var i = 0; i < mimes.length; i++) {
+        if (MediaRecorder.isTypeSupported(mimes[i])) { mime = mimes[i]; break; }
+      }
+    }
+    window.NEO_MOCK_MIME = mime;
+  })();
+
+  function unlockAudio() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ac = window.__neoAC || (window.__neoAC = new Ctx());
+      if (ac.state === "suspended") ac.resume();
+      var o = ac.createOscillator(), gn = ac.createGain();
+      gn.gain.value = 0.0001;              // 들리지 않는 무음 — 언락 목적
+      o.connect(gn); gn.connect(ac.destination);
+      o.start(); o.stop(ac.currentTime + 0.02);
+    } catch (e) {}
+  }
+  ["pointerdown", "keydown"].forEach(function (t) {
+    document.addEventListener(t, unlockAudio, { once: true });
+  });
+
+  /* ---------- 사운드 체크 ----------
+     시험 전에 소리와 마이크를 확인한다. Speaking 도중에 마이크가 안 되는 걸
+     알게 되는 게 최악이라 권한 요청도 여기서 끝낸다.
+     이 화면은 시험 시간에 포함되지 않는다(엔진은 Continue 후에 시작한다). */
+  function soundCheck(done) {
+    var g = el("div", "gate sound-check");
+    g.appendChild(el("h1", null, "Sound Check"));
+    g.appendChild(el("p", "lead",
+      "Please wear headphones. You will listen to audio and record your voice " +
+      "during this test."));
+
+    /* --- 1. 볼륨 ---
+       안내 음원을 **반복 재생**한다. 볼륨을 만지는 동안 계속 들려야 조절이 된다. */
+    var vc = el("div", "card");
+    vc.appendChild(el("h2", null, "1. Volume"));
+    vc.appendChild(el("p", "sc-p",
+      "Use the volume icon at the top of the screen to set a comfortable level. " +
+      "The sample repeats until you continue."));
+    var vNote = el("div", "sc-note", "");
+    // 자동 재생하지 않는다. 브라우저가 막으면 소리가 안 나는데 학생은 그걸
+    // 모른 채 볼륨만 만지게 된다(실제로 그 상태였다). 눌러서 한 번씩 듣는다.
+    var sample = new Audio("audio/soundcheck.mp3");
+    NEO_VOL.apply(sample);
+    var vBtn = el("button", "btn", "Play sample");
+    vBtn.addEventListener("click", function () {
+      sample.currentTime = 0;
+      var p = sample.play();
+      vBtn.disabled = true;
+      vNote.textContent = "Playing…";
+      if (p && p.catch) {
+        p.catch(function () {
+          vBtn.disabled = false;
+          vNote.textContent = "Could not play audio. Check your browser settings.";
+        });
+      }
+    });
+    sample.addEventListener("ended", function () {
+      vBtn.disabled = false;
+      vBtn.textContent = "Play again";
+      vNote.textContent = "Adjust the volume, then play again to check.";
+    });
+    sample.addEventListener("error", function () {
+      vBtn.disabled = true;
+      vNote.textContent = "Sample audio could not be loaded.";
+    });
+    vc.appendChild(vBtn);
+    vc.appendChild(vNote);
+    g.appendChild(vc);
+
+    /* --- 2. 마이크 ---
+       입력 크기를 실시간으로 보여준다. 파랑=너무 작음 / 초록=적당 / 빨강=너무 큼.
+       초록이 일정 시간 이어지면 통과로 본다. */
+    var mc = el("div", "card");
+    mc.appendChild(el("h2", null, "2. Microphone"));
+    mc.appendChild(el("p", "sc-p", "Repeat the following sentence:"));
+    mc.appendChild(el("blockquote", "sc-say", "Describe the city you live in."));
+
+    var meter = el("div", "meter");
+    var zoneLow = el("div", "mz mz-low");
+    var zoneOk = el("div", "mz mz-ok");
+    var zoneHigh = el("div", "mz mz-high");
+    var needle = el("div", "m-needle");
+    meter.appendChild(zoneLow); meter.appendChild(zoneOk);
+    meter.appendChild(zoneHigh); meter.appendChild(needle);
+    mc.appendChild(meter);
+
+    var legend = el("div", "m-legend");
+    [["mz-low", "Too quiet"], ["mz-ok", "Good"], ["mz-high", "Too loud"]]
+      .forEach(function (r) {
+        var it = el("span", "m-li");
+        it.appendChild(el("i", r[0]));
+        it.appendChild(document.createTextNode(r[1]));
+        legend.appendChild(it);
+      });
+    mc.appendChild(legend);
+
+    var mBtn = el("button", "btn", "Start microphone check");
+    var mNote = el("div", "sc-note", "");
+    mc.appendChild(mBtn); mc.appendChild(mNote);
+    g.appendChild(mc);
+
+    /* 감도.
+     * 고정 문턱만 쓰면 기기·마이크 게인마다 결과가 달라진다(실제로 두 번 어긋났다).
+     * 그래서 시작할 때 **주변 소음을 먼저 재고**, 그 기준선보다 확실히 위로
+     * 올라와야 초록으로 본다. 조용한 방이든 시끄러운 방이든 '말을 해야' 통과한다. */
+    var GAIN = 1.6;
+    var BASE_LOW = 0.32, HIGH = 0.85;   // 표시 스케일(0~1) 기준 구간 경계
+    var OVER_FLOOR = 0.20;              // 소음 기준선보다 이만큼 위여야 말소리
+    var CAL_FRAMES = 45;                // 기준선 측정 (약 0.8초)
+    var NEED = 70;                      // 초록 프레임 수 (약 1.2초)
+    var mediaStream = null, raf = null, okFrames = 0, passed = false;
+
+    function stopMic() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = null;
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(function (t) { t.stop(); });
+        mediaStream = null;
+      }
+    }
+
+    mBtn.addEventListener("click", function () {
+      if (!window.NEO_MOCK_MIME) {
+        mNote.textContent = "Recording is not supported in this browser.";
+        return;
+      }
+      mBtn.disabled = true;
+      mNote.textContent = "Requesting microphone…";
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (st) {
+        mediaStream = st;
+        mNote.textContent = "Measuring background noise… stay quiet.";
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        var ac = window.__neoAC || (window.__neoAC = new Ctx());
+        if (ac.state === "suspended") ac.resume();
+        var src = ac.createMediaStreamSource(st);
+        var an = ac.createAnalyser();
+        an.fftSize = 1024;
+        src.connect(an);
+        var buf = new Uint8Array(an.fftSize);
+
+        var calN = 0, calSum = 0, low = BASE_LOW;
+
+        (function frame() {
+          an.getByteTimeDomainData(buf);
+          var sum = 0;
+          for (var i = 0; i < buf.length; i++) {
+            var d = (buf[i] - 128) / 128;
+            sum += d * d;
+          }
+          var rms = Math.sqrt(sum / buf.length);
+          var lvl = Math.min(1, rms * GAIN);
+
+          // 1) 기준선 측정 — 이 동안에는 판정하지 않는다
+          if (calN < CAL_FRAMES) {
+            calN++; calSum += lvl;
+            mNote.textContent = "Measuring background noise… stay quiet.";
+            needle.style.left = (lvl * 100) + "%";
+            meter.className = "meter at-low";
+            raf = requestAnimationFrame(frame);
+            return;
+          }
+          if (calN === CAL_FRAMES) {
+            calN++;                       // 한 번만 확정
+            low = Math.max(BASE_LOW, calSum / CAL_FRAMES + OVER_FLOOR);
+            zoneLow.style.width = (low * 100) + "%";
+            zoneOk.style.width = ((HIGH - low) * 100) + "%";
+            zoneHigh.style.width = ((1 - HIGH) * 100) + "%";
+            mNote.textContent = "Now read the sentence out loud.";
+          }
+
+          // 2) 판정
+          needle.style.left = (lvl * 100) + "%";
+          meter.className = "meter " +
+            (lvl < low ? "at-low" : lvl < HIGH ? "at-ok" : "at-high");
+
+          if (!passed) {
+            okFrames = (lvl >= low && lvl < HIGH) ? okFrames + 1 : 0;
+            if (okFrames >= NEED) {
+              passed = true;
+              stopMic();
+              mNote.textContent = "";
+              micPassed();
+            }
+          }
+          if (!passed) raf = requestAnimationFrame(frame);
+        })();
+      }).catch(function () {
+        mBtn.disabled = false;
+        mNote.textContent =
+          "Microphone permission was denied. Allow it in your browser settings.";
+      });
+    });
+
+    function micPassed() {
+      mBtn.textContent = "Check again";
+      mBtn.disabled = false;
+      var ov = el("div", "overlay");
+      var box = el("div", "overlay-box");
+      box.appendChild(el("div", "ov-k", "MICROPHONE"));
+      box.appendChild(el("h2", "ov-t", "Microphone check complete"));
+      box.appendChild(el("p", "ov-p",
+        "Your microphone is working and the level is good."));
+      var ok = el("button", "btn btn-next", "OK");
+      ok.addEventListener("click", function () { ov.remove(); });
+      box.appendChild(ok);
+      ov.appendChild(box);
+      document.body.appendChild(ov);
+    }
+
+    var go = el("button", "btn btn-next", "Continue");
+    go.style.fontSize = "17px"; go.style.padding = "14px 26px";
+    go.addEventListener("click", function () {
+      sample.pause();
+      stopMic();
+      unlockAudio();          // 이 클릭이 사용자 제스처다
+      done();
+    });
+    g.appendChild(go);
+
+    stage.innerHTML = "";
+    stage.appendChild(g);
+  }
+
+  /* ---------- 부팅 ---------- */
+  function boot() {
+    eng = new NEO_ENGINE({
+      exam: window.EXAM, key: window.KEY, code: code(), host: stage,
+      free: isFree(),
+      onPhase: paint, onTick: tick, onIntro: showIntro,
+      onFinish: function () {
+        location.replace("report.html?set=" + SET);
+      }
+    });
+    if (isFree()) installFreeBar();
+    eng.start();
+  }
+
+  /* 강사 자유 모드 컨트롤바: 섹션 자유이동 + 언제든 리셋 */
+  function installFreeBar() {
+    var LAB = ["Reading M1", "Reading M2", "Listening M1", "Listening M2", "Writing", "Speaking"];
+    var bar = el("div", "free-bar");
+    bar.appendChild(el("span", "free-tag", "강사 자유 모드"));
+    (window.NEO_ENGINE.FLOW || []).forEach(function (f, i) {
+      var b = el("button", "free-jump", LAB[i] || (f.sec + "." + f.stage));
+      b.addEventListener("click", function () { if (eng) eng.jumpTo(i); });
+      bar.appendChild(b);
+    });
+    var rs = el("button", "free-reset", "리셋");
+    rs.addEventListener("click", function () {
+      askConfirm("이 세트를 리셋할까요?",
+        "답안·녹음·진행이 모두 지워지고 처음부터 다시 시작해요.", "리셋", function () {
+          NEO_EXAMDB.wipeSet(code(), SET).then(function () { location.reload(); })
+            .catch(function () { location.reload(); });
+        });
+    });
+    bar.appendChild(rs);
+    var tb = document.querySelector(".exam-topbar");
+    tb.parentNode.insertBefore(bar, tb.nextSibling);
+  }
+
+  /* 확인 대화상자. 브라우저 기본 confirm() 은 디자인 시스템과 따로 놀고
+     모바일에서 주소창까지 흔들려서, Pause·Review 와 같은 오버레이로 만든다. */
+  function askConfirm(title, msg, okText, onOk) {
+    var ov = el("div", "overlay");
+    var box = el("div", "overlay-box");
+    box.appendChild(el("div", "ov-k", "CONFIRM"));
+    box.appendChild(el("h2", "ov-t", title));
+    box.appendChild(el("p", "ov-p", msg));
+    var row = el("div", "ov-actions");
+    var no = el("button", "btn", "Cancel");
+    var yes = el("button", "btn btn-next", okText);
+    no.addEventListener("click", function () { ov.remove(); });
+    yes.addEventListener("click", function () { ov.remove(); onOk(); });
+    row.appendChild(no); row.appendChild(yes);
+    box.appendChild(row);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+    yes.focus();
+  }
+
+  function submitNow() {
+    if (!eng) return;
+    var info = eng.info();
+    var name = { R: "Reading", L: "Listening", W: "Writing", S: "Speaking" }[info.sec];
+    var part = info.stage === "s1" ? " Module 1"
+             : info.stage === "s2" ? " Module 2" : "";
+    askConfirm("Submit " + name + part + "?",
+               "You cannot return to this part after submitting.",
+               "Submit", function () { eng.submitPhase(false); });
+  }
+
+  Promise.all([
+    loadScript("data/mk" + SET + "_exam.js"),
+    loadScript("data/mk" + SET + "_key.js")
+  ]).then(function () {
+    window.EXAM = window["NEO_DATA_MK" + SET + "_EXAM"];
+    window.KEY = window["NEO_DATA_MK" + SET + "_KEY"];
+    if (!window.EXAM) throw new Error("no data");
+    return NEO_EXAMDB.getDetail(code(), SET);
+  }).then(function (done) {
+    // 이미 응시를 마쳤으면 시험 화면에 못 들어온다. 리포트로 보낸다.
+    // (자유 모드는 예외 — 언제든 리셋/재진입 가능해야 하므로 리포트로 안 보낸다.)
+    if (done && !isFree()) { location.replace("report.html?set=" + SET); return; }
+    // 게이트 화면 없이 바로 시작한다. 이어풀기든 새 응시든 엔진이 알아서
+    // 판단하고(start), 아직 안 본 설명 화면부터 뜬다.
+    if (!NEO_EXAMDB.supported()) {
+      stage.innerHTML = "";
+      var w = el("div", "gate");
+      w.appendChild(el("h1", null, "This browser is not supported"));
+      w.appendChild(el("p", "lead",
+        "Local storage (IndexedDB) is required to take the test."));
+      stage.appendChild(w);
+      return;
+    }
+    NEO_EXAMDB.persist();
+    soundCheck(boot);
+  }).catch(function (e) {
+    stage.innerHTML = "";
+    var g = el("div", "gate");
+    g.appendChild(el("h1", null, "Something went wrong"));
+    g.appendChild(el("p", "lead", "Could not load the test data. (" + e + ")"));
+    stage.appendChild(g);
+  });
+})();
+</script>
+</body>
+</html>

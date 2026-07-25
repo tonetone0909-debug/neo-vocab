@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>NEO 모의고사</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../assets/colors_and_type.css">
+<link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/report.css">
+<script src="../assets/config.js"></script>
+<script src="../assets/auth.js"></script>
+<script src="../assets/shell.js"></script>
+</head>
+<body class="report-body">
+
+<div class="app-topbar">
+  <a class="brand" href="../index.html"><span class="n">NEO</span><span>TOEFL</span></a>
+  <span class="crumb">MOCK</span>
+</div>
+
+<main class="rp">
+  <div class="rp-kicker">MOCK EXAM</div>
+  <h1 class="rp-h1">NEO 모의고사</h1>
+  <p class="rp-sub" style="margin-top:6px;">
+    최신경향 100프로 반영! 실제 시험과 같은 순서(Reading → Listening → Writing →
+    Speaking)로 약 90분간 진행돼요.
+  </p>
+
+  <div class="mk-list" id="list">
+    <div class="center-state">불러오는 중…</div>
+  </div>
+
+  <div class="mk-note">
+    <div class="rv-k">응시 전에 확인해요</div>
+    <ul>
+      <li>세트마다 <b>한 번만</b> 응시할 수 있어요. 리포트는 언제든 다시 볼 수 있어요.</li>
+      <li>Reading·Listening은 <b>1단계 성적에 따라 2단계 난이도가 갈려요.</b></li>
+      <li>Speaking은 마이크가 필요해요. 시작할 때 권한을 허용해 주세요.</li>
+      <li>중간에 나가도 진행 상황이 저장돼요. 다만 <b>남은 시간은 계속 흘러요.</b></li>
+    </ul>
+  </div>
+</main>
+
+<script src="assets/examdb.js"></script>
+<script src="assets/review.js"></script>
+<script>
+(function () {
+  "use strict";
+  var R = window.NEO_REVIEW, el = R.el;
+  var host = document.getElementById("list");
+
+  /* 관리자만 응시 기록을 지울 수 있다.
+   * 이 목록은 **화면 표시용 잠금**일 뿐이다 — 브라우저 콘솔로는 누구나
+   * IndexedDB 를 지울 수 있으므로 보안 장치가 아니다. 실수로 누르는 걸 막는
+   * 용도이고, 진짜 차단은 서버 동기화가 붙을 때 그쪽에서 해야 한다. */
+  var ADMINS = ["랍슨4355", "synctest4"];
+  function isAdmin() {
+    var code = R.code();
+    if (ADMINS.indexOf(code) >= 0) return true;
+    try { return sessionStorage.getItem("neo_role") === "admin"; }
+    catch (e) { return false; }
+  }
+
+  function card(sid, detail) {
+    var done = !!detail;
+    var a = el("a", "mk-card" + (done ? " done" : ""));
+    a.href = done ? ("report.html?set=" + sid) : ("exam.html?set=" + sid);
+
+    var top = el("div", "mk-top");
+    top.appendChild(el("span", "mk-n", "SET " + sid));
+    top.appendChild(el("span", "mk-state" + (done ? " on" : ""),
+                       done ? "응시 완료" : "응시 전"));
+    a.appendChild(top);
+
+    a.appendChild(el("div", "mk-t", "모의고사 " + sid));
+
+    if (done) {
+      var o = (detail.result || {}).overall || {};
+      var band = (o.band === null || o.band === undefined) ? null : o.band;
+      a.appendChild(el("div", "mk-band",
+        band === null ? "채점 진행 중" : ("총점 " + band.toFixed(1))));
+      var d = new Date(detail.finishedAt || Date.now());
+      a.appendChild(el("div", "mk-when",
+        d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate() + " 응시"));
+      a.appendChild(el("span", "hgo", "리포트 보기 →"));
+      if (isAdmin()) a.appendChild(resetBtn(sid));
+    } else {
+      a.appendChild(el("div", "mk-when", "약 90분 · Reading → Listening → Writing → Speaking"));
+      a.appendChild(el("span", "hgo", "응시하기 →"));
+    }
+    return a;
+  }
+
+  /* 초기화 버튼. 카드가 <a> 라서 그 안의 버튼 클릭이 링크로 새지 않게
+     이벤트를 멈춘다. */
+  function resetBtn(sid) {
+    var b = el("button", "mk-reset", "응시 기록 초기화");
+    b.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      confirmReset(sid);
+    });
+    return b;
+  }
+
+  function confirmReset(sid) {
+    var ov = el("div", "overlay");
+    var box = el("div", "overlay-box");
+    box.appendChild(el("div", "ov-k", "ADMIN"));
+    box.appendChild(el("h2", "ov-t", "모의고사 " + sid + " 기록을 지울까요?"));
+    box.appendChild(el("p", "ov-p",
+      "답안 · 점수 · 녹음이 모두 삭제되고 처음부터 다시 응시할 수 있게 돼요. " +
+      "되돌릴 수 없어요."));
+    var row = el("div", "ov-actions");
+    var no = el("button", "btn", "취소");
+    var yes = el("button", "btn btn-next", "삭제하고 초기화");
+    no.addEventListener("click", function () { ov.remove(); });
+    yes.addEventListener("click", function () {
+      yes.disabled = true;
+      yes.textContent = "지우는 중…";
+      NEO_EXAMDB.wipeSet(R.code(), sid).then(function () {
+        location.reload();
+      }).catch(function (err) {
+        yes.disabled = false;
+        yes.textContent = "삭제하고 초기화";
+        box.appendChild(el("p", "ov-p", "지우지 못했어요: " + err));
+      });
+    });
+    row.appendChild(no); row.appendChild(yes);
+    box.appendChild(row);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+  }
+
+  Promise.all([R.loadDetail(1), R.loadDetail(2)]).then(function (ds) {
+    host.textContent = "";
+    ds.forEach(function (d, i) { host.appendChild(card(i + 1, d)); });
+  }).catch(function () {
+    // IndexedDB 를 못 쓰는 환경(사생활 보호 모드 등)이라도 응시는 되어야 한다.
+    host.textContent = "";
+    host.appendChild(card(1, null));
+    host.appendChild(card(2, null));
+  });
+})();
+</script>
+</body>
+</html>

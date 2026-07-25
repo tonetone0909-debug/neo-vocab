@@ -2,7 +2,7 @@
 // 앱 셸(HTML/JS/CSS)은 network-first(온라인이면 항상 최신), 큰 데이터 파일과 폰트만 cache-first.
 // ★ 캐시 무효화 손잡이는 이 CACHE 이름 하나뿐 — 코드/데이터 바꾸면 반드시 올릴 것.
 //   (HTML 의 ?v= 쿼리 방식은 프리캐시 키와 어긋나 히트하지 않으므로 쓰지 않는다.)
-const CACHE = "neo-toefl-v8";
+const CACHE = "neo-toefl-v12";
 const SHELL = [
   "./",
   "./index.html",
@@ -58,6 +58,28 @@ const SHELL = [
   "./writing/data/w1_learn.js",
   "./writing/data/w1_mock.js",
   "./writing/data/w1_meta.js",
+  // mock 앱 — 셸만 넣는다.
+  // 세트 데이터(data/mk*.js)·음원·이미지는 용량이 커서 프리캐시하지 않는다.
+  // /data/ 는 cache-first 규칙에 걸려 한 번 받으면 캐시에 남고,
+  // 음원·이미지는 network-first 로 필요할 때만 받는다.
+  "./mock/index.html",
+  "./mock/exam.html",
+  "./mock/report.html",
+  "./mock/review.html",
+  "./mock/assets/app.css",
+  "./mock/assets/report.css",
+  "./mock/assets/volume.js",
+  "./mock/assets/engine.js",
+  "./mock/assets/examdb.js",
+  "./mock/assets/score.js",
+  "./mock/assets/review.js",
+  "./mock/assets/render-r.js",
+  "./mock/assets/render-l.js",
+  "./mock/assets/render-w.js",
+  "./mock/assets/render-s.js",
+  "./mock/assets/feedback-io.js",
+  "./mock/data/mk_meta.js",
+  "./mock/assets/intro.js",
 ];
 
 self.addEventListener("install", e => {

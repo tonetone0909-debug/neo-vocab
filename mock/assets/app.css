@@ -1,0 +1,816 @@
+/* mock/assets/app.css — 모의고사 전용.
+ *
+ * 색은 최대한 절제한다. 시험 화면에 브랜드 색이 튀면 집중이 깨진다.
+ * ink + paper 위주로 가고, 브랜드 색은 딱 세 곳에만 — 위험 타이머, 현재 문항 점,
+ * 선택된 보기. (디자인 시스템 v2.2 "모의고사 UI" 규칙)
+ */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body.exam-body {
+  background: var(--neo-bone);
+  color: var(--neo-ink);
+  font-family: var(--font-body);
+  overflow: hidden;                 /* 시험 화면은 전체가 고정, 각 pane 만 스크롤 */
+}
+
+/* ===== HUD ===== */
+.exam-topbar {
+  display: flex; align-items: center; gap: 18px;
+  padding: 10px 20px;
+  background: var(--neo-ink); color: var(--neo-cream);
+  border-bottom: var(--border-w) solid var(--neo-ink);
+}
+.exam-topbar .brand {
+  font-family: var(--font-display); font-size: 18px;
+  letter-spacing: var(--tracking-tight); text-transform: uppercase;
+  display: flex; align-items: center; gap: 6px;
+}
+.exam-topbar .brand .n { color: var(--neo-acid); }
+.exam-topbar .session {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  letter-spacing: var(--tracking-loose); text-transform: uppercase; opacity: .7;
+}
+.timer {
+  margin-left: auto;
+  font-family: var(--font-display); font-size: 28px;
+  letter-spacing: var(--tracking-tight);
+  padding: 4px 14px; border: 2px solid var(--neo-cream);
+  border-radius: var(--r-1); font-variant-numeric: tabular-nums;
+}
+/* 남은 시간이 적어도 시계를 붉게 깜빡이지 않는다. 실제 시험에 없는 연출이고,
+   깜빡임 자체가 남은 문항에서 주의를 빼앗는다. 숫자만 그대로 둔다. */
+/* 라벨이 한국어라 mono 대신 한글 라벨 폰트. mono 10~11px 는 영문 kicker 전용. */
+.pill {
+  font-family: var(--font-label-kr); font-size: 14px; font-weight: 700;
+  padding: 8px 14px; min-height: 44px;
+  border: 2px solid var(--neo-cream);
+  border-radius: var(--r-pill); cursor: pointer;
+  background: transparent; color: var(--neo-cream);
+}
+.pill.primary { background: var(--neo-cream); color: var(--neo-ink); }
+.pill:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ===== 진행 바 — 좌측 문항 번호 / 우측 이동 버튼 ===== */
+.subbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 20px; background: var(--neo-paper-2);
+  border-bottom: 2px solid var(--neo-ink);
+}
+.qnum {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  letter-spacing: var(--tracking-loose); text-transform: uppercase;
+  color: var(--neo-ink);
+}
+.subbar .nav { margin-left: auto; display: flex; gap: 8px; }
+.subbar .nav .btn { min-height: 38px; padding: 7px 15px; font-size: 14px; }
+
+/* ===== 본문 영역 ===== */
+#stage { height: calc(100vh - 104px); overflow: hidden; }
+.pane {
+  display: grid; grid-template-columns: 1fr 1fr;
+  height: 100%; border-top: 2px solid var(--neo-ink);
+}
+.passage-side {
+  padding: 26px 34px; overflow: auto;
+  background: var(--neo-card); border-right: 2px solid var(--neo-ink);
+}
+.q-side { padding: 26px 34px; overflow: auto; background: var(--neo-paper); }
+.single {
+  height: 100%; overflow: auto; padding: 26px 34px;
+  background: var(--neo-card); border-top: 2px solid var(--neo-ink);
+}
+
+.passage-sub {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  letter-spacing: var(--tracking-loose); text-transform: uppercase;
+  color: var(--neo-mute-aa); margin-bottom: 16px;
+}
+.passage-title {
+  font-family: var(--font-display); font-size: 30px;
+  line-height: var(--lh-tight); letter-spacing: var(--tracking-tight);
+  margin: 0 0 18px;
+}
+.passage {
+  font-family: var(--font-reading); font-size: var(--fs-passage);
+  line-height: var(--lh-passage); max-width: 66ch;
+}
+.passage p { margin: 0 0 18px; }
+.para-num {
+  font-family: var(--font-mono); font-weight: 700;
+  color: var(--neo-mute-aa); font-size: 13px; margin-right: 8px;
+}
+
+/* ===== 문항 ===== */
+.q-kicker {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  letter-spacing: var(--tracking-loose); text-transform: uppercase;
+  color: var(--neo-mute-aa);
+}
+.q-stem { font-size: 17px; font-weight: 500; line-height: 1.55; margin: 10px 0 20px; }
+.choices { display: flex; flex-direction: column; gap: 10px; }
+.choice {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 13px 15px; border: 2px solid var(--neo-ink);
+  background: var(--neo-card); border-radius: var(--r-2);
+  cursor: pointer; font-size: 15px; line-height: 1.5;
+  transition: background var(--dur-fast) var(--ease-snap);
+}
+.choice:hover { background: var(--neo-paper-2); }
+.choice .letter {
+  width: 27px; height: 27px; flex-shrink: 0;
+  border: 2px solid var(--neo-ink); display: flex;
+  align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 13px; border-radius: var(--r-pill);
+}
+.choice.picked { background: var(--neo-paper-2); box-shadow: inset 0 0 0 2px var(--neo-ink); }
+.choice.picked .letter { background: var(--neo-ink); color: var(--neo-acid); }
+
+.q-actions { display: flex; gap: 10px; margin-top: 24px; }
+/* 버튼 라벨이 한국어다. --font-display(Archivo Black)는 한글 글리프가 없어
+   weight 400 으로 폴백해 버린다 (Writing Task1 규칙 v2 §10). 한글 UI 라벨은
+   --font-label-kr + 700 을 쓴다. text-transform 도 한글엔 의미가 없어 뺀다.
+   min-height 44px 는 터치 타깃 기준. */
+.btn {
+  font-family: var(--font-label-kr); font-weight: 700;
+  font-size: 15px; padding: 10px 17px; min-height: 44px;
+  border: 2px solid var(--neo-ink); border-radius: var(--r-2);
+  cursor: pointer;
+  background: var(--neo-card); color: var(--neo-ink);
+  transition: background var(--dur-fast) var(--ease-snap);
+}
+.btn:hover { background: var(--neo-paper-2); }
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+.btn-next { background: var(--neo-ink); color: var(--neo-card); }
+.btn-next:hover { background: var(--neo-ink-soft); }
+.btn-flag { color: var(--neo-mute-aa); border-color: var(--neo-mute-aa); }
+
+/* ===== Complete the Words =====
+   지시문은 지문의 두 배 크기. 화면 전체를 중앙 정렬한다.
+   두 크기를 한 변수에서 파생시켜 지문을 키워도 2배 관계가 유지되게 한다. */
+.single.ctw-single {
+  --ctw-fs: 28px;
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 0 18px;
+}
+.ctw-help {
+  font-family: var(--font-reading);
+  font-size: calc(var(--ctw-fs) * 2);
+  font-weight: 700; line-height: 1.15;
+  margin: 8px 0 30px; text-align: center;
+  color: var(--neo-ink);
+}
+.ctw-body {
+  /* 좌우 여백을 거의 두지 않고 화면 폭을 그대로 쓴다.
+     한 줄에 많이 들어가야 문단이 몇 줄로 끝나 지문 전체가 한눈에 들어온다. */
+  font-size: var(--ctw-fs);
+  width: 100%; max-width: none;
+  line-height: 2.2; text-align: left;
+}
+.blank { display: inline-flex; align-items: baseline; white-space: nowrap; }
+/* 접두는 볼드 없이, 음영 없이 본문 그대로 흐르게 둔다 (렌더링 규칙 §1) */
+.bstem { font-family: var(--font-reading); }
+
+/* 빈칸 = 한 글자짜리 칸의 나열. 칸과 칸 사이에 띄어쓰기보다 작은 여백을 둬서
+   몇 글자가 빠졌는지 눈으로 세어지게 한다 (§1). */
+.bcells { display: inline-flex; gap: 3px; margin-left: 2px; }
+.bcell {
+  /* 1.15ch 로는 w·m 같은 넓은 글자가 잘렸다. 여유를 두고 아래도 띄운다. */
+  font-family: var(--font-reading); font-size: inherit; line-height: 1.35;
+  width: 1.7ch; padding: 2px 3px 3px;
+  border: 0; border-bottom: 2px solid var(--neo-ink); border-radius: 0;
+  background: #E6E6E1;                     /* 빈칸 부분만 음영 (§1) */
+  color: var(--neo-ink); text-align: center;
+  caret-color: var(--neo-ink);
+}
+.bcell:focus {
+  outline: none;
+  box-shadow: inset 0 -2px 0 0 var(--neo-ink);
+  background: #D5D5CE;
+}
+
+/* ===== 음영 (렌더링 규칙 §3) =====
+   해당 문항으로 이동했을 때만 칠해진다 — 렌더러가 그 화면에서만 <mark>를 넣는다.
+   --neo-acid 원색은 본문 위에서 너무 튀므로 soft 를 쓴다. */
+mark.hl {
+  background: #E6E6E1; color: var(--neo-ink);
+  padding: 1px 2px; border-radius: 2px;
+}
+
+/* ===== Daily Life 장르 레이아웃 (§2) =====
+   원본 실용문처럼 보이게 한다. 텍스트는 원본 그대로, 겉모습만 입힌다. */
+.doc { font-family: var(--font-reading); font-size: 16px; line-height: 1.7; max-width: 64ch; }
+.doc p { margin: 0 0 14px; }
+.doc-h {
+  font-family: var(--font-display); font-size: 22px;
+  letter-spacing: var(--tracking-tight); margin: 0 0 14px;
+}
+.doc-h2 {
+  font-family: var(--font-body); font-size: 14px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  margin: 18px 0 8px; padding-bottom: 4px;
+  border-bottom: 2px solid var(--neo-ink);
+}
+.doc-list { margin: 0 0 14px; padding-left: 20px; }
+.doc-list li { margin-bottom: 6px; }
+.doc-tag {
+  display: inline-block; font-family: var(--font-mono); font-size: 10px;
+  font-weight: 700; letter-spacing: .16em;
+  background: var(--neo-ink); color: var(--neo-card);
+  padding: 3px 8px; margin-bottom: 12px;
+}
+.doc-head {
+  border: 2px solid var(--neo-ink); background: var(--neo-paper-2);
+  padding: 10px 14px; margin-bottom: 18px;
+}
+.kv { display: flex; gap: 10px; font-size: 14px; padding: 3px 0; }
+.kv + .kv { border-top: 1px dotted var(--neo-line); }
+.kv-k {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--neo-mute-aa); min-width: 96px; padding-top: 2px;
+}
+.kv-v { font-weight: 500; }
+
+/* 이메일 — 헤더 박스 + 본문. 서명줄은 자연스럽게 흐르게 둔다 */
+.doc-email { border-left: 3px solid var(--neo-ink); padding-left: 16px; }
+.doc-email .doc-head { background: var(--neo-card); }
+
+/* 공지 — 제목 아래 굵은 구분선, 공문 톤 */
+.g-notice .doc-h, .g-announcement .doc-h {
+  text-align: center; border-bottom: 3px solid var(--neo-ink);
+  padding-bottom: 8px; letter-spacing: .02em;
+}
+.g-notice, .g-announcement {
+  border: 3px solid var(--neo-ink); padding: 18px 20px; background: var(--neo-card);
+}
+
+/* 포스터·광고·표지판 — 중앙 정렬, 큰 타이틀, 테두리 */
+.doc-poster {
+  text-align: center; border: 3px solid var(--neo-ink);
+  padding: 22px 20px; background: var(--neo-card); box-shadow: var(--sh-2);
+}
+.doc-poster .doc-h {
+  font-size: 27px; line-height: 1.1; text-transform: uppercase; margin-bottom: 16px;
+}
+.doc-poster .doc-list { display: inline-block; text-align: left; list-style: none; padding-left: 0; }
+.doc-poster .doc-list li::before { content: "▸ "; font-weight: 700; }
+.doc-poster p:last-child { font-size: 14px; color: var(--neo-mute-aa); }
+
+/* 기사 — 헤드라인 세리프 + 바이라인 */
+.g-article .doc-h {
+  font-family: var(--font-reading); font-weight: 900; font-size: 26px;
+  line-height: 1.15; border-bottom: 1px solid var(--neo-line); padding-bottom: 10px;
+}
+.g-article p:first-of-type { font-size: 17px; }
+
+/* SNS·리뷰·블로그 — 아바타 + 핸들 */
+.doc-social {
+  border: 2px solid var(--neo-ink); background: var(--neo-card);
+  padding: 16px 18px; border-radius: var(--r-2);
+}
+.doc-social .doc-h {
+  font-family: var(--font-body); font-size: 15px; font-weight: 700;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.doc-social .doc-h::before {
+  content: ""; width: 30px; height: 30px; flex: 0 0 30px;
+  border: 2px solid var(--neo-ink); border-radius: var(--r-pill);
+  background: var(--neo-paper-2);
+}
+
+/* 영수증 — 등폭 + 점선, 금액 우측 정렬 */
+.g-receipt {
+  font-family: var(--font-mono); font-size: 13px; max-width: 42ch;
+  border: 2px dashed var(--neo-ink); padding: 16px 18px; background: var(--neo-card);
+}
+.g-receipt .doc-head { border: 0; border-bottom: 1px dashed var(--neo-ink); background: none; padding: 0 0 8px; }
+.g-receipt .kv + .kv { border-top: 0; }
+.rc-line {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 3px 0; border-bottom: 1px dotted var(--neo-line);
+}
+.rc-amt { font-weight: 700; white-space: nowrap; }
+
+/* 양식·라벨 — 격자 */
+.doc-kv .doc-head { background: var(--neo-card); }
+
+/* 문자 대화 — 발화자별 말풍선 */
+.turn { margin-bottom: 12px; max-width: 88%; }
+.turn-meta { display: flex; gap: 8px; align-items: baseline; margin-bottom: 3px; }
+.turn-who { font-weight: 700; font-size: 14px; }
+.turn-at { font-family: var(--font-mono); font-size: 10px; color: var(--neo-mute-aa); }
+.turn-text {
+  border: 2px solid var(--neo-ink); background: var(--neo-card);
+  padding: 9px 13px; border-radius: var(--r-2); font-size: 15px;
+}
+.turn:nth-child(even) { margin-left: auto; }
+.turn:nth-child(even) .turn-meta { justify-content: flex-end; }
+.turn:nth-child(even) .turn-text { background: var(--neo-paper-2); }
+
+/* ===== 신유형 상태 (§4) ===== */
+/* Sentence Identification — 문장 클릭, 고른 문장 볼드 */
+.sen { cursor: pointer; border-radius: 2px; }
+.sen:hover { background: var(--neo-paper-2); }
+.sen.picked-sen { font-weight: 700; background: #E6E6E1; }
+/* Sentence Insertion — 평소 흐리게, 해당 문항일 때만 볼드 */
+.ins-mark {
+  font-family: var(--font-mono); color: var(--neo-mute-aa);
+  padding: 0 1px; opacity: .5;
+}
+.ins-mark.on {
+  opacity: 1; font-weight: 700; color: var(--neo-ink);
+  cursor: pointer; border: 2px solid var(--neo-ink); padding: 0 4px;
+}
+.ins-mark.picked-mark { background: var(--neo-ink); color: var(--neo-acid); }
+.q-note {
+  font-size: 14px; font-weight: 700; margin-bottom: 12px;
+  border-left: 3px solid var(--neo-ink); padding-left: 10px;
+}
+
+/* ===== 게이트 / 안내 화면 ===== */
+.gate { max-width: 720px; margin: 0 auto; padding: 40px 24px; overflow: auto; height: 100%; }
+.gate h1 { font-family: var(--font-display-kr); font-size: 34px; margin: 0 0 8px; }
+.gate .lead { font-size: 17px; font-weight: 500; line-height: 1.55; margin-bottom: 24px; }
+.card {
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-card);
+  border-radius: var(--r-2); padding: 18px 20px; margin-bottom: 16px;
+  box-shadow: var(--sh-2);
+}
+.card h2 { font-family: var(--font-display-kr); font-size: 20px; margin: 0 0 10px; }
+.card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; }
+.card dt { font-size: 12px; font-weight: 700; letter-spacing: .04em; padding-top: 3px; }
+.card dd { margin: 0; font-size: 17px; font-weight: 500; line-height: 1.55; }
+.warn-box { border-color: var(--neo-fail); }
+.warn-box h2 { color: var(--neo-fail); }
+
+@media (max-width: 900px) {
+  .pane { grid-template-columns: 1fr; grid-template-rows: 45% 55%; }
+  .passage-side { border-right: 0; border-bottom: 2px solid var(--neo-ink); }
+  .exam-topbar { gap: 10px; padding: 8px 12px; }
+  .exam-topbar .session { display: none; }
+  .timer { font-size: 22px; }
+  .passage-side, .q-side, .single { padding: 18px 16px; }
+}
+
+/* ===== Listening =====
+   실제 ETS 화면(OVERVIEW pdf p9~13)을 따른다 — 좌측 화자 그림 / 우측 문항+보기.
+   보기 마커는 원형 라디오(타원)로, Reading 의 A/B/C/D 레터와 구분한다. */
+.listen-pane { flex: 1; min-height: 0; }
+.fig-side { display: flex; flex-direction: column; }
+.fig-stage {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  gap: 34px; min-height: 180px; padding: 10px 0;
+}
+.fig { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.fig-svg { width: 92px; height: 138px; color: var(--neo-ink); }
+.fig-cap {
+  font-size: 14px; font-weight: 700; text-align: center;
+  color: var(--neo-mute-aa); margin-bottom: 12px;
+}
+
+.aud-bar {
+  height: 8px; border: 2px solid var(--neo-ink); background: var(--neo-paper-2);
+}
+.aud-fill { height: 100%; width: 0; background: var(--neo-ink); transition: width .2s linear; }
+.aud-play { width: 100%; margin-top: 12px; }
+
+/* 보기 마커는 Reading 과 동일한 A·B·C·D 를 쓴다(.letter).
+   타원 라디오는 hover 마다 배경이 다시 칠해져 깜빡였고, 두 섹션의 조작감도
+   달라졌다. 마커를 통일해 둘 다 해결했다. */
+
+/* 오디오가 끝나기 전에는 보기를 못 고른다 */
+.choices.locked { opacity: .4; pointer-events: none; }
+
+/* ===== Writing =====
+   레이아웃 근거: NEW TOEFL OVERVIEW.pdf p14(Email) · p16(Academic Discussion). */
+.write-single { max-width: 900px; margin: 0 auto; }
+.w-help { font-size: 15px; font-weight: 700; margin: 10px 0 24px; }
+.w-situation { font-size: 16px; line-height: 1.7; margin: 0 0 14px; }
+.w-do { font-weight: 700; font-size: 16px; margin: 0 0 8px; }
+.w-list { margin: 0 0 14px; padding-left: 22px; font-size: 16px; line-height: 1.7; }
+.w-list li { margin-bottom: 5px; }
+.w-note { font-size: 16px; line-height: 1.6; }
+.w-resp { font-weight: 700; font-size: 17px; margin-bottom: 12px; }
+
+/* 이메일 머리 — To / Subject */
+.mail-head { margin-bottom: 12px; }
+.mail-row { display: flex; gap: 8px; font-size: 16px; padding: 2px 0; }
+.mail-k { font-weight: 700; min-width: 68px; }
+
+/* 도구모음 — 실제 시험에 있는 Cut/Paste/Undo/Redo + 단어수 */
+.compose { display: flex; flex-direction: column; }
+.w-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  border: 2px solid var(--neo-ink); border-bottom: 0;
+  background: var(--neo-paper-2); padding: 8px 10px;
+}
+.w-tools { display: flex; gap: 6px; }
+.w-bar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.w-tool {
+  font-family: var(--font-body); font-size: 13px; font-weight: 700;
+  min-height: 34px; padding: 6px 12px; cursor: pointer;
+  border: 2px solid var(--neo-ink); border-radius: var(--r-1);
+  background: var(--neo-card); color: var(--neo-ink);
+}
+.w-tool:hover { background: var(--neo-paper); }
+.w-meter {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  white-space: nowrap; text-align: right;
+}
+.w-input {
+  width: 100%; min-height: 340px; resize: vertical;
+  font-family: var(--font-body); font-size: 16px; line-height: 1.7;
+  border: 2px solid var(--neo-ink); border-radius: 0;
+  padding: 14px 16px; background: var(--neo-card); color: var(--neo-ink);
+}
+.w-input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--neo-ink); }
+
+/* 아바타 — 실제 시험은 사진, 여기선 이름 첫 글자 */
+.av {
+  width: 46px; height: 46px; flex: 0 0 46px;
+  border: 2px solid var(--neo-ink); border-radius: var(--r-pill);
+  background: var(--neo-paper-2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 18px;
+  overflow: hidden;            /* 사진을 원형으로 잘라낸다 */
+}
+/* 반신 사진은 세로 2:3 이라 원 안에 넣으면 얼굴이 위로 치우친다.
+ * cover + top 정렬로 얼굴이 원 중앙에 오게 한다. */
+/* 캐릭터 컷은 머리가 위쪽에 꽉 차게 오토크롭돼서, 얼굴을 원 안에 앉히려면
+   위쪽을 더 본다. (실사 2:3 기준 18% 였음) */
+.av img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; }
+
+/* 교수 (좌측) */
+.prof {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; margin: 22px 0 12px;
+}
+.prof-name { font-size: 16px; font-weight: 700; }
+.prof-q { font-size: 16px; line-height: 1.7; margin: 0; }
+
+/* 학생 답글 (우측, 입력창 위) */
+.post { display: flex; gap: 14px; margin-bottom: 18px; align-items: flex-start; }
+.post-who {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 5px; flex: 0 0 auto; width: 70px;
+}
+.post-name { font-size: 13px; font-weight: 700; text-align: center; }
+.post-text { font-size: 15px; line-height: 1.65; }
+
+/* ===== Build a Sentence =====
+   구조·클래스를 writing/writing.html 과 맞췄다(.frame / .slot / .tile-bank /
+   .tile / .drag-ghost). 두 앱에서 같은 조작을 쓰므로 화면도 같아야 한다.
+
+   조작: 넣기는 드래그만, 빼기는 클릭. touch-action:none 이 있어야 터치에서
+   드래그가 스크롤로 먹히지 않는다. */
+.bas-list { display: flex; flex-direction: column; gap: 20px; }
+.bas-item {
+  border: 2px solid var(--neo-ink); background: var(--neo-card);
+  padding: 18px 20px; border-radius: var(--r-2);
+}
+
+.prompt-row {
+  display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px;
+}
+.prompt-row .who {
+  flex-shrink: 0; margin-top: 6px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em; color: var(--neo-mute-aa);
+}
+.prompt-bubble {
+  background: var(--neo-paper-2);
+  border: 3px solid var(--neo-ink); border-radius: var(--r-2);
+  box-shadow: var(--sh-1); padding: 12px 16px;
+  font-family: var(--font-reading); font-size: 17px; line-height: 1.5;
+}
+
+.frame {
+  font-family: var(--font-reading); font-size: 20px; line-height: 2.4;
+  color: var(--neo-ink);
+}
+/* 빈칸과 채운 칸의 높이를 같게 유지한다 = 타일을 놓아도 문장이 재배치되지 않는다.
+   min-height 는 드롭 타깃 확보용 — 언더바 두께만 남으면 드래그로 넣을 수 없다. */
+.slot {
+  display: inline-block; vertical-align: middle;
+  min-width: 74px; min-height: 40px; margin: 0 3px; padding: 7px 10px;
+  border: none; border-bottom: 3px solid var(--neo-ink);
+  background: transparent; text-align: center;
+  font-family: var(--font-body); font-weight: 700; font-size: 16px;
+  line-height: 1.5;
+}
+.slot.empty { color: transparent; }        /* 같은 크기로 언더바만 보이게 */
+.slot.filled {
+  min-width: 0; border-radius: 5px 5px 0 0;
+  border-bottom-color: var(--neo-blaze); background: var(--neo-acid-soft);
+  cursor: pointer; touch-action: none;
+}
+.slot.drop-hover {
+  background: var(--neo-acid-soft); border-bottom-color: var(--neo-blaze);
+}
+
+.tile-bank {
+  display: flex; flex-wrap: wrap; gap: 10px; min-height: 52px;
+  margin-top: 18px; padding-top: 18px;
+  border-top: 2px dashed var(--neo-ink);
+}
+.tile-bank.drop-hover {
+  background: var(--neo-acid-soft); border-top-color: var(--neo-blaze);
+}
+.tile {
+  border: 3px solid var(--neo-ink); background: var(--neo-card);
+  box-shadow: var(--sh-1); border-radius: 8px; padding: 9px 14px;
+  font-family: var(--font-body); font-weight: 700; font-size: 16px;
+  user-select: none; cursor: grab; touch-action: none;
+}
+.tile:hover { transform: translate(-2px, -2px); box-shadow: var(--sh-2); }
+.tile.used { visibility: hidden; }         /* 자리를 유지해 뱅크가 안 들썩인다 */
+.tile.dragging { opacity: .35; }
+
+.drag-ghost {
+  position: fixed; z-index: 9999; pointer-events: none;
+  border: 3px solid var(--neo-ink); background: var(--neo-acid);
+  box-shadow: var(--sh-2); border-radius: 8px; padding: 9px 14px;
+  font-family: var(--font-body); font-weight: 700; font-size: 16px;
+  transform: translate(-50%, -50%) rotate(-2deg);
+}
+
+/* ===== Speaking =====
+   근거: OVERVIEW.pdf p18·p19 — 상단 지시문 / 가운데 매체 / 하단 RESPONSE TIME 바.
+   화면은 자동으로 넘어간다(재생 -> beep -> 녹음 -> 저장 -> 다음). */
+.speak-single {
+  max-width: 760px; margin: 0 auto;
+  display: flex; flex-direction: column; align-items: center;
+}
+.sp-head {
+  font-family: var(--font-reading); font-size: 26px; font-weight: 700;
+  text-align: center; margin: 6px 0 18px;
+}
+.sp-instr {
+  font-size: 16px; line-height: 1.65; text-align: center;
+  max-width: 60ch; margin-bottom: 18px;
+}
+.sp-media {
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-card);
+  min-height: 240px; width: 100%; max-width: 520px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 26px; box-shadow: var(--sh-2);
+}
+.sp-img { max-width: 100%; max-height: 340px; display: block; }
+.sp-missing {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  letter-spacing: var(--tracking-loose); color: var(--neo-mute-aa);
+}
+
+/* RESPONSE TIME 바 */
+.sp-panel { width: 300px; border: 2px solid var(--neo-ink); background: var(--neo-card); }
+.sp-panel-label {
+  background: var(--neo-ink); color: var(--neo-card);
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  letter-spacing: var(--tracking-loose); text-align: center; padding: 5px;
+}
+.sp-panel-row {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  padding: 12px;
+}
+.sp-mic {
+  width: 26px; height: 26px; border-radius: var(--r-pill);
+  border: 2px solid var(--neo-ink); background: var(--neo-paper-2);
+  position: relative; flex: 0 0 26px;
+}
+.sp-mic::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 7px; height: 11px; margin: -6px 0 0 -3.5px;
+  border-radius: 4px; background: var(--neo-ink);
+}
+.sp-clock {
+  font-family: var(--font-display); font-size: 26px;
+  font-variant-numeric: tabular-nums; color: var(--neo-mute-aa);
+}
+@keyframes recpulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+.sp-panel.rec .sp-mic { background: var(--neo-fail); animation: recpulse .9s infinite; }
+.sp-panel.rec .sp-mic::after { background: #fff; }
+.sp-panel.rec .sp-clock { color: var(--neo-ink); }
+.sp-panel.done { opacity: .5; }
+.sp-note { font-size: 14px; font-weight: 700; margin-top: 14px; min-height: 20px; }
+
+/* 화자 이미지 — 없으면 render-l.js 가 도형으로 떨어뜨린다 */
+.fig-img {
+  max-width: 100%; max-height: 300px; object-fit: contain;
+  display: block; margin: 0 auto;
+}
+.fig-stage { flex-direction: column; }
+
+/* Build a Sentence — 한 화면에 한 문항 + 태스크 내 진행 표시 */
+.bas-single { max-width: 780px; margin: 0 auto; }
+.bas-segs { display: flex; gap: 5px; margin: 4px 0 22px; }
+.bas-seg {
+  flex: 1; height: 8px; border: 2px solid var(--neo-ink);
+  background: var(--neo-card);
+}
+.bas-seg.on { background: var(--neo-ink); }
+.bas-seg.cur { background: var(--neo-acid); box-shadow: var(--sh-1); }
+
+/* ===== Listening 듣기 단계 =====
+   문항 없이 제목 + 그림만 있는 넓은 화면. 음원이 자동 재생된다.
+   실제 시험이 그렇고, 듣는 동안 문항이 보이면 지문을 훑느라 못 듣는다. */
+.listen-stage {
+  height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 22px;
+  padding: 20px; text-align: center;
+}
+.listen-title {
+  font-family: var(--font-reading); font-weight: 700;
+  font-size: clamp(22px, 3vw, 32px); line-height: 1.3;
+  margin: 0; max-width: 26ch;
+}
+.listen-stage .fig-stage { margin: 0; }
+.listen-stage .aud-bar { width: min(420px, 70vw); }
+.listen-stage .choices { max-width: 620px; width: 100%; text-align: left; }
+.fig-big .fig-img { max-height: min(46vh, 420px); }
+
+/* ===== 단계 설명 화면 =====
+   내용은 data/intro.js. 읽는 동안 타이머가 돌지 않는다(engine.begin 이 뒤에 온다). */
+.intro {
+  max-width: 640px; margin: 0 auto; padding: 40px 22px;
+  display: flex; flex-direction: column; align-items: flex-start;
+}
+.intro-kicker {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
+  color: var(--neo-ink-soft);
+}
+.intro-title {
+  font-family: var(--font-reading); font-weight: 700;
+  font-size: clamp(28px, 4vw, 40px); line-height: 1.2;
+  margin: 8px 0 18px;
+}
+.intro-body {
+  font-family: var(--font-reading); font-size: 17px; line-height: 1.7;
+  margin: 0 0 14px;
+}
+.intro-list { margin: 4px 0 14px; padding-left: 20px; }
+.intro-list li {
+  font-family: var(--font-reading); font-size: 16px; line-height: 1.8;
+}
+.intro-note {
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-paper-2);
+  padding: 12px 14px; font-size: 15px; font-weight: 700; line-height: 1.6;
+  margin: 6px 0 4px; align-self: stretch;
+}
+.intro-go { margin-top: 26px; min-width: 180px; }
+.intro-dots { display: flex; gap: 6px; margin-top: 16px; }
+.intro-dot {
+  width: 8px; height: 8px; border: 2px solid var(--neo-ink);
+  background: var(--neo-card);
+}
+.intro-dot.on { background: var(--neo-ink); }
+
+/* ===== Pause · Review 오버레이 =====
+   일시정지 중에는 문항이 보이면 안 된다 — 멈춘 채로 읽으면 정지가 곧 부정행위다.
+   그래서 화면 전체를 불투명하게 덮는다(반투명 아님). */
+.overlay {
+  position: fixed; inset: 0; z-index: 90;
+  background: var(--neo-paper);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.overlay-box {
+  max-width: 560px; width: 100%;
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-card);
+  box-shadow: var(--sh-3); padding: 26px 22px;
+  display: flex; flex-direction: column; align-items: flex-start;
+}
+.ov-k {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
+  color: var(--neo-ink-soft);
+}
+.ov-t {
+  font-family: var(--font-reading); font-weight: 700;
+  font-size: 26px; line-height: 1.25; margin: 6px 0 10px;
+}
+.ov-p { font-size: 15px; line-height: 1.6; margin: 0 0 18px; }
+.overlay-box .btn { min-width: 150px; }
+.rv-box { max-width: 720px; }
+.ov-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr));
+  gap: 8px; width: 100%; margin-bottom: 20px;
+  max-height: 46vh; overflow-y: auto;
+}
+.ov-cell {
+  border: 2px solid var(--neo-ink); background: var(--neo-card);
+  padding: 9px 4px; cursor: pointer; font-family: inherit;
+  display: flex; flex-direction: column; gap: 3px; align-items: center;
+}
+.ov-cell:active { transform: translate(1px, 1px); }
+.ov-cell.on { background: var(--neo-paper-2); }
+.ov-cell.off { background: var(--neo-acid); }
+.ov-n { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ov-s {
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.06em;
+  color: var(--neo-ink-soft);
+}
+
+/* 설명 화면의 표 — 머리 색은 섹션마다 다르다(원본 안내가 그렇다). */
+.intro-table {
+  border-collapse: collapse; width: 100%; margin: 6px 0 16px;
+  border: 2px solid var(--neo-ink);
+}
+.intro-table th, .intro-table td {
+  border: 2px solid var(--neo-ink); padding: 9px 11px;
+  text-align: left; font-family: var(--font-reading);
+  font-size: 15px; line-height: 1.5; vertical-align: top;
+}
+.intro-table th { font-weight: 700; background: var(--neo-paper-2); }
+.intro-table .td-k { font-weight: 700; white-space: nowrap; }
+.intro-table.tone-acid th { background: var(--neo-acid); }
+.intro-table.tone-blaze th { background: #9BE0EA; }
+.intro-table.tone-hot th { background: #F6B98A; }
+
+/* 설명 화면이 떠 있는 동안은 하단 이동 바와 헤더 버튼을 잠근다.
+   보이는 채로 눌리면 아무 일도 안 일어나 '멈췄다'로 읽힌다. */
+body.intro-open .subbar,
+body.intro-open #btn-review,
+body.intro-open #btn-pause { display: none !important; }
+
+/* ===== 사운드 체크 (시험 전) ===== */
+.sound-check .card { margin-bottom: 14px; }
+.sound-check .btn { margin-right: 8px; }
+.sc-p { font-size: 15px; line-height: 1.6; margin: 0 0 12px; }
+.sc-note {
+  margin-top: 10px; font-size: 14px; font-weight: 700;
+  min-height: 20px; color: var(--neo-ink-soft);
+}
+
+/* 전역 assets/app.css 를 싣지 않으므로 여기에도 정의해야 한다.
+   없으면 classList.add("hidden") 이 아무 효과가 없다 — 볼륨 팝업이 계속
+   떠 있던 원인이었고, Writing 의 단어수 토글도 같은 상태였다. */
+.hidden { display: none !important; }
+
+/* ===== 전역 볼륨 (검은 바 좌측) ===== */
+.vol { position: relative; display: flex; align-items: center; }
+.vol-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; cursor: pointer;
+  border: 2px solid var(--neo-cream); border-radius: var(--r-pill);
+  background: transparent; color: var(--neo-cream);
+}
+.vol-pop {
+  position: absolute; top: 46px; left: 0; z-index: 80;
+  display: none; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--neo-card);
+  border: var(--border-w) solid var(--neo-ink); box-shadow: var(--sh-2);
+}
+.vol-pop.open { display: flex; }
+
+/* 슬라이더는 직접 만든다 — 네이티브 range 는 실제 조작에 반응하지 않는
+   경우가 있었고, OS 기본 모양이라 디자인 시스템과도 따로 논다. */
+.vol-track {
+  position: relative; width: 150px; height: 14px; cursor: pointer;
+  border: 2px solid var(--neo-ink); background: var(--neo-paper-2);
+  touch-action: none;
+}
+.vol-track:focus-visible { outline: 3px solid var(--neo-blaze); outline-offset: 2px; }
+.vol-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--neo-acid); pointer-events: none;
+}
+.vol-knob {
+  position: absolute; top: 50%; width: 16px; height: 22px;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--neo-ink); background: var(--neo-card);
+  box-shadow: var(--sh-1); pointer-events: none;
+}
+.vol-pct {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  min-width: 36px; text-align: right; color: var(--neo-ink);
+}
+
+/* ===== 마이크 레벨 미터 ===== */
+.sc-say {
+  margin: 0 0 14px; padding: 10px 14px;
+  border-left: 4px solid var(--neo-ink); background: var(--neo-paper-2);
+  font-family: var(--font-reading); font-size: 17px; font-weight: 700;
+}
+.meter {
+  position: relative; display: flex; height: 26px; margin: 4px 0 8px;
+  border: 2px solid var(--neo-ink); overflow: hidden;
+}
+.mz { height: 100%; }
+.mz-low { width: 30%; background: #BFD9F2; }
+.mz-ok { width: 52%; background: #BFEBC8; }
+.mz-high { width: 18%; background: #F5C0C0; }
+.m-needle {
+  position: absolute; top: -2px; bottom: -2px; left: 0; width: 3px;
+  background: var(--neo-ink); transition: left .06s linear;
+}
+.m-legend { display: flex; gap: 14px; margin-bottom: 12px; }
+.m-li { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; }
+.m-li i { width: 12px; height: 12px; border: 2px solid var(--neo-ink); }
+.m-li i.mz-low { background: #BFD9F2; }
+.m-li i.mz-ok { background: #BFEBC8; }
+.m-li i.mz-high { background: #F5C0C0; }
+
+/* 확인 대화상자 — 브라우저 기본 confirm() 대신 디자인 시스템으로.
+   .overlay 를 그대로 재사용한다(Pause·Review 와 같은 모양). */
+.ov-actions { display: flex; gap: 10px; margin-top: 4px; }
+.ov-actions .btn { min-width: 120px; }

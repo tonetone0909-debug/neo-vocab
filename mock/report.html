@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>NEO TOEFL · 모의고사 리포트</title>
+<meta name="theme-color" content="#0A0A0A">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../assets/colors_and_type.css">
+<!-- mock/assets/app.css 만 싣는다. 전역 assets/app.css 와는 .btn/.card/.choice 가
+     충돌하므로 둘을 같이 실으면 안 된다. 리포트용 컴포넌트는 mock 쪽에 있다. -->
+<link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/report.css">
+<style>
+  .rp-ai{margin:24px 0}
+  .rp-ai-row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+  .rp-ai-btn{cursor:pointer}
+  .rp-ai-reports{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+  .rp-ai-reports .rp-rv{width:100%;text-align:left;cursor:pointer;border:none;font:inherit}
+</style>
+<script src="../assets/config.js"></script>
+<script src="../assets/auth.js"></script>
+<script src="../assets/shell.js"></script>
+</head>
+<body class="report-body">
+
+<div class="app-topbar">
+  <a class="brand" href="../index.html"><span class="n">NEO</span><span>TOEFL</span></a>
+  <span class="crumb">REPORT</span>
+</div>
+
+<main class="rp" id="rp"><div class="center-state">불러오는 중…</div></main>
+
+<script src="assets/examdb.js"></script>
+<script src="assets/score.js"></script>
+<script src="assets/review.js"></script>
+<script src="assets/feedback-io.js"></script>
+<script>
+(function () {
+  "use strict";
+  var R = window.NEO_REVIEW, el = R.el;
+  var SET = parseInt(R.qparam("set") || "1", 10);
+  var DEMO = R.qparam("demo") === "1";
+  var host = document.getElementById("rp");
+  var EXAM = null, KEY = null, FB = null;   // AI 첨삭 통합용
+  var TASKLAB = { email: "Writing Task 2 · 이메일", disc: "Writing Task 3 · 토론",
+                  repeat: "Speaking Task 1 · 따라말하기", interview: "Speaking Task 2 · 인터뷰" };
+
+  var SEC = [
+    { k: "R", ko: "Reading",   en: "READING" },
+    { k: "L", ko: "Listening", en: "LISTENING" },
+    { k: "W", ko: "Writing",   en: "WRITING" },
+    { k: "S", ko: "Speaking",  en: "SPEAKING" }
+  ];
+
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      var s = document.createElement("script");
+      s.src = src; s.onload = res; s.onerror = function () { rej(src); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function band(v) { return v === null || v === undefined ? "–" : v.toFixed(1); }
+
+  /* ---------- 화면 ---------- */
+
+  function hero(res) {
+    var o = res.overall || {};
+    var scored = !(o.band === null || o.band === undefined);
+    var box = el("section", "rp-hero" + (scored ? " done" : ""));
+    box.appendChild(el("div", "rp-kicker", "MOCK " + SET + " · 총점"));
+
+    if (!scored) {
+      box.appendChild(el("div", "rp-band pending", "–"));
+      box.appendChild(el("p", "rp-sub",
+        (o.missing || []).map(function (k) {
+          return SEC.filter(function (s) { return s.k === k; })[0].ko;
+        }).join(" · ") + " 채점이 끝나면 총점이 확정돼요."));
+    } else {
+      box.appendChild(el("div", "rp-band", band(o.band)));
+      var chips = el("div", "rp-chips");
+      chips.appendChild(el("span", "rp-120", "120점 환산 " + o.score120 + "점"));
+      chips.appendChild(el("span", "rp-sum", "영역 합계 " + o.sum + " / 24"));
+      box.appendChild(chips);
+    }
+    return box;
+  }
+
+  function secCard(s, res) {
+    var r = res[s.k] || {};
+    var c = el("div", "rp-sec sec-" + s.k);   // 영역별 색 (R 파랑 / L 빨강 / W 초록 / S 노랑)
+    var head = el("div", "rp-sec-head");
+    head.appendChild(el("span", "rp-sec-ko", s.ko));
+    head.appendChild(el("span", "rp-sec-en", s.en));
+    c.appendChild(head);
+
+    c.appendChild(el("div", "rp-sec-band" + (r.band === null ? " pending" : ""),
+                     band(r.band)));
+
+    if (r.raw === null || r.raw === undefined) {
+      c.appendChild(el("div", "rp-sec-raw", "채점 대기"));
+    } else {
+      c.appendChild(el("div", "rp-sec-raw", r.raw + " / " + r.max));
+      var bar = el("div", "rp-bar");
+      var fill = el("div", "rp-bar-fill");
+      fill.style.width = Math.round(100 * r.raw / r.max) + "%";
+      bar.appendChild(fill);
+      c.appendChild(bar);
+    }
+
+    if (s.k === "R" || s.k === "L") {
+      c.appendChild(el("div", "rp-path",
+        "Stage 1 " + r.routerRaw + "/20 → Stage 2 " +
+        (r.path === "upper" ? "상위" : "하위") + " 모듈"));
+    }
+    if (r.provisional) c.appendChild(el("div", "rp-pending-tag", "AI 첨삭 대기"));
+    return c;
+  }
+
+  function reviewButtons() {
+    var box = el("section", "rp-reviews");
+    box.appendChild(el("h2", "rp-h2", "영역별 리뷰"));
+    box.appendChild(el("p", "rp-sub",
+      "영역을 누르면 문항별 정오와 채점된 문제 화면을 볼 수 있어요."));
+    var grid = el("div", "rp-rv-grid");
+    SEC.forEach(function (s) {
+      var a = el("a", "rp-rv sec-" + s.k);
+      a.href = "review.html?set=" + SET + "&sec=" + s.k + (DEMO ? "&demo=1" : "");
+      a.appendChild(el("span", "rp-rv-ko", s.ko + " 리뷰"));
+      a.appendChild(el("span", "rp-rv-go", "→"));
+      grid.appendChild(a);
+    });
+    box.appendChild(grid);
+    return box;
+  }
+
+  /* ---------- AI 첨삭 (Writing·Speaking) ---------- */
+  /* 채점 서버 = config.js NEO_GRADER.url(Render 등). 미설정 시 로컬 serve.py 폴백. */
+  var GBASE = (window.NEO_GRADER && NEO_GRADER.url) ? NEO_GRADER.url.replace(/\/+$/, "") : "http://localhost:8788";
+  var GRADE_ENDPOINT = GBASE + "/grade";
+  var RESULT_ENDPOINT = GBASE + "/result";
+  function pendingWS(detail) {
+    var r = detail.result;
+    return !!((r.W && r.W.pending && r.W.pending.length) || (r.S && r.S.pending && r.S.pending.length));
+  }
+
+  function applyFeedback(fbObj, detail, persist) {
+    FB = fbObj;
+    // 세트당 한 번 채점 → IndexedDB 에 영구 저장(브라우저 껐다 켜도 재사용). persist=false 면 저장 안 함(이미 저장된 캐시 로드 시).
+    if (persist !== false && NEO_EXAMDB.putFeedback) {
+      NEO_EXAMDB.putFeedback(R.code(), SET, fbObj).catch(function () {});
+    }
+    var ai = NEO_FBIO.aiMaps(EXAM, fbObj), res = detail.result;
+    res.W = NEO_SCORE.scoreWriting(EXAM, KEY, detail.answers, ai.W);
+    res.S = NEO_SCORE.scoreSpeaking(EXAM, ai.S);
+    res.overall = NEO_SCORE.total({ R: res.R.band, L: res.L.band, W: res.W.band, S: res.S.band });
+    render(detail);
+  }
+
+  /* 로컬 채점 서버로 자동 채점. silent=true 면 실패해도 조용히(자동 시도용). */
+  function autoGrade(detail, btn, silent) {
+    if (DEMO) { if (!silent) alert("데모 모드는 실제 답안/녹음이 없어 자동 채점을 못 해요."); return; }
+    if (btn) { btn.disabled = true; btn.textContent = "AI 채점 중… (수십 초 걸려요)"; }
+    NEO_FBIO.buildBundle(EXAM, KEY, detail, R.code(), SET)
+      .then(function (b) { return NEO_FBIO.gradeRemote(b, GRADE_ENDPOINT, R.code(), SET); })
+      .then(function (fb) { applyFeedback(fb, detail); })
+      .catch(function (e) {
+        if (btn) { btn.disabled = false; btn.textContent = "AI 자동 채점 다시 시도"; }
+        if (!silent) alert("자동 채점 실패 — 로컬 채점 서버가 켜져 있나요?\n\n"
+          + "build/mock/feedback 폴더에서:\n  python serve.py\n(먼저 ANTHROPIC_API_KEY·GROQ_API_KEY 설정)\n\n" + e);
+      });
+  }
+
+  function aiSection(detail) {
+    var box = el("section", "rp-ai");
+    box.appendChild(el("h2", "rp-h2", "AI 첨삭 · Writing / Speaking"));
+    var row = el("div", "rp-ai-row");
+
+    if (!FB && pendingWS(detail)) {
+      var auto = el("button", "btn btn-next rp-ai-btn", "AI 자동 채점");
+      auto.addEventListener("click", function () { autoGrade(detail, auto, false); });
+      row.appendChild(auto);
+      box.appendChild(el("p", "rp-sub",
+        "로컬 채점 서버(python serve.py)를 켜두면 버튼 한 번으로 W·S가 채점되고 총점이 확정돼요."));
+    } else if (FB) {
+      var re = el("button", "btn rp-ai-btn", "AI 다시 채점");
+      re.addEventListener("click", function () { autoGrade(detail, re, false); });
+      row.appendChild(re);
+    }
+    box.appendChild(row);
+
+    /* 수동 폴백(서버 없이 파일로) */
+    var det = document.createElement("details");
+    det.className = "rp-ai-manual";
+    var sm = el("summary", null, "수동 채점 (서버 없이 파일로)"); det.appendChild(sm);
+    var mrow = el("div", "rp-ai-row");
+    var exp = el("button", "btn rp-ai-btn", "답안 내보내기");
+    exp.addEventListener("click", function () {
+      if (DEMO) { alert("데모엔 실제 녹음이 없어요."); return; }
+      exp.disabled = true; exp.textContent = "내보내는 중…";
+      NEO_FBIO.exportBundle(EXAM, KEY, detail, R.code(), SET)
+        .then(function () { exp.disabled = false; exp.textContent = "답안 내보내기 ✓"; })
+        .catch(function () { exp.disabled = false; exp.textContent = "답안 내보내기"; });
+    });
+    var lbl = el("label", "btn rp-ai-btn", "결과 불러오기");
+    var inp = document.createElement("input");
+    inp.type = "file"; inp.accept = "application/json"; inp.style.display = "none";
+    inp.addEventListener("change", function () {
+      var f = inp.files[0]; if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function () { try { applyFeedback(JSON.parse(rd.result), detail); } catch (e) { alert("불러오기 실패: " + e); } };
+      rd.readAsText(f);
+    });
+    lbl.appendChild(inp);
+    mrow.appendChild(exp); mrow.appendChild(lbl); det.appendChild(mrow);
+    box.appendChild(det);
+
+    if (FB) {
+      var reps = el("div", "rp-ai-reports");
+      ["W", "S"].forEach(function (sec) {
+        EXAM.sections[sec].groups.forEach(function (gid) {
+          if (!FB[gid] || FB[gid].error) return;
+          var f = FB[gid];
+          var b = el("button", "rp-rv sec-" + sec);
+          b.appendChild(el("span", "rp-rv-ko", (TASKLAB[f.task] || f.task) + " · " + (f.score_0_5 != null ? f.score_0_5.toFixed(1) + "/5" : "")));
+          b.appendChild(el("span", "rp-rv-go", "첨삭 →"));
+          b.addEventListener("click", function () { NEO_FBIO.openReport(EXAM, gid, f, R.code(), SET); });
+          reps.appendChild(b);
+        });
+      });
+      box.appendChild(reps);
+    }
+    return box;
+  }
+
+  function render(detail) {
+    var res = detail.result;
+    host.textContent = "";
+    host.appendChild(hero(res));
+
+    var grid = el("section", "rp-sec-grid");
+    SEC.forEach(function (s) { grid.appendChild(secCard(s, res)); });
+    host.appendChild(grid);
+
+    host.appendChild(aiSection(detail));
+    host.appendChild(reviewButtons());
+
+    var foot = el("p", "rp-foot",
+      "이 세트는 이미 응시했어요. 리포트는 계속 다시 볼 수 있어요.");
+    host.appendChild(foot);
+  }
+
+  function empty() {
+    host.textContent = "";
+    var c = el("div", "center-state");
+    c.appendChild(el("div", "big", "아직 응시하지 않았어요"));
+    c.appendChild(el("p", null, "모의고사 " + SET + " 를 끝내면 여기에 결과가 나와요."));
+    var a = el("a", "btn", "모의고사 " + SET + " 응시하기");
+    a.href = "exam.html?set=" + SET;
+    c.appendChild(a);
+    host.appendChild(c);
+  }
+
+  /* ---------- 데모 ----------
+   * 시험을 90분 완주하지 않으면 리포트를 볼 수 없어 개발 중 확인이 불가능하다.
+   * ?demo=1 이면 합성 답안으로 그린다. 운영 경로(IndexedDB)는 건드리지 않는다. */
+  function demoDetail(exam, key) {
+    var answers = {}, i = 0;
+    function fill(gid) {
+      var g = exam.groups[gid], k = key.g[gid];
+      if (g.t === "ctw") {
+        g.blanks.forEach(function (b) {
+          i++;
+          answers[gid + "_b" + b.n] = (i % 3) ? k.blanks[String(b.n)] : "zzz";
+        });
+      } else if (g.q) {
+        g.q.forEach(function (q) {
+          i++;
+          answers[q.id] = (i % 3) ? k.q[q.id].a : (k.q[q.id].a + 1) % 4;
+        });
+      } else if (g.t === "bas") {
+        g.items.forEach(function (it, j) {
+          i++;
+          answers[it.id] = (i % 3) ? k.items[j].solution.slice() : ["아무", "타일"];
+        });
+      } else if (g.t === "email" || g.t === "disc") {
+        answers[g.src + "_" + (g.t === "email" ? "email" : "disc")] =
+          "This is a sample response written by the student for preview purposes. " +
+          "It is long enough to show how the report displays a full answer.";
+      }
+    }
+    ["R", "L"].forEach(function (sec) {
+      var m = exam.sections[sec].modules;
+      m.router.groups.forEach(fill);
+      m.upper.groups.forEach(fill);
+    });
+    exam.sections.W.groups.forEach(fill);
+
+    var path = { R: "upper", L: "upper" };
+    var Rr = NEO_SCORE.scoreSection("R", path.R, exam, key, answers);
+    var Lr = NEO_SCORE.scoreSection("L", path.L, exam, key, answers);
+    var Wr = NEO_SCORE.scoreWriting(exam, key, answers, null);
+    var Sr = NEO_SCORE.scoreSpeaking(exam, null);
+    return {
+      code: R.code(), set_id: SET, answers: answers, flags: {}, spent: {},
+      path: path, startedAt: Date.now() - 5400000, finishedAt: Date.now(),
+      result: {
+        R: Rr, L: Lr, W: Wr, S: Sr,
+        overall: NEO_SCORE.total({ R: Rr.band, L: Lr.band, W: Wr.band, S: Sr.band }),
+        seconds: 5400
+      }
+    };
+  }
+
+  /* ---------- 시작 ---------- */
+  Promise.all([
+    loadScript("data/mk" + SET + "_exam.js"),
+    loadScript("data/mk" + SET + "_key.js")
+  ]).then(function () {
+    var exam = window["NEO_DATA_MK" + SET + "_EXAM"];
+    var key = window["NEO_DATA_MK" + SET + "_KEY"];
+    EXAM = exam; KEY = key;
+    if (DEMO) {
+      var d = demoDetail(exam, key);
+      try { sessionStorage.setItem("neo_mock_demo_" + SET, JSON.stringify(d)); }
+      catch (e) {}
+      render(d);
+      return;
+    }
+    return R.loadDetail(SET).then(function (detail) {
+      if (!detail) { empty(); return; }
+      // 우선순위: 로컬 캐시 → 서버 저장결과(/result, 교차기기·재청구 없음) → 없고 pending 이면 자동 채점 1회 조용히.
+      return (NEO_EXAMDB.getFeedback ? NEO_EXAMDB.getFeedback(R.code(), SET) : Promise.resolve(null))
+        .catch(function () { return null; })
+        .then(function (rec) {
+          var stored = rec && rec.fb;
+          if (stored) { applyFeedback(stored, detail, false); return; }
+          render(detail);
+          if (!pendingWS(detail)) return;
+          // 서버에 이미 채점된 결과가 있으면 가져와 캐시(채점 안 함), 없으면 자동 채점.
+          return NEO_FBIO.fetchResult(RESULT_ENDPOINT, R.code(), SET)
+            .catch(function () { return null; })
+            .then(function (fb) {
+              if (fb && Object.keys(fb).length) { applyFeedback(fb, detail); }
+              else { autoGrade(detail, null, true); }
+            });
+        });
+    });
+  }).catch(function (e) {
+    host.textContent = "";
+    host.appendChild(el("div", "center-state", "데이터를 불러오지 못했어요: " + e));
+  });
+})();
+</script>
+</body>
+</html>
