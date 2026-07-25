@@ -218,40 +218,52 @@
   function basView(gid) {
     detailShell("Writing Task 1 · Build a Sentence", null);
     var g = exam.groups[gid], k = key.g[gid];
-    var marks = detail.result.W.marks || "";
     var krItems = (k.kr && k.kr.items) || [];
+    var norm = function (t) { return String(t == null ? "" : t).trim().toLowerCase(); };
     var box = el("div", "rv-essay");
     g.items.forEach(function (it, i) {
-      var ok = marks.charAt(i) === "1";
-      var row = el("div", "rv-bas-row");
-      var n = el("div", "rv-bas-n", (i + 1) + ".");
-      row.appendChild(n);
-      var body = el("div");
-      var mine = (detail.answers[it.id] || []).join(" ");
-      var m = el("div", "rv-bas-mine", mine || "(답하지 않음)");
-      m.style.color = ok ? "#1B7F3B" : "#B32020";
-      body.appendChild(m);
-      if (!ok) body.appendChild(el("div", "rv-bas-want", k.items[i].answer));
-      // 해설·해석 (문법구조/관용어 + 프롬프트·정답 번역)
+      var ki = k.items[i] || {};
+      var placed = detail.answers[it.id] || [];
+      var solution = ki.solution || [];
+      var card = el("div", "rv-bas-card");
+      card.appendChild(el("div", "rv-bas-q", (i + 1) + ". " + it.prompt));
+
+      // 내 답안 = 문제 화면처럼 frame 에 내가 놓은 타일을 채우고, 슬롯별 정오 색
+      var sent = el("div", "rv-bas-sentence");
+      var parts = String(it.frame || "").split("____");
+      var si = 0;
+      parts.forEach(function (txt, pi) {
+        if (txt) sent.appendChild(document.createTextNode(txt));
+        if (pi < parts.length - 1) {
+          var mine = placed[si];
+          var okSlot = norm(mine) === norm(solution[si]);
+          sent.appendChild(el("span", "rv-tile " + (okSlot ? "tile-ok" : "tile-no"),
+            (mine == null || mine === "") ? "＿" : mine));
+          si++;
+        }
+      });
+      card.appendChild(sent);
+
+      // 정답 full
+      card.appendChild(el("div", "rv-bas-answer", ki.answer || solution.join(" ")));
+
+      // 해설 + 해석 (인라인, 항상 표시)
       var kr = krItems[i];
-      if (kr && (kr.note || kr.prompt_ko || kr.answer_ko)) {
-        body.appendChild(R.foldable("해설 보기", function (b) {
-          if (kr.prompt_ko) {
-            b.appendChild(el("div", "rv-k", "질문 해석"));
-            b.appendChild(el("p", "rv-body", kr.prompt_ko));
-          }
-          if (kr.answer_ko) {
-            b.appendChild(el("div", "rv-k", "정답 해석"));
-            b.appendChild(el("p", "rv-body", kr.answer_ko));
-          }
-          if (kr.note) {
-            b.appendChild(el("div", "rv-k", "문법·표현"));
-            b.appendChild(R.richP("rv-body", kr.note));
-          }
-        }));
+      if (kr) {
+        if (kr.note) {
+          card.appendChild(el("div", "rv-k", "문법·표현"));
+          card.appendChild(R.richP("rv-body", kr.note));
+        }
+        if (kr.prompt_ko) {
+          card.appendChild(el("div", "rv-k", "질문 해석"));
+          card.appendChild(el("p", "rv-body", kr.prompt_ko));
+        }
+        if (kr.answer_ko) {
+          card.appendChild(el("div", "rv-k", "정답 해석"));
+          card.appendChild(el("p", "rv-body", kr.answer_ko));
+        }
       }
-      row.appendChild(body);
-      box.appendChild(row);
+      box.appendChild(card);
     });
     host.appendChild(box);
   }

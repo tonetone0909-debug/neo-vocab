@@ -287,6 +287,25 @@
 .rv-bas-n { font-weight: 700; font-variant-numeric: tabular-nums; }
 .rv-bas-mine { font-size: 15px; line-height: 1.5; }
 .rv-bas-want { font-size: 14px; color: #1B7F3B; font-weight: 700; margin-top: 3px; }
+/* Task1 리뷰 — 문제 화면처럼 타일 조립 + 슬롯별 정오 색 */
+.rv-bas-card {
+  border: 2px solid var(--neo-ink); background: var(--neo-card);
+  border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; box-shadow: var(--sh-2);
+}
+.rv-bas-q { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+.rv-bas-sentence { font-size: 15px; line-height: 2.1; margin-bottom: 12px; }
+.rv-tile {
+  display: inline-block; padding: 3px 9px; margin: 0 3px; border-radius: 6px;
+  border: 2px solid; font-weight: 700; font-size: 14px; vertical-align: middle;
+}
+.rv-tile.tile-ok { color: #12622C; border-color: #1B7F3B; background: #E6F4EA; }
+.rv-tile.tile-no { color: #8E1616; border-color: #B32020; background: #FBE7E7; }
+.rv-bas-answer {
+  font-size: 15px; font-weight: 700; color: #12622C;
+  background: #E6F4EA; border-left: 4px solid #1B7F3B;
+  padding: 8px 12px; border-radius: 4px; margin-bottom: 14px;
+}
+.rv-bas-answer::before { content: "정답  "; font-size: 12px; letter-spacing: 0.04em; }
 .rv-audio { width: 100%; margin-top: 8px; }
 .rv-target { font-size: 15px; line-height: 1.6; font-weight: 500; }
 .rv-pending {

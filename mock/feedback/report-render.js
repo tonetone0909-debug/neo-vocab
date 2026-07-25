@@ -50,7 +50,7 @@
       "<span class='fb-sub'>" + esc(subtitle) + "</span></div><span class='fb-chip'>" + esc(d.student || "Student") + "</span></div>";
   }
   function overall(d) {
-    return "<div class='fb-say'><div class='fb-say-h'>💬 Task " + (TASKNUM[d.task] || "") + " 총평</div><p>" + txt(d.overall_ko) + "</p></div>";
+    return "<div class='fb-say'><div class='fb-say-h'>💬 Task " + (TASKNUM[taskKey(d.task)] || "") + " 총평</div><p>" + txt(d.overall_ko) + "</p></div>";
   }
   /* 항목별 평가 rows (Writing Why Score & Speaking 루브릭 공용): label + 색상 verdict 칩 + 설명 */
   function whyRows(list) {
@@ -205,9 +205,20 @@
 
   var MAP = { email: renderEmail, disc: renderDisc, repeat: renderRepeat, interview: renderInterview };
 
+  // 채점 모델이 task 를 "Academic Discussion" 같은 라벨로 채우기도 한다 →
+  // 렌더 분기용 키(email/disc/repeat/interview)로 정규화한다.
+  function taskKey(t) {
+    t = String(t || "").toLowerCase();
+    if (t.indexOf("disc") >= 0) return "disc";
+    if (t.indexOf("email") >= 0) return "email";
+    if (t.indexOf("repeat") >= 0) return "repeat";
+    if (t.indexOf("interview") >= 0) return "interview";
+    return t;
+  }
+
   window.NEO_FB = {
     render: function (d) {
-      var fn = MAP[d && d.task];
+      var fn = MAP[taskKey(d && d.task)];
       if (!fn) return "<article class='fb-paper'><p style='padding:40px'>알 수 없는 task: " + esc(d && d.task) + "</p></article>";
       return "<article class='fb-paper'>" + fn(d) + "</article>";
     },
