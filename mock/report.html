@@ -176,48 +176,9 @@
   function aiSection(detail) {
     var box = el("section", "rp-ai");
     box.appendChild(el("h2", "rp-h2", "AI 첨삭 · Writing / Speaking"));
-    var row = el("div", "rp-ai-row");
-
-    if (!FB && pendingWS(detail)) {
-      var auto = el("button", "btn btn-next rp-ai-btn", "AI 자동 채점");
-      auto.addEventListener("click", function () { autoGrade(detail, auto, false); });
-      row.appendChild(auto);
-      box.appendChild(el("p", "rp-sub",
-        "로컬 채점 서버(python serve.py)를 켜두면 버튼 한 번으로 W·S가 채점되고 총점이 확정돼요."));
-    } else if (FB) {
-      var re = el("button", "btn rp-ai-btn", "AI 다시 채점");
-      re.addEventListener("click", function () { autoGrade(detail, re, false); });
-      row.appendChild(re);
-    }
-    box.appendChild(row);
-
-    /* 수동 폴백(서버 없이 파일로) */
-    var det = document.createElement("details");
-    det.className = "rp-ai-manual";
-    var sm = el("summary", null, "수동 채점 (서버 없이 파일로)"); det.appendChild(sm);
-    var mrow = el("div", "rp-ai-row");
-    var exp = el("button", "btn rp-ai-btn", "답안 내보내기");
-    exp.addEventListener("click", function () {
-      if (DEMO) { alert("데모엔 실제 녹음이 없어요."); return; }
-      exp.disabled = true; exp.textContent = "내보내는 중…";
-      NEO_FBIO.exportBundle(EXAM, KEY, detail, R.code(), SET)
-        .then(function () { exp.disabled = false; exp.textContent = "답안 내보내기 ✓"; })
-        .catch(function () { exp.disabled = false; exp.textContent = "답안 내보내기"; });
-    });
-    var lbl = el("label", "btn rp-ai-btn", "결과 불러오기");
-    var inp = document.createElement("input");
-    inp.type = "file"; inp.accept = "application/json"; inp.style.display = "none";
-    inp.addEventListener("change", function () {
-      var f = inp.files[0]; if (!f) return;
-      var rd = new FileReader();
-      rd.onload = function () { try { applyFeedback(JSON.parse(rd.result), detail); } catch (e) { alert("불러오기 실패: " + e); } };
-      rd.readAsText(f);
-    });
-    lbl.appendChild(inp);
-    mrow.appendChild(exp); mrow.appendChild(lbl); det.appendChild(mrow);
-    box.appendChild(det);
 
     if (FB) {
+      // 채점은 시험 종료 직후 자동으로 끝나 있다 — 여기선 태스크별 첨삭을 열기만 한다.
       var reps = el("div", "rp-ai-reports");
       ["W", "S"].forEach(function (sec) {
         EXAM.sections[sec].groups.forEach(function (gid) {
@@ -231,6 +192,8 @@
         });
       });
       box.appendChild(reps);
+    } else if (pendingWS(detail) && !DEMO) {
+      box.appendChild(el("p", "rp-sub", "AI 첨삭을 불러오는 중이에요…"));
     }
     return box;
   }

@@ -35,6 +35,7 @@
     this.onPhase = opts.onPhase || function () {};
     this.onTick = opts.onTick || function () {};
     this.onFinish = opts.onFinish || function () {};
+    this.onSubmit = opts.onSubmit || function () {};   // 파트 제출 직후(phaseKey) — W.all 조기 채점 트리거용
     this.onIntro = opts.onIntro || null;   // 없으면 설명 화면을 건너뛴다
     this.st = null;
     this._tick = null;
@@ -583,8 +584,12 @@
     this.st.step += 1;
     this.st.cursor = 0;
     this.save();
+    try { this.onSubmit(k); } catch (e) {}   // 방금 제출한 파트(k). Writing 끝나면 채점 선시작.
     this.enter();
   };
+
+  /* 답안 스냅샷(읽기용) — Writing 조기 채점이 detail 없이 번들을 만들 때 쓴다. */
+  Engine.prototype.answers = function () { return this.st.answers; };
 
   Engine.prototype.finish = function () {
     var self = this;

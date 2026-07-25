@@ -20,6 +20,33 @@
   .free-jump:hover{background:var(--neo-ink,#0A0A0A);color:#fff}
   .free-reset{margin-left:auto;font-size:12px;font-weight:700;border:2px solid var(--neo-ink,#0A0A0A);
     background:var(--neo-hot,#FF3DA6);color:#fff;padding:3px 11px;cursor:pointer}
+
+  /* ---- 채점 중 로딩 화면 (Speaking 종료 후) ---- */
+  body.grading-open .exam-topbar,
+  body.grading-open .subbar,
+  body.grading-open .free-bar{display:none !important;}
+  .grading-wrap{min-height:82vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .grading-card{background:var(--neo-card,#fff);border:3px solid var(--neo-ink,#0A0A0A);
+    box-shadow:8px 8px 0 var(--neo-ink,#0A0A0A);padding:40px 30px;max-width:460px;width:100%;text-align:center;}
+  .grading-kicker{font-family:var(--font-mono,monospace);font-size:11px;font-weight:700;letter-spacing:.16em;
+    text-transform:uppercase;background:var(--neo-ink,#0A0A0A);color:var(--neo-paper,#FBFBF7);padding:5px 11px;display:inline-block;}
+  .grading-dots{display:flex;gap:12px;justify-content:center;margin:26px 0 24px;}
+  .grading-dots i{width:24px;height:24px;display:block;border:3px solid var(--neo-ink,#0A0A0A);
+    background:var(--neo-card,#fff);animation:gpop 1.05s infinite ease-in-out;}
+  .grading-dots i:nth-child(2){animation-delay:.13s;}
+  .grading-dots i:nth-child(3){animation-delay:.26s;}
+  .grading-dots i:nth-child(4){animation-delay:.39s;}
+  @keyframes gpop{0%,70%,100%{transform:translateY(0);background:var(--neo-card,#fff);}
+    35%{transform:translateY(-16px);background:var(--neo-acid,#E8FF3A);}}
+  .grading-title{font-family:var(--font-title-kr,'Noto Sans KR'),sans-serif;font-weight:900;
+    font-size:clamp(28px,5.4vw,42px);line-height:1.1;letter-spacing:-0.025em;
+    text-rendering:geometricPrecision;-webkit-font-smoothing:antialiased;}
+  .grading-title .en{font-family:'Archivo Black',sans-serif;}
+  .grading-sub{font-size:15px;font-weight:500;color:var(--neo-ink,#0A0A0A);line-height:1.65;margin-top:12px;}
+  .grading-note{font-size:12.5px;font-weight:700;color:var(--neo-mute-aa,#8a8a80);margin-top:16px;letter-spacing:.02em;}
+  .grading-bar{height:12px;border:3px solid var(--neo-ink,#0A0A0A);margin-top:24px;overflow:hidden;background:var(--neo-paper,#FBFBF7);}
+  .grading-bar span{display:block;height:100%;width:40%;background:var(--neo-blaze,#2B2BFF);animation:gslide 1.4s infinite ease-in-out;}
+  @keyframes gslide{0%{margin-left:-40%;}100%{margin-left:100%;}}
 </style>
 <script src="../assets/config.js"></script>
 <script src="../assets/auth.js"></script>
@@ -62,6 +89,7 @@
 <script src="assets/render-l.js"></script>
 <script src="assets/render-w.js"></script>
 <script src="assets/render-s.js"></script>
+<script src="assets/feedback-io.js"></script>
 
 <script>
 (function () {
@@ -558,15 +586,75 @@
     stage.appendChild(g);
   }
 
+  /* ---------- AI 자동 채점 (Writing 은 Speaking 중에 미리, Speaking 은 종료 후) ---------- */
+  var GRADE_BASE = (window.NEO_GRADER && NEO_GRADER.url)
+    ? NEO_GRADER.url.replace(/\/+$/, "") : "http://localhost:8788";
+  var GRADE_ENDPOINT = GRADE_BASE + "/grade";
+  var wGrade = null, wStarted = false;
+
+  /* Writing 파트가 끝나면(=Speaking 시작) 곧바로 백그라운드 채점을 건다. */
+  function startWritingGrade() {
+    if (wStarted || !eng) return;
+    wStarted = true;
+    try {
+      wGrade = NEO_FBIO.buildBundle(EXAM, KEY, { answers: eng.answers() }, code(), SET, "W")
+        .then(function (b) { return b.length ? NEO_FBIO.gradeRemote(b, GRADE_ENDPOINT, code(), SET) : {}; })
+        .catch(function () { return null; });
+    } catch (e) { wGrade = Promise.resolve(null); }
+  }
+
+  /* 채점 중 로딩 화면. */
+  function showGrading() {
+    document.body.classList.add("grading-open");
+    timerEl.textContent = "";
+    stage.innerHTML = "";
+    var w = el("div", "grading-wrap");
+    var card = el("div", "grading-card");
+    card.appendChild(el("div", "grading-kicker", "AI 첨삭 중"));
+    var dots = el("div", "grading-dots");
+    for (var i = 0; i < 4; i++) dots.appendChild(el("i"));
+    card.appendChild(dots);
+    var h = el("h1", "grading-title"); h.textContent = "채점하고 있어요";
+    card.appendChild(h);
+    card.appendChild(el("p", "grading-sub",
+      "Writing과 Speaking 답안을 AI가 첨삭하는 중이에요. 잠깐만요 — 준비되면 리포트가 바로 열려요."));
+    var bar = el("div", "grading-bar"); bar.appendChild(el("span")); card.appendChild(bar);
+    card.appendChild(el("div", "grading-note", "처음엔 서버가 깨어나느라 조금 걸릴 수 있어요."));
+    w.appendChild(card);
+    stage.appendChild(w);
+  }
+
+  /* Speaking 종료 → 로딩 표시 → (Writing 결과 + Speaking 채점) 모두 완료 후 리포트로. */
+  function finishFlow(detail) {
+    showGrading();
+    if (!wStarted) startWritingGrade();   // 자유모드 점프 등으로 W가 아직이면 지금 건다
+    var sGrade = NEO_FBIO.buildBundle(EXAM, KEY, detail, code(), SET, "S")
+      .then(function (b) { return b.length ? NEO_FBIO.gradeRemote(b, GRADE_ENDPOINT, code(), SET) : {}; })
+      .catch(function () { return null; });
+
+    var done = false;
+    function go() { location.replace("report.html?set=" + SET); }
+    // 서버 다운·과부하로 무한 대기하지 않도록 안전 타임아웃 후에도 리포트로 이동.
+    var timer = setTimeout(function () { if (!done) { done = true; go(); } }, 180000);
+
+    Promise.all([wGrade || Promise.resolve(null), sGrade]).then(function (arr) {
+      if (done) return; done = true; clearTimeout(timer);
+      var fb = {};
+      (arr || []).forEach(function (part) { if (part) for (var k in part) fb[k] = part[k]; });
+      var save = (Object.keys(fb).length && NEO_EXAMDB.putFeedback)
+        ? NEO_EXAMDB.putFeedback(code(), SET, fb).catch(function () {}) : Promise.resolve();
+      save.then(go);
+    }).catch(function () { if (!done) { done = true; clearTimeout(timer); go(); } });
+  }
+
   /* ---------- 부팅 ---------- */
   function boot() {
     eng = new NEO_ENGINE({
       exam: window.EXAM, key: window.KEY, code: code(), host: stage,
       free: isFree(),
       onPhase: paint, onTick: tick, onIntro: showIntro,
-      onFinish: function () {
-        location.replace("report.html?set=" + SET);
-      }
+      onSubmit: function (k) { if (k === "W.all") startWritingGrade(); },
+      onFinish: function (res, detail) { finishFlow(detail); }
     });
     if (isFree()) installFreeBar();
     eng.start();

@@ -28,10 +28,11 @@
     return "";
   }
 
-  /* 채점 번들 생성(메모리): [{gid, task, question, answer_text}] (W) + {gid, task, instr, originals?, items:[{n, question, audio_b64}]} (S) */
-  function buildBundle(exam, key, detail, code, setId) {
+  /* 채점 번들 생성(메모리): [{gid, task, question, answer_text}] (W) + {gid, task, instr, originals?, items:[{n, question, audio_b64}]} (S)
+   * which: "W" | "S" | "all"(기본). Writing 은 Speaking 하는 동안 먼저 채점하려고 분리 호출한다. */
+  function buildBundle(exam, key, detail, code, setId, which) {
     var items = [], proms = [], ans = detail.answers || {};
-    exam.sections.W.groups.forEach(function (gid) {
+    if (which !== "S") exam.sections.W.groups.forEach(function (gid) {
       var g = exam.groups[gid];
       if (g.t === "bas") return;                       // Task1 자동채점 — 첨삭 대상 아님
       var akey = g.src + "_" + (g.t === "email" ? "email" : "disc");
@@ -43,7 +44,7 @@
         answer_text: ans[akey] || ""
       });
     });
-    exam.sections.S.groups.forEach(function (gid) {
+    if (which !== "W") exam.sections.S.groups.forEach(function (gid) {
       var g = exam.groups[gid];
       var node = { gid: gid, task: g.t, student: "", instr: g.instr || "", items: [] };
       if (g.t === "repeat") node.originals = (g.items || []).map(function (x) { return ktext(key, gid, x.n); });
