@@ -5,7 +5,7 @@
  */
 (function () {
   "use strict";
-  var FBDIR = "../build/mock/feedback/";   // mock/ 기준 상대경로
+  var FBDIR = "feedback/";   // mock/ 기준 — 배포되는 위치(mock/feedback/). build/ 는 gitignore라 Pages에 없음.
 
   function blobToB64(blob) {
     return new Promise(function (res) {

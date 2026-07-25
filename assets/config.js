@@ -8,4 +8,4 @@ window.NEO_AUTH = { url: "https://script.google.com/macros/s/AKfycbypbC0SY60yPTv
  * 비워두면 로컬 채점 서버(http://localhost:8788)로 폴백.
  * Render 배포 URL 을 넣으면 학생 응시 → 리포트 열림 → 자동 채점 + 오디오 저장이 돼요.
  * 설정법: build/mock/feedback/DEPLOY_RENDER.md (끝에 / 없이). */
-window.NEO_GRADER = { url: "" };
+window.NEO_GRADER = { url: "https://neo-grader.onrender.com" };

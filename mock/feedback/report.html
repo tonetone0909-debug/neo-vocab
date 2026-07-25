@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEO · AI 첨삭 리포트</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+:root{
+ --neo-acid:#E8FF3A;--neo-acid-soft:#F4FF9E;--neo-blaze:#2B2BFF;--neo-blaze-soft:#D9D9FF;
+ --neo-hot:#FF3DA6;--neo-ink:#0A0A0A;--neo-paper:#FBFBF7;--neo-paper-2:#F4F4EE;--neo-card:#FFF;
+ --neo-mute:#7A7A75;--neo-grind:#00D26A;--neo-fail:#FF3D3D;
+ --sh-1:3px 3px 0 0 var(--neo-ink);--sh-2:5px 5px 0 0 var(--neo-ink);
+ --fdisp:'Archivo Black',sans-serif;--fkr:'Jua',sans-serif;--fbody:'Noto Sans KR',sans-serif;--fmono:'JetBrains Mono',monospace;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--neo-paper-2);color:var(--neo-ink);font-family:var(--fbody);line-height:1.55;padding:32px 0}
+.fb-paper{max-width:840px;margin:0 auto;background:var(--neo-paper);border:3px solid var(--neo-ink);box-shadow:var(--sh-2);padding:34px 38px 46px;position:relative}
+/* header */
+.fb-hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid var(--neo-ink);padding-bottom:12px;margin-bottom:8px}
+.fb-wm{font-family:var(--fdisp);font-size:26px;letter-spacing:-.02em;display:block}
+.fb-sub{font-family:var(--fbody);font-weight:700;font-size:14px;color:var(--neo-mute)}
+.fb-chip{font-family:var(--fmono);font-size:12px;font-weight:700;background:var(--neo-ink);color:var(--neo-paper);padding:4px 12px}
+.fb-topic{font-family:var(--fkr);font-size:19px;margin:16px 0 18px}
+/* score stamp */
+.fb-stamp{position:absolute;top:26px;right:34px;transform:rotate(-8deg);border:3px solid var(--neo-hot);color:var(--neo-hot);
+ background:var(--neo-paper);padding:6px 14px 4px;text-align:center;font-family:var(--fmono);font-size:11px;font-weight:700;letter-spacing:.14em;box-shadow:var(--sh-1)}
+.fb-stamp b{display:block;font-family:var(--fdisp);font-size:34px;letter-spacing:0;line-height:1}
+.fb-stamp span{font-size:10px;color:var(--neo-mute)}
+/* sections */
+.fb-sec{margin:22px 0}
+.fb-sec-t{font-family:var(--fdisp);font-size:15px;letter-spacing:.02em;text-transform:uppercase;background:var(--neo-acid);
+ display:inline-block;padding:3px 10px;border:3px solid var(--neo-ink);box-shadow:var(--sh-1);margin:0 0 14px}
+/* original / transcript */
+.fb-orig{position:relative;background:var(--neo-card);border:3px solid var(--neo-ink);box-shadow:var(--sh-1);padding:20px 20px 16px;margin-top:6px}
+.fb-orig-tag{position:absolute;top:-12px;left:14px;background:var(--neo-hot);color:#fff;font-family:var(--fmono);font-size:10px;font-weight:700;letter-spacing:.12em;padding:2px 8px;transform:rotate(-2deg)}
+.fb-en{font-family:var(--fbody)}
+.fb-orig-b{font-size:16.5px;line-height:2.05;font-weight:500}
+/* highlights */
+.hl-red{color:var(--neo-fail);text-decoration:underline wavy var(--neo-fail);text-decoration-thickness:2px;font-weight:700;cursor:help;position:relative}
+.hl-yellow{background:linear-gradient(to top,var(--neo-acid) 62%,transparent 62%);padding:0 2px;cursor:help;position:relative}
+.hl-blue{color:var(--neo-blaze);background:var(--neo-blaze-soft);padding:1px 4px;font-weight:700;cursor:help;position:relative}
+[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:0;top:-34px;background:var(--neo-ink);color:var(--neo-paper);
+ font-family:var(--fbody);font-size:12px;font-weight:500;padding:5px 9px;white-space:nowrap;z-index:50;pointer-events:none;box-shadow:var(--sh-1)}
+.fb-pen{margin-top:12px;background:var(--neo-acid-soft);border:3px solid var(--neo-ink);padding:8px 12px;font-size:14px;font-weight:700}
+/* 총평 */
+.fb-say{margin-top:14px;background:var(--neo-blaze-soft);border:3px solid var(--neo-ink);box-shadow:var(--sh-1);padding:14px 16px}
+.fb-say-h{font-family:var(--fkr);font-size:17px;margin-bottom:4px}
+.fb-say p{font-size:15px;margin:0}
+/* why score */
+.fb-why{list-style:none;padding:0;margin:0}
+.fb-why li{border-left:5px solid var(--neo-ink);padding:6px 0 8px 12px;margin:10px 0;font-size:15px}
+.fb-verd{font-family:var(--fmono);font-size:10px;font-weight:700;letter-spacing:.08em;padding:1px 7px;border:2px solid var(--neo-ink);margin-left:4px}
+.v-good{background:var(--neo-grind);color:#fff}.v-fair{background:var(--neo-hot);color:#fff}.v-bad{background:var(--neo-fail);color:#fff}
+.fb-det{color:var(--neo-ink);font-weight:500}
+.fb-en.fb-en{}
+.fb-tip{margin-top:16px;background:var(--neo-paper-2);border:3px solid var(--neo-ink);padding:14px 16px;text-align:center}
+.fb-tip-h{font-family:var(--fkr);font-size:18px;font-weight:700;margin-bottom:4px}
+.fb-tip-b{font-size:15px}
+/* clinic / upgrade cards */
+.fb-clcard,.fb-upcard,.fb-dd,.fb-sent{background:var(--neo-card);border:3px solid var(--neo-ink);box-shadow:var(--sh-1);padding:12px 15px;margin:11px 0}
+.cl-r{border-left:9px solid var(--neo-fail)}.cl-y{border-left:9px solid var(--neo-hot)}
+.up-a{border-left:9px solid var(--neo-blaze)}.up-b{border-left:9px solid var(--neo-grind)}
+.up-c{border-left:9px solid var(--neo-hot)}.up-d{border-left:9px solid var(--neo-acid)}
+.fb-cl-t,.fb-up-t,.fb-dd-t{font-family:var(--fkr);font-size:16px;margin-bottom:4px}
+.fb-strike{color:var(--neo-mute);text-decoration:line-through;font-size:15px;margin:2px 0}
+.fb-cl-x{font-size:14px;color:var(--neo-ink);margin:3px 0}
+.fb-fix{color:var(--neo-blaze);font-weight:700;font-size:16px;margin:3px 0}
+.dd-l{border-left:9px solid var(--neo-blaze)}.dd-s{border-left:9px solid var(--neo-grind)}
+/* sentence cards (repeat) */
+.fb-sent-h{display:flex;gap:8px;align-items:center;font-size:18px;margin-bottom:3px}
+.fb-sent-n{font-family:var(--fmono);font-weight:700;background:var(--neo-ink);color:var(--neo-paper);padding:0 7px}
+.fb-sent-o{color:var(--neo-mute);font-size:14px;margin:2px 0}
+.fb-sent-s{font-size:15px;margin:2px 0}
+/* logic flow */
+.fb-lf-r{border-left:5px solid var(--neo-ink);padding:4px 0 6px 10px;margin:8px 0}
+.fb-lf-k{font-family:var(--fkr);font-size:15px;display:block}
+/* bars */
+.fb-bar{margin:10px 0}
+.fb-bar-l{display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-bottom:3px}
+.fb-bar-bg{background:var(--neo-paper-2);border:2px solid var(--neo-ink);height:16px}
+.fb-bar-f{height:100%}.bar-good{background:var(--neo-grind)}.bar-fair{background:var(--neo-hot)}.bar-bad{background:var(--neo-fail)}
+/* model answer */
+.fb-model{background:var(--neo-card);border:3px solid var(--neo-ink);box-shadow:var(--sh-1);padding:16px 18px;margin-top:4px}
+.fb-model-h{font-family:var(--fdisp);font-size:13px;text-transform:uppercase;margin-bottom:6px}
+.fb-model-b{font-size:16px;line-height:1.9;font-weight:500}
+.fb-model-b strong{color:var(--neo-blaze)}
+.fb-review{font-size:15px;margin:14px 2px 2px}
+.fb-enc{text-align:center;font-family:var(--fdisp);font-size:22px;color:var(--neo-mute);transform:rotate(-3deg);margin-top:18px}
+/* 1~5 점수 스케일 */
+.fb-sc{margin:10px 0 16px}
+.fb-sc-l{font-size:14px;font-weight:700;margin-bottom:5px}
+.fb-sc-track{position:relative;display:flex;gap:3px;height:28px}
+.fb-sc-seg{flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--fmono);font-size:12px;font-weight:700;color:#fff;border:2px solid var(--neo-ink);opacity:.26}
+.fb-sc-seg.on{opacity:1}
+.fb-sc-seg.s1{background:var(--neo-fail)}.fb-sc-seg.s2{background:var(--neo-hot)}.fb-sc-seg.s3{background:#FF9F1C}.fb-sc-seg.s4{background:var(--neo-blaze)}.fb-sc-seg.s5{background:var(--neo-grind)}
+.fb-sc-mark{position:absolute;top:-9px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid var(--neo-ink);transform:translateX(-7px)}
+.fb-rubline{margin:12px 0}
+.fb-rubwhy{border-left:5px solid var(--neo-ink);padding:8px 0 10px 12px;margin:14px 0}
+.fb-rubwhy-h{font-size:16px;margin-bottom:7px}
+/* 학생 녹음 플레이어 */
+.fb-rec{display:flex;align-items:center;gap:10px;margin-top:9px;background:var(--neo-paper-2);border:2px solid var(--neo-ink);padding:6px 10px}
+.fb-rec-l{font-size:13px;font-weight:700;white-space:nowrap}
+.fb-rec audio{height:32px;flex:1;min-width:0}
+.fb-rec-none{color:var(--neo-mute)}.fb-rec-x{font-size:12px;font-style:italic}
+/* 오류 요약 행 */
+.fb-errrow{background:var(--neo-card);border:3px solid var(--neo-ink);box-shadow:var(--sh-1);border-left:9px solid var(--neo-hot);padding:10px 14px;margin:9px 0;display:grid;grid-template-columns:1fr auto;align-items:center;gap:3px 10px}
+.fb-err-l{font-family:var(--fkr);font-size:16px}
+.fb-errrow .fb-cl-x{grid-column:1/3;margin:2px 0 0}
+.fb-note{font-size:13px;color:var(--neo-mute);margin:-6px 0 12px}
+.fb-note b{color:var(--neo-ink)}
+/* 문항 카드 (interview) */
+.fb-qcard{background:var(--neo-paper-2);border:3px solid var(--neo-ink);box-shadow:var(--sh-2);padding:16px 18px;margin:14px 0}
+.fb-qhd{display:flex;gap:10px;align-items:baseline;border-bottom:2px dashed var(--neo-ink);padding-bottom:8px;margin-bottom:10px}
+.fb-qn{font-family:var(--fdisp);font-size:16px;background:var(--neo-ink);color:var(--neo-paper);padding:2px 9px}
+.fb-qt{font-size:14px;font-weight:500}
+/* 모범답안 TTS 버튼 */
+.fb-tts-mini{margin-top:10px;display:flex;gap:10px;align-items:center}
+.fb-tts-btn{border:2px solid var(--neo-ink);background:var(--neo-acid);color:var(--neo-ink);padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--fbody)}
+.fb-tts-st{font-family:var(--fmono);font-size:11px;color:var(--neo-mute)}
+@media print{body{background:none;padding:0}.fb-paper{box-shadow:none;border:none;max-width:100%}.fb-rec audio,.fb-tts-mini{display:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="report-render.js"></script>
+<script>
+/* speechSynthesis TTS 엔진 (모범답안 읽기) */
+(function(){
+ var synth=window.speechSynthesis;
+ function enVoice(){var v=synth.getVoices();return v.find(function(x){return x.lang==='en-US'&&/google/i.test(x.name)})||v.find(function(x){return x.lang==='en-US'})||v.find(function(x){return /^en/i.test(x.lang)})||null;}
+ var LBL='🔊 모범답안 듣기';
+ window._neoTTS={playing:false,btn:null,st:null,
+  play:function(btn,st,text){this.stop();var self=this;
+   var u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=.92;var v=enVoice();if(v)u.voice=v;
+   u.onend=u.onerror=function(){self.playing=false;btn.textContent=LBL;if(st)st.textContent='재생 완료';};
+   synth.cancel();synth.speak(u);this.playing=true;this.btn=btn;this.st=st;btn.textContent='⏸ 정지';if(st)st.textContent='재생 중...';},
+  stop:function(){if(this.btn)this.btn.textContent=LBL;if(this.st)this.st.textContent='';synth.cancel();this.playing=false;}};
+ if(synth.onvoiceschanged!==undefined)synth.onvoiceschanged=function(){synth.getVoices();};
+})();
+/* FEEDBACK 데이터: make_fb_report.py가 window.FEEDBACK(단일) 또는 window.FEEDBACK_LIST(다중) 주입, 없으면 데모 fetch */
+(function(){
+ var app=document.getElementById('app');
+ if(window.FEEDBACK_LIST){app.innerHTML=window.FEEDBACK_LIST.map(function(d){return NEO_FB.render(d);}).join('');}
+ else if(window.FEEDBACK){app.innerHTML=NEO_FB.render(window.FEEDBACK);}
+ else{fetch('sample_email.json').then(function(r){return r.json();}).then(function(d){app.innerHTML=NEO_FB.render(d);}).catch(function(){
+   app.innerHTML="<div class='fb-paper'>FEEDBACK 데이터 없음 (window.FEEDBACK 주입 또는 sample_email.json 필요)</div>";});}
+})();
+</script>
+</body>
+</html>
