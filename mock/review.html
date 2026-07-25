@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="../assets/colors_and_type.css">
 <link rel="stylesheet" href="assets/app.css">
 <link rel="stylesheet" href="assets/report.css">
+<script src="assets/mobile-guard.js"></script>
 <script src="../assets/config.js"></script>
 <script src="../assets/auth.js"></script>
 <script src="../assets/shell.js"></script>
@@ -28,16 +29,35 @@
 <script src="assets/review.js"></script>
 <script src="assets/render-r.js"></script>
 <script src="assets/render-l.js"></script>
+<script src="assets/feedback-io.js"></script>
 <script>
 (function () {
   "use strict";
+  if (window.NEO_MOBILE && NEO_MOBILE.guard()) return;   // 폰이면 여기서 차단
   var R = window.NEO_REVIEW, el = R.el;
   var SET = parseInt(R.qparam("set") || "1", 10);
   var SEC = (R.qparam("sec") || "R").toUpperCase();
   var DEMO = R.qparam("demo") === "1";
   var host = document.getElementById("rv");
   var KO = { R: "Reading", L: "Listening", W: "Writing", S: "Speaking" };
-  var exam, key, detail;
+  var exam, key, detail, FB = null;
+
+  function hasFB(gid) { return !!(FB && FB[gid] && !FB[gid].error); }
+
+  /* 태스크 클릭 → AI 첨삭 리포트(원 문제 + 내 답변 + 첨삭)를 새 창에. 첨삭 전이면 폴백. */
+  function openTaskReport(gid, fallback) {
+    if (hasFB(gid) && window.NEO_FBIO) NEO_FBIO.openReport(exam, gid, FB[gid], R.code(), SET);
+    else if (fallback) fallback();
+  }
+
+  /* Writing/Speaking 리뷰의 태스크 버튼(점수·화살표·클릭) 공용 빌더. */
+  function taskReviewBtn(label, gid, fallback) {
+    var b = el("button", "rp-rv"), f = hasFB(gid);
+    b.appendChild(el("span", "rp-rv-ko", label + (f ? "  ·  " + FB[gid].score_0_5.toFixed(1) + "/5" : "")));
+    b.appendChild(el("span", "rp-rv-go", f ? "첨삭 →" : "→"));
+    b.addEventListener("click", function () { openTaskReport(gid, fallback); });
+    return b;
+  }
 
   document.getElementById("hd-sec").textContent = (KO[SEC] || "REVIEW").toUpperCase();
 
@@ -115,42 +135,39 @@
       " 정답", rows, function () { basView(gid); }));
 
     exam.sections.W.groups.slice(1).forEach(function (id, i) {
-      var b = el("button", "rp-rv");
-      b.appendChild(el("span", "rp-rv-ko",
-        "Task " + (i + 2) + " · " + (exam.groups[id].t === "email" ? "Write an Email"
-                                                                   : "Academic Discussion")));
-      b.appendChild(el("span", "rp-rv-go", "→"));
-      b.addEventListener("click", function () { essayView(id, i + 2); });
-      host.appendChild(b);
+      var label = "Task " + (i + 2) + " · " +
+        (exam.groups[id].t === "email" ? "Write an Email" : "Academic Discussion");
+      host.appendChild(taskReviewBtn(label, id, function () { essayView(id, i + 2); }));
     });
   }
 
   function listS() {
     exam.sections.S.groups.forEach(function (gid, gi) {
       var g = exam.groups[gid];
-      var rows = g.items.map(function (it, i) {
-        return { n: i + 1, qid: g.src + "_" + it.n, gid: gid, ok: true, item: it };
-      });
-      var box = el("div", "rv-mod");
-      var h = el("div", "rv-mod-head");
-      h.appendChild(el("span", "rv-mod-ko",
-        "Task " + (gi + 1) + " · " + (g.t === "repeat" ? "Listen and Repeat"
-                                                       : "Take an Interview")));
-      h.appendChild(el("span", "rv-mod-n", rows.length + "문항"));
-      box.appendChild(h);
-      var gr = el("div", "rv-grid");
-      rows.forEach(function (row) {
-        var c = el("button", "rv-cell");
-        c.appendChild(el("span", "rv-n", row.n));
-        c.appendChild(el("span", "rv-v", "REC"));
-        c.addEventListener("click", function () { speakView(gid, row); });
-        gr.appendChild(c);
-      });
-      box.appendChild(gr);
-      host.appendChild(box);
+      var label = "Task " + (gi + 1) + " · " +
+        (g.t === "repeat" ? "Listen and Repeat" : "Take an Interview");
+      host.appendChild(taskReviewBtn(label, gid, function () { speakFallback(gid, gi + 1); }));
     });
-    host.appendChild(el("p", "rv-pending",
-      "Speaking 은 AI 첨삭이 들어오면 점수와 피드백이 함께 표시돼요."));
+    if (!FB) host.appendChild(el("p", "rv-pending",
+      "AI 첨삭이 준비되면 태스크를 눌러 점수·피드백과 내 녹음을 볼 수 있어요."));
+  }
+
+  /* 첨삭 전 폴백 — 태스크의 문항별 녹음만 나열. */
+  function speakFallback(gid, taskNo) {
+    var g = exam.groups[gid], k = key.g[gid];
+    detailShell("Speaking Task " + taskNo, null);
+    var box = el("div", "rv-essay");
+    g.items.forEach(function (it) {
+      box.appendChild(el("div", "rv-k", (g.t === "repeat" ? "문장 " : "질문 ") + it.n));
+      var target = (k.items || []).filter(function (x) { return x.n === it.n; })[0];
+      box.appendChild(el("div", "rv-target", target ? target.text : ""));
+      var audio = el("audio", "rv-audio"); audio.controls = true; box.appendChild(audio);
+      NEO_EXAMDB.getRec(R.code(), SET, g.src + "_" + it.n).then(function (rec) {
+        if (rec && rec.blob) audio.src = URL.createObjectURL(rec.blob); else audio.remove();
+      }).catch(function () { audio.remove(); });
+    });
+    host.appendChild(box);
+    host.appendChild(el("p", "rv-pending", "AI 첨삭이 들어오면 태스크를 눌러 피드백을 볼 수 있어요."));
   }
 
   /* ═══ 상세 ═══════════════════════════════════════════════════ */
@@ -202,6 +219,7 @@
     detailShell("Writing Task 1 · Build a Sentence", null);
     var g = exam.groups[gid], k = key.g[gid];
     var marks = detail.result.W.marks || "";
+    var krItems = (k.kr && k.kr.items) || [];
     var box = el("div", "rv-essay");
     g.items.forEach(function (it, i) {
       var ok = marks.charAt(i) === "1";
@@ -214,6 +232,24 @@
       m.style.color = ok ? "#1B7F3B" : "#B32020";
       body.appendChild(m);
       if (!ok) body.appendChild(el("div", "rv-bas-want", k.items[i].answer));
+      // 해설·해석 (문법구조/관용어 + 프롬프트·정답 번역)
+      var kr = krItems[i];
+      if (kr && (kr.note || kr.prompt_ko || kr.answer_ko)) {
+        body.appendChild(R.foldable("해설 보기", function (b) {
+          if (kr.prompt_ko) {
+            b.appendChild(el("div", "rv-k", "질문 해석"));
+            b.appendChild(el("p", "rv-body", kr.prompt_ko));
+          }
+          if (kr.answer_ko) {
+            b.appendChild(el("div", "rv-k", "정답 해석"));
+            b.appendChild(el("p", "rv-body", kr.answer_ko));
+          }
+          if (kr.note) {
+            b.appendChild(el("div", "rv-k", "문법·표현"));
+            b.appendChild(R.richP("rv-body", kr.note));
+          }
+        }));
+      }
       row.appendChild(body);
       box.appendChild(row);
     });
@@ -236,6 +272,10 @@
     box.appendChild(el("div", "rv-essay-text", text || "(답하지 않음)"));
     host.appendChild(box);
 
+    // 정적 해설·해석 (프롬프트 번역 + 접근법). AI 첨삭과 별개.
+    var kr = key.g[gid] && key.g[gid].kr;
+    if (kr) host.appendChild(writingGuide(g, kr));
+
     var fb = key.g[gid] && key.g[gid].model;
     if (fb && String(fb).trim()) {
       var f = el("div", "rv-explain");
@@ -248,34 +288,31 @@
     }
   }
 
-  /* S — 녹음 재생. 렌더러(render-s.js)는 마이크를 잡으므로 쓰지 않는다. */
-  function speakView(gid, row) {
-    var g = exam.groups[gid], k = key.g[gid];
-    detailShell("Speaking " + row.n + "번", null);
-
-    var box = el("div", "rv-essay");
-    box.appendChild(el("div", "rv-k", g.t === "repeat" ? "따라 읽어야 했던 문장" : "질문"));
-    var target = (k.items || []).filter(function (x) { return x.n === row.item.n; })[0];
-    box.appendChild(el("div", "rv-target", target ? target.text : ""));
-
-    var audio = el("audio", "rv-audio");
-    audio.controls = true;
-    box.appendChild(audio);
-    host.appendChild(box);
-
-    NEO_EXAMDB.getRec(R.code(), SET, row.qid).then(function (rec) {
-      if (rec && rec.blob) audio.src = URL.createObjectURL(rec.blob);
-      else {
-        audio.remove();
-        box.appendChild(el("div", "rv-pending", "녹음이 없어요."));
+  /* W Task2·3 — 프롬프트 해석만 제공(실제 첨삭은 AI 리포트가 담당). */
+  function writingGuide(g, kr) {
+    return R.foldable("프롬프트 해석 보기", function (b) {
+      if (g.t === "email") {
+        if (kr.situation_ko) {
+          b.appendChild(el("div", "rv-k", "상황 해석"));
+          b.appendChild(el("p", "rv-body", kr.situation_ko));
+        }
+        if ((kr.directions_ko || []).length) {
+          b.appendChild(el("div", "rv-k", "지시 해석"));
+          var dl = el("ul", "rv-optkr");
+          kr.directions_ko.forEach(function (d) { dl.appendChild(el("li", null, d)); });
+          b.appendChild(dl);
+        }
+      } else {  // disc
+        if (kr.prof_ko) {
+          b.appendChild(el("div", "rv-k", "교수 질문 해석"));
+          b.appendChild(el("p", "rv-body", kr.prof_ko));
+        }
+        (kr.posts_ko || []).forEach(function (p) {
+          b.appendChild(el("div", "rv-k", (p.name || "학생") + " 의견 해석"));
+          b.appendChild(el("p", "rv-body", p.text_ko || p.text || ""));
+        });
       }
-    }).catch(function () {
-      audio.remove();
-      box.appendChild(el("div", "rv-pending", "녹음을 불러오지 못했어요."));
     });
-
-    host.appendChild(el("p", "rv-pending",
-      "AI 첨삭이 들어오면 발음·유창성 피드백이 여기에 표시돼요."));
   }
 
   /* ═══ 시작 ═══════════════════════════════════════════════════ */
@@ -301,9 +338,15 @@
       listView();
       return;
     }
-    return R.loadDetail(SET).then(function (d) {
-      if (!d) { location.replace("report.html?set=" + SET); return; }
-      detail = d;
+    // 상세와 첨삭 캐시는 서로 독립이라 병렬로 읽는다(직렬 IndexedDB 왕복 1회 절약).
+    return Promise.all([
+      R.loadDetail(SET),
+      (NEO_EXAMDB.getFeedback ? NEO_EXAMDB.getFeedback(R.code(), SET) : Promise.resolve(null))
+        .catch(function () { return null; })
+    ]).then(function (r) {
+      if (!r[0]) { location.replace("report.html?set=" + SET); return; }
+      detail = r[0];
+      FB = r[1] && r[1].fb;
       listView();
     });
   }).catch(function (e) {

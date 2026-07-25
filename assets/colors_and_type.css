@@ -25,6 +25,10 @@
   --neo-hot:         #FF3DA6;  /* NEW!, LIVE, ALERT stamps */
   --neo-hot-ink:     #CC1F7C;
 
+  /* Flame orange — in-progress / resume (계속하기) */
+  --neo-flame:       #FF7A1F;
+  --neo-flame-ink:   #D65E08;
+
   /* Neutrals — soft white system. Eye-comfortable, never harsh #FFF. */
   --neo-ink:         #0A0A0A;  /* primary text, borders */
   --neo-ink-soft:    #2A2A2A;

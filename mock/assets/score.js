@@ -80,6 +80,9 @@
     var raw = 0, marks = [], ids = [];
     groupIds.forEach(function (gid) {
       var g = exam.groups[gid], k = key.g[gid];
+      // 더미(unscored experimental) 지문 — 실제 시험처럼 화면엔 나오지만
+      // 채점·라우팅엔 포함되지 않는다. 학생 답안은 무시된다.
+      if (g.dummy) return;
       if (g.t === "ctw") {
         g.blanks.forEach(function (b) {
           var id = gid + "_b" + b.n;

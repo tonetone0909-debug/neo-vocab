@@ -319,6 +319,7 @@
   background: var(--neo-paper-2);
 }
 .mk-state.on { background: var(--neo-acid); }
+.mk-state.prog { background: var(--neo-flame); color: #0A0A0A; }   /* 진행 중 = 주황 */
 .mk-t {
   font-family: var(--font-display-kr); font-size: 26px; line-height: 1.2;
   margin: 6px 0 2px;
@@ -334,9 +335,20 @@
   display: inline-block; margin-top: 12px;
   font-size: 14px; font-weight: 700;
 }
+/* 상태별 액션 버튼 — 응시하기(ink) · 계속하기(주황) · Review(초록) */
+.mk-btn {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 14px;
+  font-family: var(--font-label-kr); font-weight: 800; font-size: 15px;
+  padding: 10px 18px; border: 3px solid var(--neo-ink);
+  box-shadow: var(--sh-1); color: var(--neo-ink); background: var(--neo-card);
+}
+.mk-btn-start { background: var(--neo-ink); color: var(--neo-paper); }
+.mk-btn-continue { background: var(--neo-flame); color: #0A0A0A; }
+.mk-btn-review { background: var(--neo-grind); color: #0A0A0A; }
 .mk-note {
-  margin-top: 26px; padding: 16px;
-  border: var(--border-w) solid var(--neo-ink); background: var(--neo-paper-2);
+  margin-top: 26px; padding: 16px 18px;
+  border: var(--border-w) solid var(--neo-ink); background: var(--neo-acid-soft);
+  box-shadow: var(--sh-2);
 }
 .mk-note ul { margin: 0; padding-left: 18px; }
 .mk-note li {

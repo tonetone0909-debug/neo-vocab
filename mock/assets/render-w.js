@@ -59,15 +59,22 @@
     while (placed.length < item.slots) placed.push(null);
 
     var wrap = el("div", "bas-item");
+    var av = basAvatars(item.id);
 
+    // 프롬프트 화자 — 초상화(원형) + 대사. 라벨·회색박스 없음.
     var prow = el("div", "prompt-row");
-    prow.appendChild(el("span", "who", "PROMPT"));
-    prow.appendChild(el("div", "prompt-bubble", item.prompt || ""));
+    prow.appendChild(avatar("", av.a));
+    prow.appendChild(el("div", "prompt-text", item.prompt || ""));
     wrap.appendChild(prow);
 
+    // 답하는 화자 — 초상화 + 빈칸 프레임.
+    var arow = el("div", "answer-row");
+    arow.appendChild(avatar("", av.b));
     var frame = el("div", "frame");
+    arow.appendChild(frame);
+    wrap.appendChild(arow);
+
     var bank = el("div", "tile-bank");
-    wrap.appendChild(frame);
     wrap.appendChild(bank);
     host.appendChild(wrap);
 
@@ -340,6 +347,18 @@
     im.onload = function () { d.textContent = ""; d.appendChild(im); };
     im.src = src;
     return d;
+  }
+
+  /* Build-a-Sentence 두 화자의 초상화(반신 컷)를 문항 id 로 결정론 배정.
+   * 맥락상 아무 조합이나 되므로(남남/여여 포함) 성별은 자유롭게 고른다. */
+  function basAvatars(id) {
+    var s = String(id || ""), h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    function pic(x) {
+      var n = (x % 10) + 1;
+      return "img/" + (((x >> 4) & 1) ? "man" : "woman") + (n < 10 ? "0" + n : n) + ".png";
+    }
+    return { a: pic(h), b: pic((h ^ 0x9e3779b9) >>> 0) };
   }
 
   /* ---- B. Write an Email ------------------------------------------ */

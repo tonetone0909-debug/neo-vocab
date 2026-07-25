@@ -11,7 +11,11 @@ body.exam-body {
   background: var(--neo-bone);
   color: var(--neo-ink);
   font-family: var(--font-body);
-  overflow: hidden;                 /* 시험 화면은 전체가 고정, 각 pane 만 스크롤 */
+  /* 화면 전체 = 세로 flex. 높이는 기기·브라우저 툴바에 맞춰 조절(모바일은 dvh).
+     예전엔 #stage 를 calc(100vh - 104px) 로 고정해 툴바가 뜨면 하단(Next)이 잘렸다. */
+  display: flex; flex-direction: column;
+  height: 100vh; height: 100dvh;
+  overflow: hidden;                 /* 전체는 고정, 각 pane / 화면만 스크롤 */
 }
 
 /* ===== HUD ===== */
@@ -66,15 +70,21 @@ body.exam-body {
 .subbar .nav .btn { min-height: 38px; padding: 7px 15px; font-size: 14px; }
 
 /* ===== 본문 영역 ===== */
-#stage { height: calc(100vh - 104px); overflow: hidden; }
+/* 상단바·진행바·자유모드바는 각자 높이만큼, #stage 가 남는 공간을 전부 차지한다.
+   min-height:0 라야 그 안의 화면(.single/.pane/.intro)이 넘칠 때 스크롤된다. */
+.exam-topbar, .subbar, .free-bar { flex: 0 0 auto; }
+#stage { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+#stage img { max-width: 100%; }   /* 이미지가 컨테이너 밖으로 삐져나오지 않게 */
 .pane {
   display: grid; grid-template-columns: 1fr 1fr;
   height: 100%; border-top: 2px solid var(--neo-ink);
 }
 .passage-side {
-  padding: 26px 34px; overflow: auto;
+  padding: 26px 34px; overflow: auto;   /* Task 3(academic) 은 원래 여백 유지 */
   background: var(--neo-card); border-right: 2px solid var(--neo-ink);
 }
+/* Reading Task 2(.doc)만 여백 축소 — 지문이 스크롤 없이 들어가게(요청). Task 3(.passage)엔 영향 없음. */
+.passage-side:has(.doc) { padding: 14px 20px; }
 .q-side { padding: 26px 34px; overflow: auto; background: var(--neo-paper); }
 .single {
   height: 100%; overflow: auto; padding: 26px 34px;
@@ -149,7 +159,7 @@ body.exam-body {
    지시문은 지문의 두 배 크기. 화면 전체를 중앙 정렬한다.
    두 크기를 한 변수에서 파생시켜 지문을 키워도 2배 관계가 유지되게 한다. */
 .single.ctw-single {
-  --ctw-fs: 28px;
+  --ctw-fs: 18px;   /* 기존 28px 대비 ≈65% 축소(요청). help·body 가 이 변수로 스케일됨 */
   display: flex; flex-direction: column; align-items: stretch;
   padding: 0 18px;
 }
@@ -199,20 +209,21 @@ mark.hl {
 
 /* ===== Daily Life 장르 레이아웃 (§2) =====
    원본 실용문처럼 보이게 한다. 텍스트는 원본 그대로, 겉모습만 입힌다. */
-.doc { font-family: var(--font-reading); font-size: 16px; line-height: 1.7; max-width: 64ch; }
-.doc p { margin: 0 0 14px; }
+/* Reading Task 2 지문(daily) — 스크롤 안 나게 폰트·여백·행간 축소(요청). Task3(.passage)엔 영향 없음. */
+.doc { font-family: var(--font-reading); font-size: 13.5px; line-height: 1.5; max-width: 68ch; margin: 0 auto; }
+.doc p { margin: 0 0 9px; }
 .doc-h {
-  font-family: var(--font-display); font-size: 22px;
-  letter-spacing: var(--tracking-tight); margin: 0 0 14px;
+  font-family: var(--font-display); font-size: 18px;
+  letter-spacing: var(--tracking-tight); margin: 0 0 9px;
 }
 .doc-h2 {
-  font-family: var(--font-body); font-size: 14px; font-weight: 700;
+  font-family: var(--font-body); font-size: 12px; font-weight: 700;
   letter-spacing: .06em; text-transform: uppercase;
-  margin: 18px 0 8px; padding-bottom: 4px;
+  margin: 12px 0 6px; padding-bottom: 3px;
   border-bottom: 2px solid var(--neo-ink);
 }
-.doc-list { margin: 0 0 14px; padding-left: 20px; }
-.doc-list li { margin-bottom: 6px; }
+.doc-list { margin: 0 0 9px; padding-left: 18px; }
+.doc-list li { margin-bottom: 4px; }
 .doc-tag {
   display: inline-block; font-family: var(--font-mono); font-size: 10px;
   font-weight: 700; letter-spacing: .16em;
@@ -304,9 +315,9 @@ mark.hl {
   border: 2px solid var(--neo-ink); background: var(--neo-card);
   padding: 9px 13px; border-radius: var(--r-2); font-size: 15px;
 }
-.turn:nth-child(even) { margin-left: auto; }
-.turn:nth-child(even) .turn-meta { justify-content: flex-end; }
-.turn:nth-child(even) .turn-text { background: var(--neo-paper-2); }
+.turn-right { margin-left: auto; }
+.turn-right .turn-meta { justify-content: flex-end; }
+.turn-right .turn-text { background: var(--neo-paper-2); }
 
 /* ===== 신유형 상태 (§4) ===== */
 /* Sentence Identification — 문장 클릭, 고른 문장 볼드 */
@@ -470,20 +481,18 @@ mark.hl {
   padding: 18px 20px; border-radius: var(--r-2);
 }
 
+/* 프롬프트 화자 행: 초상화 + 대사(라벨·회색박스 없음).
+   프롬프트↔빈칸 간격 3배(18→54), 대사 폰트 1.5배(17→25). */
 .prompt-row {
-  display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px;
+  display: flex; align-items: flex-start; gap: 14px; margin-bottom: 54px;
 }
-.prompt-row .who {
-  flex-shrink: 0; margin-top: 6px;
-  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
-  letter-spacing: 0.1em; color: var(--neo-mute-aa);
+.prompt-text {
+  font-family: var(--font-reading); font-size: 25px; line-height: 1.5;
+  padding-top: 6px;
 }
-.prompt-bubble {
-  background: var(--neo-paper-2);
-  border: 3px solid var(--neo-ink); border-radius: var(--r-2);
-  box-shadow: var(--sh-1); padding: 12px 16px;
-  font-family: var(--font-reading); font-size: 17px; line-height: 1.5;
-}
+/* 답하는 화자 행: 초상화 + 빈칸 프레임 */
+.answer-row { display: flex; align-items: flex-start; gap: 14px; }
+.answer-row .frame { flex: 1; }
 
 .frame {
   font-family: var(--font-reading); font-size: 20px; line-height: 2.4;
@@ -552,11 +561,12 @@ mark.hl {
 }
 .sp-media {
   border: var(--border-w) solid var(--neo-ink); background: var(--neo-card);
-  min-height: 240px; width: 100%; max-width: 520px;
+  min-height: 180px; width: 100%; max-width: 520px; max-height: 52vh;
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 26px; box-shadow: var(--sh-2);
+  margin-bottom: 26px; box-shadow: var(--sh-2); overflow: hidden;
 }
-.sp-img { max-width: 100%; max-height: 340px; display: block; }
+/* 이미지 높이를 뷰포트에 맞춰 캡 — 작은 창에서도 화면 밖으로 안 삐져나가게. */
+.sp-img { max-width: 100%; max-height: min(340px, 46vh); display: block; object-fit: contain; }
 .sp-missing {
   font-family: var(--font-mono); font-size: 12px; font-weight: 700;
   letter-spacing: var(--tracking-loose); color: var(--neo-mute-aa);
@@ -633,37 +643,32 @@ mark.hl {
    내용은 data/intro.js. 읽는 동안 타이머가 돌지 않는다(engine.begin 이 뒤에 온다). */
 .intro {
   max-width: 640px; margin: 0 auto; padding: 40px 22px;
+  height: 100%; overflow-y: auto;   /* 설명이 길면 스크롤 — Next 가 잘려서 못 누르던 문제 해결 */
   display: flex; flex-direction: column; align-items: flex-start;
 }
+/* 설명/인트로 화면 폰트 — 기존 대비 약 60% 축소(요청). */
 .intro-kicker {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
   color: var(--neo-ink-soft);
 }
 .intro-title {
   font-family: var(--font-reading); font-weight: 700;
-  font-size: clamp(28px, 4vw, 40px); line-height: 1.2;
-  margin: 8px 0 18px;
+  font-size: clamp(18px, 2.6vw, 24px); line-height: 1.25;
+  margin: 6px 0 14px;
 }
 .intro-body {
-  font-family: var(--font-reading); font-size: 17px; line-height: 1.7;
-  margin: 0 0 14px;
+  font-family: var(--font-reading); font-size: 14px; line-height: 1.6;
+  margin: 0 0 11px;
 }
-.intro-list { margin: 4px 0 14px; padding-left: 20px; }
+.intro-list { margin: 4px 0 11px; padding-left: 18px; }
 .intro-list li {
-  font-family: var(--font-reading); font-size: 16px; line-height: 1.8;
+  font-family: var(--font-reading); font-size: 14px; line-height: 1.65;
 }
 .intro-note {
   border: var(--border-w) solid var(--neo-ink); background: var(--neo-paper-2);
-  padding: 12px 14px; font-size: 15px; font-weight: 700; line-height: 1.6;
+  padding: 10px 12px; font-size: 12.5px; font-weight: 700; line-height: 1.55;
   margin: 6px 0 4px; align-self: stretch;
 }
-.intro-go { margin-top: 26px; min-width: 180px; }
-.intro-dots { display: flex; gap: 6px; margin-top: 16px; }
-.intro-dot {
-  width: 8px; height: 8px; border: 2px solid var(--neo-ink);
-  background: var(--neo-card);
-}
-.intro-dot.on { background: var(--neo-ink); }
 
 /* ===== Pause · Review 오버레이 =====
    일시정지 중에는 문항이 보이면 안 된다 — 멈춘 채로 읽으면 정지가 곧 부정행위다.
@@ -728,7 +733,7 @@ mark.hl {
 
 /* 설명 화면이 떠 있는 동안은 하단 이동 바와 헤더 버튼을 잠근다.
    보이는 채로 눌리면 아무 일도 안 일어나 '멈췄다'로 읽힌다. */
-body.intro-open .subbar,
+/* 인트로에선 진행바(Next)로 넘어가므로 subbar 는 보이게 두고, Review·Pause 만 숨긴다. */
 body.intro-open #btn-review,
 body.intro-open #btn-pause { display: none !important; }
 

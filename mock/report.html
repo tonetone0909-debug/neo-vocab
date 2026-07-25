@@ -19,6 +19,7 @@
   .rp-ai-reports{display:flex;flex-direction:column;gap:10px;margin-top:14px}
   .rp-ai-reports .rp-rv{width:100%;text-align:left;cursor:pointer;border:none;font:inherit}
 </style>
+<script src="assets/mobile-guard.js"></script>
 <script src="../assets/config.js"></script>
 <script src="../assets/auth.js"></script>
 <script src="../assets/shell.js"></script>
@@ -39,6 +40,7 @@
 <script>
 (function () {
   "use strict";
+  if (window.NEO_MOBILE && NEO_MOBILE.guard()) return;   // 폰이면 여기서 차단
   var R = window.NEO_REVIEW, el = R.el;
   var SET = parseInt(R.qparam("set") || "1", 10);
   var DEMO = R.qparam("demo") === "1";
@@ -173,31 +175,6 @@
       });
   }
 
-  function aiSection(detail) {
-    var box = el("section", "rp-ai");
-    box.appendChild(el("h2", "rp-h2", "AI 첨삭 · Writing / Speaking"));
-
-    if (FB) {
-      // 채점은 시험 종료 직후 자동으로 끝나 있다 — 여기선 태스크별 첨삭을 열기만 한다.
-      var reps = el("div", "rp-ai-reports");
-      ["W", "S"].forEach(function (sec) {
-        EXAM.sections[sec].groups.forEach(function (gid) {
-          if (!FB[gid] || FB[gid].error) return;
-          var f = FB[gid];
-          var b = el("button", "rp-rv sec-" + sec);
-          b.appendChild(el("span", "rp-rv-ko", (TASKLAB[f.task] || f.task) + " · " + (f.score_0_5 != null ? f.score_0_5.toFixed(1) + "/5" : "")));
-          b.appendChild(el("span", "rp-rv-go", "첨삭 →"));
-          b.addEventListener("click", function () { NEO_FBIO.openReport(EXAM, gid, f, R.code(), SET); });
-          reps.appendChild(b);
-        });
-      });
-      box.appendChild(reps);
-    } else if (pendingWS(detail) && !DEMO) {
-      box.appendChild(el("p", "rp-sub", "AI 첨삭을 불러오는 중이에요…"));
-    }
-    return box;
-  }
-
   function render(detail) {
     var res = detail.result;
     host.textContent = "";
@@ -207,7 +184,7 @@
     SEC.forEach(function (s) { grid.appendChild(secCard(s, res)); });
     host.appendChild(grid);
 
-    host.appendChild(aiSection(detail));
+    // AI 첨삭은 영역 리뷰(Writing/Speaking)에서 태스크별로 연다 — 여기엔 링크를 두지 않는다.
     host.appendChild(reviewButtons());
 
     var foot = el("p", "rp-foot",

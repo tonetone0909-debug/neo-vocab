@@ -17,6 +17,7 @@
 <script src="assets/config.js"></script>
 <script src="assets/auth.js"></script>
 <script src="assets/shell.js"></script>
+<script src="mock/assets/mobile-guard.js"></script>
 <style>
   /* 허브 전용 — 앱 선택 화면. 탭바가 없으므로 하단 여백을 되돌린다. */
   body { padding-bottom: 24px; }
@@ -37,6 +38,8 @@
     display: inline-block; margin-top: 12px; font-family: var(--font-label-kr);
     font-size: 14px; font-weight: 700; color: var(--neo-ink);
   }
+  /* 카드별 색상 그림자 — VOCAB=acid(.acid), Writing=blaze(.accent), 모의고사=hot */
+  .deck-card.sh-hot { box-shadow: var(--sh-hot); }
   .hub-foot { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
   .hub-foot .who { font-size: 14px; font-weight: 700; color: var(--neo-ink); }
   .hub-foot .sp { margin-left: auto; }
@@ -61,14 +64,14 @@
       <div class="hd">실용·학술 어휘와 Reading Task 1 빈칸어휘. 파생어·동의어·예문·미영 발음까지 한 번에.</div>
       <span class="hgo">단어장 열기 →</span>
     </a>
-    <a class="deck-card hub-card" href="writing/index.html">
+    <a class="deck-card accent hub-card" href="writing/index.html">
       <span class="num">2</span>
       <div class="hk" style="display:inline-block;margin-left:8px;">BUILD A SENTENCE</div>
       <div class="ht">Writing Task&nbsp;1</div>
       <div class="hd">문법 개념 11개를 예문으로 익히고, 조각을 끼워 맞추며 문장을 조립해요. 모의고사 100세트까지.</div>
       <span class="hgo">문장 조립 열기 →</span>
     </a>
-    <a class="deck-card hub-card" id="mock-card" href="mock/index.html">
+    <a class="deck-card hub-card sh-hot" id="mock-card" href="mock/index.html">
       <span class="num">3</span>
       <div class="hk" style="display:inline-block;margin-left:8px;">MOCK EXAM</div>
       <div class="ht ht-kr">NEO 모의고사</div>
@@ -116,6 +119,8 @@
   var canMock = false;
   try { canMock = sessionStorage.getItem("neo_role") === "admin" || FREE_CODES.indexOf(c) >= 0; }
   catch (e) { canMock = false; }
+  // 모의고사는 PC 전용 — 폰에서는 카드 자체를 숨긴다(직접 URL 접근은 각 mock 페이지가 차단).
+  if (window.NEO_MOBILE && NEO_MOBILE.isPhone()) canMock = false;
   var mock = document.getElementById("mock-card");
   if (mock && !canMock) { mock.parentNode.removeChild(mock); }
 

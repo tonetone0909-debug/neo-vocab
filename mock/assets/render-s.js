@@ -56,28 +56,55 @@
 
   function itemId(g, it) { return g.src + "_" + it.n; }
 
-  /* 태스크 안내 나레이션. 없거나 재생이 막히면 바로 진행한다. */
-  var NARR_GAP = 1500;   // 나레이션이 끝나고 본 음원까지의 텀
-
-  function narrate(src, done) {
-    if (!src) return done();
-    var au = new Audio(src);
-    if (window.NEO_VOL) NEO_VOL.apply(au);
-    var moved = false;
-    // 정상 종료면 텀을 두고, 재생 실패면 기다리지 않는다 —
-    // 소리가 안 난 채로 1.5초 멈춰 있으면 화면이 멈춘 것처럼 보인다.
-    function go(wait) {
-      if (moved) return;
-      moved = true;
-      if (wait) setTimeout(done, NARR_GAP); else done();
+  function render(host, ctx) {
+    var g = ctx.group;
+    var i = ctx.qi >= 0 ? ctx.qi : 0;
+    var it = g.items[i];
+    // 태스크 첫 문항 앞: 지시 화면(지시문 + 이미지 + TTS 낭독)을 한 번 보여주고 Q1 로 넘어간다.
+    if (i === 0 && !ctx.recs[itemId(g, it)]) {
+      directionScreen(host, g, function () { renderQ(host, ctx); });
+      return;
     }
-    au.addEventListener("ended", function () { go(true); });
-    au.addEventListener("error", function () { go(false); });
-    var p = au.play();
-    if (p && p.catch) p.catch(function () { go(false); });
+    renderQ(host, ctx);
   }
 
-  function render(host, ctx) {
+  /* 지시 화면 — 지시문 + 이미지(Task2 면접관 초상 / Task1 흑백 장면) + 여성·US TTS 낭독.
+   * 낭독이 끝나면(또는 미지원/실패 시) 곧바로 1번 문항으로 진행한다. */
+  function directionScreen(host, g, done) {
+    host.innerHTML = "";
+    var box = el("div", "single speak-single sp-direction");
+    box.appendChild(el("div", "sp-head", HEAD[g.t]));
+    box.appendChild(el("div", "sp-instr sp-dir-instr", g.instr));
+    // Task2 면접관 초상은 g.img, Task1 은 전체 흑백 장면(g.scene). 없으면 텍스트만.
+    var dirImg = g.t === "interview" ? (g.img || "") : (g.scene || "");
+    if (dirImg) {
+      var media = el("div", "sp-media");
+      var im = new Image(); im.className = "sp-img"; im.alt = "";
+      im.addEventListener("error", function () { im.remove(); });
+      im.src = dirImg;
+      media.appendChild(im);
+      box.appendChild(media);
+    }
+    box.appendChild(el("div", "sp-note", "Listen to the directions."));
+    host.appendChild(box);
+
+    var moved = false;
+    function proceed() { if (moved) return; moved = true; setTimeout(done, 500); }
+    // 지시문 음원(질문 음원처럼 미리 생성한 여성·US mp3)을 재생. 아직 없으면 브라우저 TTS 폴백.
+    if (g.dir_audio) {
+      var au = new Audio(g.dir_audio);
+      if (window.NEO_VOL) NEO_VOL.apply(au);
+      au.addEventListener("ended", proceed);
+      au.addEventListener("error", function () { speakTTS(g.instr, proceed); });
+      var p = au.play();
+      if (p && p.catch) p.catch(function () { speakTTS(g.instr, proceed); });
+    } else {
+      speakTTS(g.instr, proceed);
+    }
+  }
+
+  /* 실제 문항 화면 — 매체 + RESPONSE TIME 패널 + 재생/녹음 흐름. */
+  function renderQ(host, ctx) {
     var g = ctx.group;
     var i = ctx.qi >= 0 ? ctx.qi : 0;
     var it = g.items[i];
@@ -85,9 +112,6 @@
 
     var box = el("div", "single speak-single");
     box.appendChild(el("div", "sp-head", HEAD[g.t]));
-
-    // 첫 문항에서만 맥락(지시문)을 보여준다. 이후엔 그림·영상에 집중.
-    if (i === 0) box.appendChild(el("div", "sp-instr", g.instr));
 
     var stageBox = el("div", "sp-media");
     box.appendChild(stageBox);
@@ -126,18 +150,34 @@
       clock.textContent = mmss(0);
       return;
     }
+    run(ctx, g, it, last, { note: note, panel: panel, clock: clock, mic: mic });
+  }
 
-    /* 태스크 안내는 **1번 문항 앞에서 한 번만** 읽어준다.
-       듣고 나면 곧바로 평소 흐름(재생 -> beep -> 녹음)으로 들어간다. */
-    function start() {
-      run(ctx, g, it, last, { note: note, panel: panel, clock: clock, mic: mic });
-    }
-    if (ctx.qi === 0 && g.narr && !ctx.recs[itemId(g, it)]) {
-      note.textContent = "Listen to the directions.";
-      narrate(g.narr, start);
-    } else {
-      start();
-    }
+  /* 지시문 TTS — 여성·US 고정. 미지원·실패·onend 누락에도 흐름을 막지 않는다. */
+  function pickVoice() {
+    try {
+      var vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+      var us = vs.filter(function (v) { return /en[-_]US/i.test(v.lang); });
+      var fem = us.filter(function (v) {
+        return /female|samantha|zira|susan|allison|joanna|salli|kendra|aria|jenny|michelle|google us english/i.test(v.name);
+      });
+      return fem[0] || us[0] || vs[0] || null;
+    } catch (e) { return null; }
+  }
+  function speakTTS(text, onend) {
+    var done = false;
+    function fin() { if (done) return; done = true; onend(); }
+    try {
+      var synth = window.speechSynthesis;
+      if (!synth || !window.SpeechSynthesisUtterance || !text) return fin();
+      synth.cancel();
+      var u = new SpeechSynthesisUtterance(String(text));
+      u.lang = "en-US"; u.rate = 0.95; u.pitch = 1.02;
+      var v = pickVoice(); if (v) u.voice = v;
+      u.onend = fin; u.onerror = fin;
+      synth.speak(u);
+      setTimeout(fin, Math.max(4000, String(text).length * 85));   // onend 누락 대비 안전 타임아웃
+    } catch (e) { fin(); }
   }
 
   /* 재생 -> beep -> 녹음 -> 저장 -> 다음. 전 과정이 자동이다. */

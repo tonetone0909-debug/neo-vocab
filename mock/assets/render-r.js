@@ -208,6 +208,15 @@
     var items = group(g.blocks);
     var list = null;
 
+    // 채팅: 오른쪽 말풍선은 **분량이 가장 많은 화자 한 명**으로 고정, 나머지는 전부 왼쪽.
+    var rightWho = null, vol = {};
+    g.blocks.forEach(function (b) {
+      if (b.t === "turn") vol[b.who] = (vol[b.who] || 0) + String(b.text || "").length;
+    });
+    Object.keys(vol).forEach(function (w) {
+      if (rightWho === null || vol[w] > vol[rightWho]) rightWho = w;
+    });
+
     items.forEach(function (it, idx) {
       if (it.kind === "kv") {
         wrap.appendChild(kvHead(it.rows));
@@ -216,8 +225,8 @@
       }
       var b = it.b;
       if (it.kind === "turn") {
-        // 채팅 — 발화자별 말풍선, 첫 화자 기준으로 좌우 교대
-        var t = el("div", "turn");
+        // 채팅 — 최다 분량 화자만 오른쪽(turn-right), 나머지는 왼쪽
+        var t = el("div", "turn" + (b.who === rightWho ? " turn-right" : ""));
         var meta = el("div", "turn-meta");
         meta.appendChild(el("span", "turn-who", b.who));
         if (b.at) meta.appendChild(el("span", "turn-at", b.at));
@@ -267,11 +276,12 @@
 
   window.NEO_RENDER.daily = function (host, ctx) {
     var g = ctx.group, s = pane(host);
-    s.left.appendChild(el("div", "passage-sub",
-      "READ IN DAILY LIFE · " + g.genre.toUpperCase()));
+    // 헤더 = 장르 라벨("Read an email." 등, genre_label). 없으면 장르명으로.
+    var head = (g.label || ("Read a " + g.genre)).replace(/\.\s*$/, "").toUpperCase();
+    s.left.appendChild(el("div", "passage-sub", head));
     var doc = buildDoc(g);
     s.left.appendChild(doc);
-    question(s.right, ctx, g.q[ctx.qi], "READ IN DAILY LIFE", doc);
+    question(s.right, ctx, g.q[ctx.qi], head, doc);
   };
 
   /* ---- C. Read an Academic Passage -------------------------------- */

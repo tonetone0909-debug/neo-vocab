@@ -165,11 +165,31 @@
   /* 해설 — 정답 근거만 (오답 이유는 만들지 않기로 했다).
    * 값이 없으면 null 을 돌려 버튼 자체를 안 만든다. 빈 상자를 띄우면
    * "해설이 없다"가 아니라 "해설이 깨졌다"로 읽힌다. */
+  /* **볼드** 마커를 <strong> 으로 바꿔 그린 <p>. 해설 강조용. */
+  function richP(cls, text) {
+    var p = el("p", cls);
+    String(text).split(/(\*\*[^*]+\*\*)/).forEach(function (seg) {
+      if (/^\*\*[^*]+\*\*$/.test(seg)) p.appendChild(el("strong", null, seg.slice(2, -2)));
+      else if (seg) p.appendChild(document.createTextNode(seg));
+    });
+    return p;
+  }
+
   function explainBlock(gid, qid, key) {
-    var k = key.g[gid], q = k && k.q && k.q[qid];
+    var k = key.g[gid];
+    // ctw 빈칸(`gid_bN`) — 해설은 kr.blanks[n] 에 있다(문항이 없는 유형).
+    var m = /_b(\d+)$/.exec(qid);
+    if (m && k && k.kr && k.kr.blanks) {
+      var bwhy = k.kr.blanks[m[1]];
+      if (!bwhy || !String(bwhy).trim()) return null;
+      return foldable("해설 보기", function (body) {
+        body.appendChild(richP("rv-body", bwhy));
+      });
+    }
+    var q = k && k.q && k.q[qid];
     if (!q || !q.why || !String(q.why).trim()) return null;
     return foldable("해설 보기", function (body) {
-      body.appendChild(el("p", "rv-body", q.why));
+      body.appendChild(richP("rv-body", q.why));
     });
   }
 
@@ -234,6 +254,7 @@
     loadDetail: loadDetail,
     sectionRows: sectionRows, gidOf: gidOf, indexInGroup: indexInGroup,
     reviewCtx: reviewCtx, paintAnswers: paintAnswers,
-    explainBlock: explainBlock, transBlock: transBlock, scriptBlock: scriptBlock
+    explainBlock: explainBlock, transBlock: transBlock, scriptBlock: scriptBlock,
+    foldable: foldable, richP: richP
   };
 })();
