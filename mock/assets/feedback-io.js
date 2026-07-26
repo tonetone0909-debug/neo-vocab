@@ -122,9 +122,10 @@
   function openReport(exam, gid, fbEntry, code, setId) {
     var rd = JSON.parse(JSON.stringify(fbEntry.report_data));
     return injectRecordings(exam, gid, rd, code, setId).then(function (rd2) {
+      // no-store 로 항상 최신 렌더러를 받는다(배포 후 옛 캐시로 빈 칸 뜨는 것 방지).
       return Promise.all([
-        fetch(FBDIR + "report.html").then(function (r) { return r.text(); }),
-        fetch(FBDIR + "report-render.js").then(function (r) { return r.text(); })
+        fetch(FBDIR + "report.html", { cache: "no-store" }).then(function (r) { return r.text(); }),
+        fetch(FBDIR + "report-render.js", { cache: "no-store" }).then(function (r) { return r.text(); })
       ]).then(function (parts) {
         var shell = parts[0], render = parts[1];
         var blob = JSON.stringify(rd2).replace(/<\//g, "<\\/");

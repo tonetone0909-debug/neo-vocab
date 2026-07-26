@@ -110,21 +110,29 @@
   }
   function modelAnswer(d, label) {
     if (!d.model_answer) return "";
-    var body = "<div class='fb-model'><div class='fb-model-h'>Model answer</div><p class='fb-model-b'>" + brStrong(d.model_answer) + "</p>" +
-      ttsBtn() + "</div>";
+    var body = "<div class='fb-model'><div class='fb-model-h'>Model answer</div><p class='fb-model-b'>" + modelBody(d.model_answer, collectFixes(d)) + "</p></div>";
     if (d.review_note_ko) body += "<p class='fb-review'>✍️ " + esc(d.review_note_ko) + "</p>";
     if (d.encourage_en) body += "<div class='fb-enc'>" + esc(d.encourage_en) + "</div>";
     return sect(label || "Model response", body);
   }
-  /* model_answer: <strong> 유지 + 줄바꿈 <br> + 나머지 escape */
-  function brStrong(s) {
-    var parts = String(s).split(/(<\/?strong>)/);
-    return parts.map(function (p) { return (p === "<strong>" || p === "</strong>") ? p : txt(p); }).join("");
+  /* 교정된 표현(clinic.fix / upgrade.after)을 모아 모범답안에서 볼드 처리한다. */
+  function collectFixes(d) {
+    var f = [];
+    (d.grammar_clinic || []).forEach(function (c) { var x = c.fix || c.fix_en; if (x) f.push(x); });
+    (d.upgrades || []).forEach(function (c) { if (c.after) f.push(c.after); (c.fixes || []).forEach(function (x) { f.push(x); }); });
+    return f;
   }
-  function ttsBtn() {
-    return "<div class='fb-tts-mini'><button class='fb-tts-btn' onclick='NEO_FB.toggleTTS(this)'>🔊 모범답안 듣기</button>" +
-      "<span class='fb-tts-st'></span></div>";
+  /* model_answer 렌더: 리터럴/실제 \n → <br>, escape, 교정 표현 <strong> 볼드 */
+  function modelBody(model, fixes) {
+    var s = txt(String(model).replace(/\\n/g, "\n"));
+    (fixes || []).filter(Boolean).map(function (f) { return esc(String(f).replace(/\\n/g, " ").replace(/\s+/g, " ").trim()); })
+      .filter(function (f) { return f.length > 3; }).sort(function (a, b) { return b.length - a.length; })
+      .forEach(function (ef) {
+        if (s.indexOf(ef) >= 0 && s.indexOf("<strong>" + ef + "</strong>") < 0) s = s.split(ef).join("<strong>" + ef + "</strong>");
+      });
+    return s;
   }
+  function ttsBtn() { return ""; }   /* 모범답안 듣기 버튼 제거(사용자 요청) */
   function penaltyBanner(d) {
     var p = d.length_penalty;
     if (!p || !p.applied) return "";
@@ -207,7 +215,7 @@
         lfRow("입장", q.logic_flow.position_ko, q.logic_flow.position_v) +
         lfRow("근거", q.logic_flow.reasoning_ko, q.logic_flow.reasoning_v) +
         lfRow("결론", q.logic_flow.conclusion_ko, q.logic_flow.conclusion_v) + "</div>" : "";
-      var mdl = q.model_answer ? "<div class='fb-model'><div class='fb-model-h'>Model answer</div><p class='fb-model-b fb-en'>" + txt(q.model_answer) + "</p>" + ttsBtn() + "</div>" : "";
+      var mdl = q.model_answer ? "<div class='fb-model'><div class='fb-model-h'>Model answer</div><p class='fb-model-b fb-en'>" + modelBody(q.model_answer, collectFixes(q)) + "</p></div>" : "";
       return "<div class='fb-qcard'><div class='fb-qhd'><span class='fb-qn'>Q" + (q.n || i + 1) + "</span>" +
         scoreChip(q.score_0_5) + "<span class='fb-qt'>" + esc(q.question || "") + "</span></div>" +
         recPlayer(q.audio, "Q" + (q.n || i + 1) + " 내 녹음") +
