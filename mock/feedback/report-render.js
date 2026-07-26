@@ -109,27 +109,40 @@
     return cards;
   }
   function modelAnswer(d, label) {
-    if (!d.model_answer) return "";
-    var body = "<div class='fb-model'><div class='fb-model-h'>Model answer</div><p class='fb-model-b'>" + modelBody(d.model_answer, collectFixes(d)) + "</p></div>";
+    var integ = integratedModel(d);
+    if (!integ) return "";
+    var body = "<div class='fb-model'><div class='fb-model-h'>내 글 + 교정 (볼드 = 고친 부분)</div><p class='fb-model-b'>" + integ + "</p></div>";
     if (d.review_note_ko) body += "<p class='fb-review'>✍️ " + esc(d.review_note_ko) + "</p>";
     if (d.encourage_en) body += "<div class='fb-enc'>" + esc(d.encourage_en) + "</div>";
     return sect(label || "Model response", body);
   }
-  /* 교정된 표현(clinic.fix / upgrade.after)을 모아 모범답안에서 볼드 처리한다. */
-  function collectFixes(d) {
-    var f = [];
-    (d.grammar_clinic || []).forEach(function (c) { var x = c.fix || c.fix_en; if (x) f.push(x); });
-    (d.upgrades || []).forEach(function (c) { if (c.after) f.push(c.after); (c.fixes || []).forEach(function (x) { f.push(x); }); });
-    return f;
+  /* 학생 원문에서 교정쌍(before→after)만 <strong>after</strong>로 바꾼 '통합본'.
+   * 안 고친 부분은 학생 글 그대로, 고친 부분만 볼드. 원문 없으면 grader model_answer 로 폴백. */
+  function integratedModel(d) {
+    var orig = (d.original_segments || d.transcript_segments || []).map(function (s) { return s.text || ""; }).join("");
+    var pairs = [];
+    (d.grammar_clinic || []).forEach(function (c) { var b = c.wrong || c.error, a = c.fix || c.fix_en; if (b && a) pairs.push([b, a]); });
+    (d.upgrades || []).forEach(function (c) { var b = c.wrong || c.before, a = c.after || (c.fixes && c.fixes[0]); if (b && a) pairs.push([b, a]); });
+    // 원문이 비었거나(예: 미녹음) 너무 짧으면 grader model_answer 로 폴백
+    if (String(orig).replace(/\s/g, "").length < 15) {
+      return d.model_answer ? modelBoldFixes(d.model_answer, pairs.map(function (p) { return p[1]; })) : "";
+    }
+    var s = String(orig).replace(/\\n/g, "\n");
+    var marks = [];
+    pairs.sort(function (x, y) { return String(y[0]).length - String(x[0]).length; }).forEach(function (p, i) {
+      var b = String(p[0]).replace(/\s+/g, " ").trim();
+      if (b.length > 1 && s.indexOf(b) >= 0) { var ph = "" + i + ""; s = s.split(b).join(ph); marks.push([ph, p[1]]); }
+    });
+    s = txt(s);   // escape + \n → <br> (placeholder 는 escape 안 됨)
+    marks.forEach(function (m) { s = s.split(m[0]).join("<strong>" + esc(String(m[1]).replace(/\\n/g, " ").replace(/\s+/g, " ").trim()) + "</strong>"); });
+    return s;
   }
-  /* model_answer 렌더: 리터럴/실제 \n → <br>, escape, 교정 표현 <strong> 볼드 */
-  function modelBody(model, fixes) {
+  /* 폴백용: model_answer 텍스트에서 fix 표현을 볼드(원문이 없을 때만). */
+  function modelBoldFixes(model, fixes) {
     var s = txt(String(model).replace(/\\n/g, "\n"));
     (fixes || []).filter(Boolean).map(function (f) { return esc(String(f).replace(/\\n/g, " ").replace(/\s+/g, " ").trim()); })
       .filter(function (f) { return f.length > 3; }).sort(function (a, b) { return b.length - a.length; })
-      .forEach(function (ef) {
-        if (s.indexOf(ef) >= 0 && s.indexOf("<strong>" + ef + "</strong>") < 0) s = s.split(ef).join("<strong>" + ef + "</strong>");
-      });
+      .forEach(function (ef) { if (s.indexOf(ef) >= 0 && s.indexOf("<strong>" + ef + "</strong>") < 0) s = s.split(ef).join("<strong>" + ef + "</strong>"); });
     return s;
   }
   function ttsBtn() { return ""; }   /* 모범답안 듣기 버튼 제거(사용자 요청) */
@@ -215,7 +228,8 @@
         lfRow("입장", q.logic_flow.position_ko, q.logic_flow.position_v) +
         lfRow("근거", q.logic_flow.reasoning_ko, q.logic_flow.reasoning_v) +
         lfRow("결론", q.logic_flow.conclusion_ko, q.logic_flow.conclusion_v) + "</div>" : "";
-      var mdl = q.model_answer ? "<div class='fb-model'><div class='fb-model-h'>Model answer</div><p class='fb-model-b fb-en'>" + modelBody(q.model_answer, collectFixes(q)) + "</p></div>" : "";
+      var im = integratedModel(q);
+      var mdl = im ? "<div class='fb-model'><div class='fb-model-h'>내 답변 + 교정 (볼드 = 고친 부분)</div><p class='fb-model-b fb-en'>" + im + "</p></div>" : "";
       return "<div class='fb-qcard'><div class='fb-qhd'><span class='fb-qn'>Q" + (q.n || i + 1) + "</span>" +
         scoreChip(q.score_0_5) + "<span class='fb-qt'>" + esc(q.question || "") + "</span></div>" +
         recPlayer(q.audio, "Q" + (q.n || i + 1) + " 내 녹음") +

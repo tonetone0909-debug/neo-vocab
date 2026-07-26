@@ -30,6 +30,13 @@
 
   /* 채점 번들 생성(메모리): [{gid, task, question, answer_text}] (W) + {gid, task, instr, originals?, items:[{n, question, audio_b64}]} (S)
    * which: "W" | "S" | "all"(기본). Writing 은 Speaking 하는 동안 먼저 채점하려고 분리 호출한다. */
+  /* 코드에서 이름만 추출: 한글 이름 부분에서 성(첫 글자) 제거. 2자 이하(성+외자)는 풀네임. */
+  function givenName(code) {
+    var m = String(code || "").match(/[가-힣]+/);
+    var name = m ? m[0] : "";
+    return name.length >= 3 ? name.slice(1) : name;
+  }
+
   function buildBundle(exam, key, detail, code, setId, which) {
     var items = [], proms = [], ans = detail.answers || {};
     if (which !== "S") exam.sections.W.groups.forEach(function (gid) {
@@ -37,7 +44,7 @@
       if (g.t === "bas") return;                       // Task1 자동채점 — 첨삭 대상 아님
       var akey = g.src + "_" + (g.t === "email" ? "email" : "disc");
       items.push({
-        gid: gid, task: g.t, student: "",
+        gid: gid, task: g.t, student: givenName(code),
         question: g.t === "email"
           ? ("To " + (g.to || "") + " · " + (g.subject || "") + "\n" + (g.situation || "") + "\nDirections: " + ((g.directions || []).join(" / ")))
           : (g.prof ? g.prof.text : ""),
@@ -46,7 +53,7 @@
     });
     if (which !== "W") exam.sections.S.groups.forEach(function (gid) {
       var g = exam.groups[gid];
-      var node = { gid: gid, task: g.t, student: "", instr: g.instr || "", items: [] };
+      var node = { gid: gid, task: g.t, student: givenName(code), instr: g.instr || "", items: [] };
       if (g.t === "repeat") node.originals = (g.items || []).map(function (x) { return ktext(key, gid, x.n); });
       (g.items || []).forEach(function (x) {
         var e = { n: x.n, question: ktext(key, gid, x.n) };
@@ -150,6 +157,7 @@
   /* 그룹 첨삭 리포트를 앱 오버레이에 (build/mock/feedback 셸+렌더 재사용) */
   function openReport(exam, gid, fbEntry, code, setId) {
     var rd = JSON.parse(JSON.stringify(fbEntry.report_data));
+    var gn = givenName(code); if (gn) rd.student = gn;   // 헤더 이름 = 코드의 이름
     return injectRecordings(exam, gid, rd, code, setId).then(function (rd2) {
       // no-store 로 항상 최신 렌더러를 받는다(배포 후 옛 캐시로 빈 칸 뜨는 것 방지).
       return Promise.all([
