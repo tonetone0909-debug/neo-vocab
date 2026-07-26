@@ -1,7 +1,7 @@
 /* feedback-io.js — mock 앱 ↔ AI 첨삭(grade.py) 연결.
  * 1) exportBundle: 학생 W텍스트 + S문항별 녹음(base64) → 채점 번들 다운로드
  * 2) aiMaps: feedback JSON({gid:{task,weighted_pts,report_data}}) → {W:{gid:pts}, S:{gid:pts}} (score.js 주입용)
- * 3) openReport: 그룹별 NEO 첨삭 리포트를 새 창에 렌더(문항 녹음 주입) — build/mock/feedback/ 재사용
+ * 3) openReport: 그룹별 NEO 첨삭 리포트를 앱 내 오버레이(iframe+돌아가기)에 렌더(문항 녹음 주입) — build/mock/feedback/ 재사용
  */
 (function () {
   "use strict";
@@ -118,7 +118,36 @@
     return Promise.all(proms).then(function () { return rd; });
   }
 
-  /* 그룹 첨삭 리포트를 새 창에 (build/mock/feedback 셸+렌더 재사용) */
+  /* 오버레이(iframe) 안에서도 복사·드래그 차단(부정행위 방지). */
+  var FB_BLOCK = "<script>['copy','cut','paste','dragstart','contextmenu'].forEach(function(v){document.addEventListener(v,function(e){e.preventDefault();},true);});<\/script>";
+
+  /* 첨삭 리포트를 앱 안 오버레이(iframe)에 띄우고 '돌아가기' 버튼으로 닫는다.
+   * 새 탭(window.open) 대신 인앱 표시 — 복붙 차단·UX 일관성. */
+  function showReportOverlay(html) {
+    var old = document.getElementById("fb-overlay");
+    if (old) old.remove();
+    var ov = document.createElement("div");
+    ov.id = "fb-overlay";
+    ov.setAttribute("style", "position:fixed;inset:0;z-index:99999;background:#f2f2ec;display:flex;flex-direction:column");
+    var bar = document.createElement("div");
+    bar.setAttribute("style", "flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:3px solid #0A0A0A;background:#FBFBF7");
+    var back = document.createElement("button");
+    back.textContent = "← 돌아가기";
+    back.setAttribute("style", "font:700 15px 'Noto Sans KR',sans-serif;background:#0A0A0A;color:#fff;border:0;border-radius:6px;padding:9px 16px;cursor:pointer");
+    bar.appendChild(back);
+    var ifr = document.createElement("iframe");
+    ifr.setAttribute("style", "flex:1 1 auto;width:100%;border:0;background:#fff");
+    ov.appendChild(bar);
+    ov.appendChild(ifr);
+    document.body.appendChild(ov);
+    ifr.srcdoc = html;
+    function close() { ov.remove(); document.removeEventListener("keydown", onKey); }
+    function onKey(e) { if (e.key === "Escape") close(); }
+    back.addEventListener("click", close);
+    document.addEventListener("keydown", onKey);
+  }
+
+  /* 그룹 첨삭 리포트를 앱 오버레이에 (build/mock/feedback 셸+렌더 재사용) */
   function openReport(exam, gid, fbEntry, code, setId) {
     var rd = JSON.parse(JSON.stringify(fbEntry.report_data));
     return injectRecordings(exam, gid, rd, code, setId).then(function (rd2) {
@@ -130,9 +159,8 @@
         var shell = parts[0], render = parts[1];
         var blob = JSON.stringify(rd2).replace(/<\//g, "<\\/");
         var inject = "<script>window.FEEDBACK=" + blob + ";<\/script>\n<script>" + render + "<\/script>";
-        var html = shell.replace('<script src="report-render.js"><\/script>', inject);
-        var url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-        window.open(url, "_blank");
+        var html = shell.replace('<script src="report-render.js"><\/script>', inject + FB_BLOCK);
+        showReportOverlay(html);
       });
     });
   }
