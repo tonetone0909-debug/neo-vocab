@@ -102,7 +102,7 @@
     var cards = list.map(function (c, i) {
       var fx = c.fixes || (c.after ? [c.after] : []);
       var fixes = fx.map(function (f) { return "<p class='fb-en fb-fix'>→ " + esc(f) + "</p>"; }).join("");
-      var wrong = c.wrong || c.before || "", explain = c.explain_ko || c.tip || "";
+      var wrong = c.wrong || c.before || "", explain = c.explain_ko || c.tip || c.note_ko || "";
       return "<div class='fb-upcard " + UPCOL[i % UPCOL.length] + "'>" + (c.title_ko ? "<div class='fb-up-t'>" + esc(c.title_ko) + "</div>" : "") +
         (wrong ? "<p class='fb-en fb-strike'>" + esc(wrong) + "</p>" : "") + (explain ? "<p class='fb-cl-x'>" + esc(explain) + "</p>" : "") + fixes + "</div>";
     }).join("");

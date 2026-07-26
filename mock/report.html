@@ -112,11 +112,6 @@
       c.appendChild(bar);
     }
 
-    if (s.k === "R" || s.k === "L") {
-      c.appendChild(el("div", "rp-path",
-        "Stage 1 " + r.routerRaw + "/20 → Stage 2 " +
-        (r.path === "upper" ? "상위" : "하위") + " 모듈"));
-    }
     if (r.provisional) c.appendChild(el("div", "rp-pending-tag", "AI 첨삭 대기"));
     return c;
   }
