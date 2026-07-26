@@ -58,11 +58,12 @@
   function whyRows(list) {
     return "<ul class='fb-why'>" + (list || []).map(function (r) {
       if (typeof r === "string") return "<li><span class='fb-det'>" + txt(r) + "</span></li>";
-      var lab = r.label_ko ? "<b>" + esc(r.label_ko) + (r.label_en ? " <span class='fb-en'>(" + esc(r.label_en) + ")</span>" : "") + "</b> " : "";
+      var label = r.label_ko || r.category || r.label || "";
+      var lab = label ? "<b>" + esc(label) + (r.label_en ? " <span class='fb-en'>(" + esc(r.label_en) + ")</span>" : "") + "</b> " : "";
       var badge = "";
       if (r.verdict) badge = "<span class='fb-verd " + (VER[r.verdict] || "v-fair") + "'>" + esc(r.verdict_text || VTXT[r.verdict] || "") + "</span>";
       else if (r.score != null) { var sv = Number(r.score) >= 3.5 ? "v-good" : (Number(r.score) >= 2.5 ? "v-fair" : "v-bad"); badge = "<span class='fb-verd " + sv + "'>" + Number(r.score).toFixed(1) + "/5</span>"; }
-      var det = txt(r.detail_ko || r.note_ko || r.meaning_ko || "");
+      var det = txt(r.detail_ko || r.note_ko || r.meaning_ko || r.comment || "");
       return "<li>" + lab + badge + (det ? "<br><span class='fb-det'>" + det + "</span>" : "") + "</li>";
     }).join("") + "</ul>";
   }
@@ -89,7 +90,7 @@
     if (!list || !list.length) return "";
     var cards = list.map(function (c) {
       var sv = c.severity === "yellow" ? "cl-y" : "cl-r";
-      var wrong = c.wrong || c.error || "", explain = c.explain_ko || c.explain || "", fix = c.fix || c.fix_en || "";
+      var wrong = c.wrong || c.error || "", explain = c.explain_ko || c.explain || c.note_ko || "", fix = c.fix || c.fix_en || "";
       return "<div class='fb-clcard " + sv + "'>" + (c.title_ko ? "<div class='fb-cl-t'>" + esc(c.title_ko) + "</div>" : "") +
         (wrong ? "<p class='fb-en fb-strike'>" + esc(wrong) + "</p>" : "") + (explain ? "<p class='fb-cl-x'>" + esc(explain) + "</p>" : "") +
         (fix ? "<p class='fb-en fb-fix'>→ " + esc(fix) + "</p>" : "") + "</div>";
@@ -101,9 +102,9 @@
     var cards = list.map(function (c, i) {
       var fx = c.fixes || (c.after ? [c.after] : []);
       var fixes = fx.map(function (f) { return "<p class='fb-en fb-fix'>→ " + esc(f) + "</p>"; }).join("");
-      var wrong = c.wrong || c.before || "";
+      var wrong = c.wrong || c.before || "", explain = c.explain_ko || c.tip || "";
       return "<div class='fb-upcard " + UPCOL[i % UPCOL.length] + "'>" + (c.title_ko ? "<div class='fb-up-t'>" + esc(c.title_ko) + "</div>" : "") +
-        (wrong ? "<p class='fb-en fb-strike'>" + esc(wrong) + "</p>" : "") + (c.explain_ko ? "<p class='fb-cl-x'>" + esc(c.explain_ko) + "</p>" : "") + fixes + "</div>";
+        (wrong ? "<p class='fb-en fb-strike'>" + esc(wrong) + "</p>" : "") + (explain ? "<p class='fb-cl-x'>" + esc(explain) + "</p>" : "") + fixes + "</div>";
     }).join("");
     return cards;
   }
@@ -151,8 +152,8 @@
     if (d.grammar_clinic && d.grammar_clinic.length) out += sect("Grammar clinic", clinic(d.grammar_clinic));
     if (d.deep_dive && d.deep_dive.length) {
       var dd = d.deep_dive.map(function (x) {
-        var title = x.title_ko || x.reason || "";
-        var analysis = x.analysis_ko || x.consequence_check || "";
+        var title = x.title_ko || x.reason || x.point || "";
+        var analysis = x.analysis_ko || x.consequence_check || x.note_ko || "";
         var vb = x.verdict ? " <span class='fb-verd v-fair'>" + esc(x.verdict) + "</span>" : "";
         return "<div class='fb-dd " + (x.kind === "strategy" ? "dd-s" : "dd-l") + "'>" + (title ? "<div class='fb-dd-t'>" + esc(title) + vb + "</div>" : "") +
           (x.problem_en ? "<p class='fb-en fb-strike'>" + esc(x.problem_en) + "</p>" : "") +
