@@ -381,6 +381,8 @@ mark.hl {
 }
 
 .aud-bar {
+  /* 리스닝 재생 진행바는 숨긴다(실제 시험엔 재생바가 없음). JS 진행 로직은 그대로. */
+  display: none;
   height: 8px; border: 2px solid var(--neo-ink); background: var(--neo-paper-2);
 }
 .aud-fill { height: 100%; width: 0; background: var(--neo-ink); transition: width .2s linear; }
