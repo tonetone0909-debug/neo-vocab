@@ -114,8 +114,10 @@
   var who = document.getElementById("who");
   if (c) who.textContent = (c.replace(/\s*\d{4}$/, "").trim() || c) + " 님, 어서와요";
 
-  // 모의고사: 랍슨4355(또는 admin 역할)만 열람. 나머지는 COMING SOON 으로 잠금.
-  var FREE_CODES = ["랍슨4355"];
+  // 모의고사 열람 허용 코드(또는 admin 역할). 나머지는 COMING SOON 으로 잠금.
+  // 여기 있는 코드는 모의고사 카드가 열린다. 시험 자체는 exam.html 이 정규(시간제한)로 진행 —
+  // 강사 무제한/점프(자유 모드)는 exam.html 의 FREE_CODES 에 따로 넣어야 한다(현재 랍슨4355만).
+  var FREE_CODES = ["랍슨4355", "사랑0624", "마리6789"];
   var canMock = false;
   try { canMock = sessionStorage.getItem("neo_role") === "admin" || FREE_CODES.indexOf(c) >= 0; }
   catch (e) { canMock = false; }
