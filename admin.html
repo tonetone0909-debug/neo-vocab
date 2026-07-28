@@ -48,9 +48,10 @@
   </div>
 
   <div id="panel" style="display:none;">
-    <div style="display:flex;gap:8px;margin-top:16px;">
+    <div style="display:flex;gap:6px;margin-top:16px;">
       <button class="btn btn-sm btn-grind" id="tab-code" style="flex:1;">코드 관리</button>
       <button class="btn btn-sm btn-ghost" id="tab-prog" style="flex:1;">학생 진도</button>
+      <button class="btn btn-sm btn-ghost" id="tab-mock" style="flex:1;">모의고사 리포트</button>
     </div>
 
     <div id="code-panel">
@@ -118,6 +119,15 @@
         <button class="btn btn-sm btn-ghost" id="pback" style="margin-top:14px;">← 학생 목록</button>
         <div id="pdetail" style="margin-top:12px;"></div>
       </div>
+    </div>
+
+    <div id="mock-panel" style="display:none;">
+      <div class="detail-head" style="margin-top:16px;">
+        <span class="sc-l">학생 <span id="mkcount">0</span>명 · 코드를 누르면 리포트를 봐요</span>
+      </div>
+      <input class="quiz-input" id="mksearch" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="🔍 이름·코드 검색" style="margin:0 0 10px;">
+      <div class="verdict" id="mkmsg" style="min-height:18px;"></div>
+      <div id="mklist"></div>
     </div>
 
     <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:20px;">관리자 로그아웃</button>
@@ -613,18 +623,119 @@
     $("plist-view").style.display = "none"; $("pdetail-view").style.display = "block";
   }
   function switchTab(which) {
-    const prog = which === "prog";
-    $("code-panel").style.display = prog ? "none" : "block";
+    const prog = which === "prog", mock = which === "mock", code = !prog && !mock;
+    $("code-panel").style.display = code ? "block" : "none";
     $("prog-panel").style.display = prog ? "block" : "none";
-    $("tab-code").className = "btn btn-sm " + (prog ? "btn-ghost" : "btn-grind");
+    $("mock-panel").style.display = mock ? "block" : "none";
+    $("tab-code").className = "btn btn-sm " + (code ? "btn-grind" : "btn-ghost");
     $("tab-prog").className = "btn btn-sm " + (prog ? "btn-grind" : "btn-ghost");
-    $("akick").textContent = prog ? "ADMIN · STUDENT PROGRESS" : "ADMIN · CODE MANAGER";
-    $("atitle").textContent = prog ? "학생 진도" : "코드 관리";
+    $("tab-mock").className = "btn btn-sm " + (mock ? "btn-grind" : "btn-ghost");
+    $("akick").textContent = mock ? "ADMIN · MOCK REPORTS" : prog ? "ADMIN · STUDENT PROGRESS" : "ADMIN · CODE MANAGER";
+    $("atitle").textContent = mock ? "모의고사 리포트" : prog ? "학생 진도" : "코드 관리";
     if (prog) { $("plist-view").style.display = "block"; $("pdetail-view").style.display = "none"; if (!students.length) loadProg(); }
+    if (mock) { if (!allCodes.length) load().then(renderMock); else renderMock(); }
+  }
+
+  /* ---------- 모의고사 리포트 (어드민 풀 리포트) ---------- */
+  const GBASE = ((window.NEO_GRADER || {}).url || "").replace(/\/+$/, "");
+  function mkFiltered() {
+    const q = ($("mksearch").value || "").trim().toLowerCase();
+    return allCodes.filter(c => !q || (c.code||"").toLowerCase().includes(q) || (c.label||"").toLowerCase().includes(q));
+  }
+  function renderMock() {
+    $("mkcount").textContent = allCodes.length;
+    if (!GBASE) { $("mklist").innerHTML = '<p class="lead no">채점 서버(NEO_GRADER)가 설정되지 않았어요.</p>'; return; }
+    if (!allCodes.length) { $("mklist").innerHTML = '<p class="lead">발급된 코드가 없어요.</p>'; return; }
+    const list = mkFiltered();
+    if (!list.length) { $("mklist").innerHTML = '<p class="lead">검색 결과가 없어요.</p>'; return; }
+    $("mklist").innerHTML = list.map(c =>
+      '<button class="btn btn-sm btn-ghost btn-block mkrow" data-code="' + esc(c.code) + '" data-label="' + esc(c.label||"") +
+      '" style="text-align:left;margin:5px 0;">' + '<b>' + esc(c.code) + '</b>' + (c.label ? ' · ' + esc(c.label) : '') + '</button>').join("");
+    Array.from(document.querySelectorAll(".mkrow")).forEach(b =>
+      b.addEventListener("click", () => openMockReport(b.getAttribute("data-code"), b.getAttribute("data-label"))));
+  }
+  function fetchJSON(u) { return fetch(u, { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null); }
+  function bandLine(name, x) {
+    x = x || {};
+    var b = x.band != null ? x.band : "–";
+    var rm = (x.raw != null && x.max != null) ? " (" + x.raw + "/" + x.max + ")" : "";
+    return "<div style='display:flex;justify-content:space-between;border-bottom:2px solid var(--neo-ink);padding:6px 0;font-size:15px;'>" +
+      "<span style='font-weight:700;'>" + name + "</span><span>Band <b>" + b + "</b>" + rm + "</span></div>";
+  }
+  function objectiveHTML(set, r) {
+    r = r || {}; var ov = r.overall || {};
+    return "<div class='fb-paper'><div class='fb-hd'><span><span class='fb-wm'>MOCK " + set +
+      "</span> <span class='fb-sub'>객관식 · 총점</span></span><span class='fb-chip'>TOTAL Band " +
+      (ov.band != null ? ov.band : "–") + "</span></div>" +
+      bandLine("Reading", r.R) + bandLine("Listening", r.L) + bandLine("Writing", r.W) + bandLine("Speaking", r.S) + "</div>";
+  }
+  function openMockReport(code, label) {
+    var overlay = showMockOverlay(((label ? label + " · " : "") + code) + " 리포트", "불러오는 중…");
+    var jobs = [1, 2].map(function (s) {
+      return Promise.all([
+        fetchJSON(GBASE + "/result?code=" + encodeURIComponent(code) + "&set=" + s),
+        fetchJSON(GBASE + "/detail?code=" + encodeURIComponent(code) + "&set=" + s)
+      ]).then(function (a) { return { set: s, fb: a[0], detail: a[1] }; });
+    });
+    Promise.all([
+      Promise.all(jobs),
+      fetch("mock/feedback/report.html", { cache: "no-store" }).then(function (r) { return r.text(); }),
+      fetch("mock/feedback/report-render.js", { cache: "no-store" }).then(function (r) { return r.text(); })
+    ]).then(function (res) {
+      var data = res[0], shell = res[1];
+      var objs = [], tasks = [], any = false;
+      data.forEach(function (d) {
+        if (d.detail && d.detail.result) { objs.push(objectiveHTML(d.set, d.detail.result)); any = true; }
+        if (d.fb) for (var gid in d.fb) { var rd = d.fb[gid] && d.fb[gid].report_data; if (rd) { tasks.push(rd); any = true; } }
+      });
+      if (!any) { overlay.setBody("<div class='fb-paper' style='max-width:840px;margin:24px auto;padding:24px 30px;'>아직 제출된 결과가 없어요.<br><span class='sc-l'>객관식(R/L)·총점은 이 업데이트 이후 응시분부터, AI 첨삭은 Writing/Speaking 채점 완료분부터 보여요.</span></div>"); return; }
+      // 피드백 shell 재사용: 데이터 주입 + 객관식 밴드 prepend. 상대경로 스크립트는 루트 기준으로 고쳐준다.
+      var html = shell
+        .replace('src="report-render.js"', 'src="mock/feedback/report-render.js"')
+        .replace('<div id="app"></div>',
+          '<div id="app"></div><script>window.FEEDBACK_LIST=' + JSON.stringify(tasks) +
+          ';window.NEO_OBJ=' + JSON.stringify(objs.join('')) + ';<\/script>')
+        .replace('</body>',
+          '<script>(function(){var a=document.getElementById("app");if(window.NEO_OBJ&&a)a.insertAdjacentHTML("afterbegin",window.NEO_OBJ);})();<\/script></body>');
+      overlay.setDoc(html);
+    }).catch(function () {
+      overlay.setBody("<div class='fb-paper' style='max-width:840px;margin:24px auto;padding:24px 30px;'>리포트를 불러오지 못했어요.</div>");
+    });
+  }
+  function showMockOverlay(title, loadingMsg) {
+    var ov = document.createElement("div");
+    ov.style.cssText = "position:fixed;inset:0;z-index:9999;background:var(--neo-paper-2);display:flex;flex-direction:column;";
+    var bar = document.createElement("div");
+    bar.style.cssText = "flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--neo-ink);color:var(--neo-paper);";
+    var back = document.createElement("button");
+    back.className = "btn btn-sm"; back.textContent = "← 돌아가기";
+    back.style.cssText = "background:var(--neo-acid);color:var(--neo-ink);";
+    function close() { ov.remove(); document.removeEventListener("keydown", onEsc); }
+    function onEsc(e) { if (e.key === "Escape") close(); }
+    back.addEventListener("click", close);
+    var t = document.createElement("span"); t.style.cssText = "font-weight:700;font-size:15px;"; t.textContent = title;
+    bar.appendChild(back); bar.appendChild(t);
+    var body = document.createElement("div"); body.style.cssText = "flex:1;min-height:0;overflow:auto;";
+    body.innerHTML = "<p style='padding:24px;'>" + esc(loadingMsg || "") + "</p>";
+    ov.appendChild(bar); ov.appendChild(body);
+    document.body.appendChild(ov);
+    document.addEventListener("keydown", onEsc);
+    return {
+      setBody: function (h) { body.innerHTML = h; },
+      setDoc: function (html) {
+        var f = document.createElement("iframe");
+        f.style.cssText = "width:100%;height:100%;border:0;display:block;";
+        f.setAttribute("sandbox", "allow-scripts allow-same-origin");
+        f.srcdoc = html;
+        body.innerHTML = ""; body.appendChild(f);
+      }
+    };
   }
 
   $("tab-code").addEventListener("click", () => switchTab("code"));
   $("tab-prog").addEventListener("click", () => switchTab("prog"));
+  $("tab-mock").addEventListener("click", () => switchTab("mock"));
+  $("mksearch").addEventListener("input", renderMock);
   $("prefresh").addEventListener("click", loadProg);
   $("psearch").addEventListener("input", renderProg);
   $("pback").addEventListener("click", () => { $("pdetail-view").style.display = "none"; $("plist-view").style.display = "block"; });

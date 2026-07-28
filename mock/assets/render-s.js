@@ -30,6 +30,31 @@
     interview: "Please answer the interviewer's questions."
   };
 
+  /* 현재 Speaking 문항 흐름의 리소스. 화면이 바뀌기 전(engine 이 draw 전 stopAudio 호출)
+   * 오디오·녹음·타이머를 전부 끊어 누수/겹침을 막는다. render-l 의 stopAudio 는 리스닝
+   * 것만 알아서, Speaking 은 그 위에 자기 teardown 을 얹는다(로드 순서상 render-l 먼저). */
+  var sLive = null;
+  function newLive() { sLive = { timeouts: [] }; return sLive; }
+  function sTimeout(fn, ms) {
+    var id = setTimeout(fn, ms);
+    if (sLive) sLive.timeouts.push(id);
+    return id;
+  }
+  var prevStop = window.NEO_RENDER.stopAudio;
+  window.NEO_RENDER.stopAudio = function () {
+    if (prevStop) { try { prevStop(); } catch (e) {} }   // 리스닝 오디오 정지
+    var s = sLive;
+    sLive = null;                    // 이후 finish/onstop 은 s!==sLive 라 자동진행 안 함
+    if (!s) return;
+    try { if (s.dirAu) s.dirAu.pause(); } catch (e) {}
+    try { if (s.au) s.au.pause(); } catch (e) {}
+    try { if (s.rec && s.rec.state === "recording") s.rec.stop(); } catch (e) {}
+    if (s.timer) { try { clearInterval(s.timer); } catch (e) {} }
+    (s.timeouts || []).forEach(function (id) { try { clearTimeout(id); } catch (e) {} });
+    try { if (s.stream) s.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+  };
+
   /* 짧은 삐 소리. 사용자 제스처 뒤에 호출되므로 재생이 막히지 않는다. */
   function beep() {
     try {
@@ -57,6 +82,7 @@
   function itemId(g, it) { return g.src + "_" + it.n; }
 
   function render(host, ctx) {
+    newLive();                       // 이 문항 흐름의 리소스 추적 시작(이전 것은 stopAudio 가 이미 정리)
     var g = ctx.group;
     var i = ctx.qi >= 0 ? ctx.qi : 0;
     var it = g.items[i];
@@ -89,10 +115,11 @@
     host.appendChild(box);
 
     var moved = false;
-    function proceed() { if (moved) return; moved = true; setTimeout(done, 500); }
+    function proceed() { if (moved) return; moved = true; sTimeout(done, 500); }
     // 지시문 음원(질문 음원처럼 미리 생성한 여성·US mp3)을 재생. 아직 없으면 브라우저 TTS 폴백.
     if (g.dir_audio) {
       var au = new Audio(g.dir_audio);
+      if (sLive) sLive.dirAu = au;
       if (window.NEO_VOL) NEO_VOL.apply(au);
       au.addEventListener("ended", proceed);
       au.addEventListener("error", function () { speakTTS(g.instr, proceed); });
@@ -143,8 +170,9 @@
     im.src = src;
     stageBox.appendChild(im);
 
-    // 이미 응답한 문항이면 다시 녹음하지 않는다 (되돌아온 경우)
-    if (ctx.recs[itemId(g, it)]) {
+    // 이미 응답한 문항이면 다시 녹음하지 않는다 (되돌아온 경우).
+    // free-mode(강사 미리보기)에선 다시 재생·이동할 수 있게 이 조기 return 을 건너뛴다.
+    if (ctx.recs[itemId(g, it)] && !ctx.free) {
       note.textContent = "You have already answered this question.";
       panel.classList.add("done");
       clock.textContent = mmss(0);
@@ -203,6 +231,7 @@
     ui.panel.classList.add("waiting");
 
     var au = new Audio(it.audio);
+    if (sLive) sLive.au = au;
     if (window.NEO_VOL) NEO_VOL.apply(au);
     var moved = false;
     function afterAudio() {
@@ -210,7 +239,7 @@
       moved = true;
       // 음원이 끝나고 잠깐 뒤 beep — 그 소리가 녹음 시작 신호다
       ui.note.textContent = "Get ready.";
-      setTimeout(function () {
+      sTimeout(function () {
         beep();
         startRecording(ctx, g, it, last, ui, stream);
       }, g.beep || 1000);
@@ -227,10 +256,13 @@
   function startRecording(ctx, g, it, last, ui, stream) {
     var id = itemId(g, it);
     var rec = null, chunks = [];
+    var myLive = sLive;              // 이 흐름을 고정 — 화면 전환되면 sLive 가 바뀌어 자동진행 차단
+    if (myLive) myLive.stream = stream;
 
     if (stream && window.MediaRecorder) {
       try {
         rec = new MediaRecorder(stream, { mimeType: window.NEO_MOCK_MIME });
+        if (myLive) myLive.rec = rec;
         rec.ondataavailable = function (e) { if (e.data.size) chunks.push(e.data); };
         rec.onstop = function () {
           var blob = new Blob(chunks, { type: window.NEO_MOCK_MIME });
@@ -251,6 +283,7 @@
     var until = Date.now() + it.sec * 1000;
     var done = false;
     var t = setInterval(function () {
+      if (sLive !== myLive) { clearInterval(t); return; }   // 화면 전환됨 — 타이머 중단
       var left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
       ui.clock.textContent = mmss(left);
       if (left > 0 || done) return;
@@ -265,11 +298,15 @@
         finish();
       }
     }, 200);
+    if (myLive) myLive.timer = t;
 
     function finish() {
+      if (sLive !== myLive) return;   // 이미 다른 화면으로 전환(teardown) — 중복 진행/자동이동 방지
       if (stream) stream.getTracks().forEach(function (x) { x.stop(); });
+      // free-mode(강사): 자동으로 넘기지 않고 Next 로 진행 — 자동/수동 충돌·오디오 겹침 방지.
+      if (ctx.free) { ui.note.textContent = "녹음 완료 — Next 로 넘어가세요."; return; }
       ui.note.textContent = last ? "Speaking section complete." : "Moving to the next question.";
-      setTimeout(function () { if (ctx.next) ctx.next(); }, 700);
+      sTimeout(function () { if (ctx.next) ctx.next(); }, 700);
     }
   }
 

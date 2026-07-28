@@ -470,7 +470,7 @@
       group: g, gid: s.gid, qi: s.qi,
       answers: this.st.answers, flags: this.st.flags,
       played: this.st.played, recs: this.st.recs,
-      code: this.code, setId: this.sid,
+      code: this.code, setId: this.sid, free: this.free,
       set: this.setAnswer.bind(this),
       flag: this.toggleFlag.bind(this),
       mark: this.markMeta.bind(this),

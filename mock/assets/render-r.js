@@ -307,8 +307,11 @@
     g.para.forEach(function (t, i) {
       var par = el("p");
 
-      if (qt === "identify") {
-        // 문장을 직접 클릭해 고른다. 고른 문장은 볼드 (§4)
+      if (qt === "identify" && q.para && i !== (q.para - 1)) {
+        // 지정 문단이 아니면 평문 — 그 문단 문장만 클릭 가능해야 한다.
+        par.appendChild(document.createTextNode(t));
+      } else if (qt === "identify") {
+        // 문장을 직접 클릭해 고른다. 고른 문장은 볼드 (§4). q.para 있으면 그 문단만 여기 옴.
         sentences(t).forEach(function (sen, k) {
           var sid = i + "." + k;
           var sp = el("span", "sen", sen);
