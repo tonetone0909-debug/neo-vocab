@@ -10,6 +10,17 @@
 <link rel="stylesheet" href="../assets/colors_and_type.css">
 <link rel="stylesheet" href="assets/app.css">
 <link rel="stylesheet" href="assets/report.css">
+<style>
+  /* ctw(Reading Task 1) 해설 — 10개 빈칸 해설을 한 번에 펼쳐 보여준다. */
+  .rv-ctw-expl { margin-top: 16px; }
+  .rv-expl-item {
+    border: 3px solid var(--neo-ink); background: var(--neo-card);
+    box-shadow: var(--sh-1); border-radius: 4px;
+    padding: 12px 14px; margin-top: 12px;
+  }
+  .rv-expl-n { margin: 0 0 4px; font-size: 15px; }
+  .rv-expl-n strong { color: var(--neo-ink); }
+</style>
 <script src="assets/mobile-guard.js"></script>
 <script src="../assets/config.js"></script>
 <script src="../assets/auth.js"></script>
@@ -203,13 +214,40 @@
     fn(stage, R.reviewCtx(gid, qi, exam, detail));
     R.paintAnswers(stage, gid, detail, key, exam);
 
-    // 해석 -> 해설 -> 영어 스크립트 순. 셋 다 눌러야 열린다.
+    // 해석 -> 해설 -> 영어 스크립트 순.
     var tr = R.transBlock(gid, row.qid, key, exam, detail);
     if (tr) host.appendChild(tr);
-    var ex = R.explainBlock(gid, row.qid, key);
-    if (ex) host.appendChild(ex);
+    // ctw(Reading Task 1)는 그룹 전체가 한 화면 — 10개 빈칸 해설을 접지 않고 한 번에 펼친다.
+    if (g.t === "ctw") {
+      var all = ctwExplainAll(gid);
+      if (all) host.appendChild(all);
+    } else {
+      var ex = R.explainBlock(gid, row.qid, key);
+      if (ex) host.appendChild(ex);
+    }
     var sc = R.scriptBlock(gid, key);
     if (sc) host.appendChild(sc);
+  }
+
+  /* ctw 빈칸 해설을 전부 펼쳐 그린다(폴드 없이). 빈칸 번호 오름차순 + 정답 병기. */
+  function ctwExplainAll(gid) {
+    var k = key.g[gid] || {};
+    var kb = (k.kr && k.kr.blanks) || {};
+    var ans = k.blanks || {};
+    var nums = Object.keys(kb).map(Number).filter(function (n) { return !isNaN(n); })
+      .sort(function (a, b) { return a - b; });
+    var items = nums.filter(function (n) { return String(kb[String(n)] || "").trim(); });
+    if (!items.length) return null;
+    var box = el("div", "rv-ctw-expl");
+    box.appendChild(el("div", "rv-k", "해설 (" + items.length + "개)"));
+    items.forEach(function (n) {
+      var card = el("div", "rv-expl-item");
+      var head = n + "번" + (ans[String(n)] ? " · 정답: " + ans[String(n)] : "");
+      card.appendChild(R.richP("rv-expl-n", "**" + head + "**"));
+      card.appendChild(R.richP("rv-body", kb[String(n)]));
+      box.appendChild(card);
+    });
+    return box;
   }
 
   /* W Task1 — 렌더러를 재사용하지 않는다.

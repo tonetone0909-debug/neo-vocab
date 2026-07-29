@@ -15,6 +15,8 @@
   }
   function attr(s) { return esc(s).replace(/'/g, "&#39;"); }
   function txt(s) { return esc(s).replace(/\n/g, "<br>"); }   /* 줄바꿈 보존 */
+  /* 0.5 단위 반올림 표시 (4.25→4.5, 4.24→4.0). 밴드 계산이 아니라 화면 표기용. */
+  function half5(x) { return (Math.round((Number(x) || 0) * 2) / 2).toFixed(1); }
 
   /* 하이라이트 세그먼트 → span (plain은 줄바꿈 보존) */
   function segs(list) {
@@ -44,7 +46,7 @@
       "<span class='fb-rec-x'>앱에서 재생돼요</span></div>";
   }
 
-  function scoreStamp(sc) { return "<div class='fb-stamp'>SCORE<b>" + (Number(sc).toFixed(1)) + "</b><span>/5</span></div>"; }
+  function scoreStamp(sc) { return "<div class='fb-stamp'>SCORE<b>" + half5(sc) + "</b><span>/5</span></div>"; }
   function header(d, subtitle) {
     return "<div class='fb-hd'><div class='fb-brand'><span class='fb-wm'>NEO TOEFL</span>" +
       "<span class='fb-sub'>" + esc(subtitle) + "</span></div><span class='fb-chip'>" + esc(d.student || "Student") + "</span></div>";
@@ -62,7 +64,7 @@
       var lab = label ? "<b>" + esc(label) + (r.label_en ? " <span class='fb-en'>(" + esc(r.label_en) + ")</span>" : "") + "</b> " : "";
       var badge = "";
       if (r.verdict) badge = "<span class='fb-verd " + (VER[r.verdict] || "v-fair") + "'>" + esc(r.verdict_text || VTXT[r.verdict] || "") + "</span>";
-      else if (r.score != null) { var sv = Number(r.score) >= 3.5 ? "v-good" : (Number(r.score) >= 2.5 ? "v-fair" : "v-bad"); badge = "<span class='fb-verd " + sv + "'>" + Number(r.score).toFixed(1) + "/5</span>"; }
+      else if (r.score != null) { var sv = Number(r.score) >= 3.5 ? "v-good" : (Number(r.score) >= 2.5 ? "v-fair" : "v-bad"); badge = "<span class='fb-verd " + sv + "'>" + half5(r.score) + "/5</span>"; }
       var det = txt(r.detail_ko || r.note_ko || r.meaning_ko || r.comment || "");
       return "<li>" + lab + badge + (det ? "<br><span class='fb-det'>" + det + "</span>" : "") + "</li>";
     }).join("") + "</ul>";
@@ -70,12 +72,12 @@
   function whyScore(d) {
     var list = (d.why_score && d.why_score.length) ? d.why_score : d.rubric_bars;
     if (!list || !list.length) return "";
-    return sect("Why score " + Number(d.score_0_5).toFixed(1) + "?", whyRows(list) + tipBox(d));
+    return sect("Why score " + half5(d.score_0_5) + "?", whyRows(list) + tipBox(d));
   }
   /* 점수 색상 칩 (그래프 대신) */
   function scoreChip(score) {
     var s = Number(score) || 0, v = s >= 3.5 ? "good" : (s >= 2.5 ? "fair" : "bad");
-    return "<span class='fb-verd " + VER[v] + "'>" + s.toFixed(1) + "/5</span>";
+    return "<span class='fb-verd " + VER[v] + "'>" + half5(s) + "/5</span>";
   }
   function tipBox(d) {
     var t = d.tip_ko;
@@ -173,8 +175,9 @@
     if (d.grammar_clinic && d.grammar_clinic.length) out += sect("Grammar clinic", clinic(d.grammar_clinic));
     if (d.deep_dive && d.deep_dive.length) {
       var dd = d.deep_dive.map(function (x) {
-        var title = x.title_ko || x.reason || x.point || "";
-        var analysis = x.analysis_ko || x.consequence_check || x.note_ko || "";
+        var title = x.title_ko || x.reason_ko || x.reason || x.point || x.aspect_ko || x.label_ko || "";
+        var analysis = x.analysis_ko || x.explanation_ko || x.detail_ko || x.body_ko ||
+          x.description_ko || x.consequence_check || x.comment_ko || "";
         var vb = x.verdict ? " <span class='fb-verd v-fair'>" + esc(x.verdict) + "</span>" : "";
         return "<div class='fb-dd " + (x.kind === "strategy" ? "dd-s" : "dd-l") + "'>" + (title ? "<div class='fb-dd-t'>" + esc(title) + vb + "</div>" : "") +
           (x.problem_en ? "<p class='fb-en fb-strike'>" + esc(x.problem_en) + "</p>" : "") +
@@ -190,13 +193,20 @@
 
   /* ── Speaking Task 1 (Repeat) ── */
   function renderRepeat(d) {
-    var cards = (d.sentences || []).map(function (s) {
+    // grader 버전마다 키가 다르다: orig/original/text/sentence/target, segments/heard/transcript/said, n/idx.
+    var sents = d.sentences || [];
+    var hasSent = sents.some(function (s) { return s && (s.orig || s.original || s.text || s.sentence || s.target); });
+    var cards = !hasSent ? "" : sents.map(function (s, i) {
+      var n = s.n || s.idx || (i + 1);
+      var orig = s.orig || s.original || s.text || s.sentence || s.target || "";
+      var heard = (s.segments && s.segments.length) ? segs(s.segments)
+        : esc(s.heard || s.transcript || s.said || s.spoken || "");
       var vb = { ok: "✅", minor: "⚠️", bad: "❌" }[s.verdict] || "⚠️";
-      return "<div class='fb-sent'><div class='fb-sent-h'><span class='fb-sent-n'>" + s.n + "</span>" + vb + "</div>" +
-        "<p class='fb-en fb-sent-o'>원문: " + esc(s.orig) + "</p>" +
-        "<p class='fb-en fb-sent-s'>발화: " + segs(s.segments) + "</p>" +
+      return "<div class='fb-sent'><div class='fb-sent-h'><span class='fb-sent-n'>" + esc(n) + "</span>" + vb + "</div>" +
+        "<p class='fb-en fb-sent-o'>원문: " + esc(orig) + "</p>" +
+        (heard ? "<p class='fb-en fb-sent-s'>발화: " + heard + "</p>" : "") +
         (s.note_ko ? "<p class='fb-cl-x'>" + esc(s.note_ko) + "</p>" : "") +
-        recPlayer(s.audio, "문장 " + s.n + " 내 녹음") + "</div>";
+        recPlayer(s.audio, "문장 " + n + " 내 녹음") + "</div>";
     }).join("");
     var errs = (d.error_patterns || []).map(function (e) {
       var lv = VER[e.level] || "v-fair";
@@ -209,11 +219,11 @@
       return "<div class='fb-upcard up-b'>" + (s.title_ko ? "<div class='fb-up-t'>" + esc(s.title_ko) + "</div>" : "") + "<p class='fb-cl-x'>" + txt(s.body_ko || "") + "</p></div>";
     }).join("");
     // 일부 grader 는 문장별 sentences 대신 transcript_segments(전체 전사)만 준다.
-    var transcript = (!cards && d.transcript_segments && d.transcript_segments.length) ?
+    var transcript = (!hasSent && d.transcript_segments && d.transcript_segments.length) ?
       "<div class='fb-orig'><span class='fb-orig-tag'>Transcript</span><p class='fb-en fb-orig-b'>" + segs(d.transcript_segments) + "</p></div>" + recPlayer(d.audio, "내 녹음") : "";
     return header(d, "Speaking Task 1 · Listen & Repeat") + scoreStamp(d.score_0_5) +
       "<div class='fb-topic'>" + esc(d.topic || "") + "</div>" + overall(d) +
-      (d.rubric_bars && d.rubric_bars.length ? sect("Why score " + Number(d.score_0_5).toFixed(1) + "?", whyRows(d.rubric_bars)) : "") +
+      (d.rubric_bars && d.rubric_bars.length ? sect("Why score " + half5(d.score_0_5) + "?", whyRows(d.rubric_bars)) : "") +
       (cards ? sect("Sentence accuracy (7)", "<p class='fb-note'>각 문장의 <b>원문</b> vs <b>내 발화</b>를 비교하고, 문장별 내 녹음을 다시 들어볼 수 있어요.</p>" + cards) :
         (transcript ? sect("내 발화 (전사)", "<p class='fb-note'>녹음된 발화를 전사한 내용이에요.</p>" + transcript) : "")) +
       (errs ? sect("반복된 오류 — 무엇을 고칠까", "<p class='fb-note'>7문장에서 같은 실수가 몇 번 나왔는지, 무엇을 의미하는지 정리했어요.</p>" + errs) : "") +

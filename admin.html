@@ -27,6 +27,27 @@
   .copycode .copyhint { font-family:var(--font-mono); font-size:10px; letter-spacing:0.08em; font-weight:500;
     color:var(--neo-ink); opacity:.45; margin-left:6px; }
   .copycode:hover .copyhint { opacity:.8; }
+  /* 모의고사 대시보드 표 — 학생 × mk1/mk2 완료 여부 한눈에 */
+  .mkscroll { overflow-x:auto; border:3px solid var(--neo-ink); box-shadow:var(--sh-2); background:var(--neo-card); }
+  table.mktable { width:100%; border-collapse:collapse; min-width:340px; }
+  table.mktable th, table.mktable td { border-bottom:3px solid var(--neo-ink); padding:9px 12px; text-align:left; }
+  table.mktable tr:last-child td { border-bottom:0; }
+  table.mktable th { background:var(--neo-ink); color:var(--neo-paper); font-size:14px; font-weight:700; letter-spacing:0.04em; }
+  table.mktable th .th-en { display:block; font-family:var(--font-mono); font-size:10px; letter-spacing:0.14em; font-weight:500; color:var(--neo-acid); }
+  table.mktable td.mk-name { font-weight:700; font-size:15px; white-space:nowrap; }
+  table.mktable td.mk-name .mk-code { display:block; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--neo-ink); opacity:.55; font-weight:500; }
+  table.mktable td.mk-cell { text-align:center; }
+  /* 상태 배지 — 응시완료/첨삭완료는 클릭 가능(button), 미응시는 회색 비활성 */
+  .mkbadge { display:inline-block; min-width:88px; padding:6px 10px; border:3px solid var(--neo-ink); font-size:13px; font-weight:700;
+    letter-spacing:0; border-radius:999px; cursor:pointer; box-shadow:var(--sh-1); background:var(--neo-card); color:var(--neo-ink); }
+  .mkbadge:hover { transform:translate(-1px,-1px); }
+  .mkbadge.b-graded { background:var(--neo-acid); }
+  .mkbadge.b-sub { background:var(--neo-card); }
+  .mkbadge.b-none { border-color:var(--neo-mute-aa); color:var(--neo-mute-aa); box-shadow:none; cursor:default; opacity:.7; }
+  .mkbadge.b-none:hover { transform:none; }
+  .mklegend { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; font-weight:700; margin:2px 0 12px; }
+  .mklegend .lg { display:inline-flex; align-items:center; gap:6px; }
+  .mklegend .sw { width:16px; height:16px; border:3px solid var(--neo-ink); border-radius:4px; }
 </style>
 </head>
 <body>
@@ -123,9 +144,14 @@
 
     <div id="mock-panel" style="display:none;">
       <div class="detail-head" style="margin-top:16px;">
-        <span class="sc-l">학생 <span id="mkcount">0</span>명 · 코드를 누르면 리포트를 봐요</span>
+        <span class="sc-l">학생 <span id="mkcount">0</span>명 · 회차 배지를 누르면 그 회차 리포트를 봐요</span>
       </div>
       <input class="quiz-input" id="mksearch" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="🔍 이름·코드 검색" style="margin:0 0 10px;">
+      <div class="mklegend">
+        <span class="lg"><span class="sw" style="background:var(--neo-acid);"></span>첨삭완료</span>
+        <span class="lg"><span class="sw" style="background:var(--neo-card);"></span>응시완료</span>
+        <span class="lg"><span class="sw" style="background:transparent;border-color:var(--neo-mute-aa);"></span>미응시</span>
+      </div>
       <div class="verdict" id="mkmsg" style="min-height:18px;"></div>
       <div id="mklist"></div>
     </div>
@@ -633,7 +659,7 @@
     $("akick").textContent = mock ? "ADMIN · MOCK REPORTS" : prog ? "ADMIN · STUDENT PROGRESS" : "ADMIN · CODE MANAGER";
     $("atitle").textContent = mock ? "모의고사 리포트" : prog ? "학생 진도" : "코드 관리";
     if (prog) { $("plist-view").style.display = "block"; $("pdetail-view").style.display = "none"; if (!students.length) loadProg(); }
-    if (mock) { if (!allCodes.length) load().then(renderMock); else renderMock(); }
+    if (mock) { mkSummary = null; if (!allCodes.length) load().then(renderMock); else renderMock(); }
   }
 
   /* ---------- 모의고사 리포트 (어드민 풀 리포트) ---------- */
@@ -642,17 +668,56 @@
     const q = ($("mksearch").value || "").trim().toLowerCase();
     return allCodes.filter(c => !q || (c.code||"").toLowerCase().includes(q) || (c.label||"").toLowerCase().includes(q));
   }
+  let mkSummary = null;   // {code:{ "1":{sub,graded}, "2":{sub,graded} }}
+  function loadSummary() {
+    return fetchJSON(GBASE + "/summary?admin=" + encodeURIComponent(admin)).then(function (s) {
+      var map = {};
+      function mark(list, key) {
+        (list || []).forEach(function (r) {
+          var c = r.code, st = String(r.set_id);
+          (map[c] = map[c] || {})[st] = map[c][st] || {};
+          map[c][st][key] = true;
+        });
+      }
+      if (s) { mark(s.submitted, "sub"); mark(s.graded, "graded"); }
+      mkSummary = map;
+      return map;
+    });
+  }
+  function cellBadge(code, label, set) {
+    var st = (mkSummary && mkSummary[code] && mkSummary[code][String(set)]) || {};
+    if (st.graded) return '<button class="mkbadge b-graded mkcell" data-code="' + esc(code) + '" data-label="' + esc(label||"") + '" data-set="' + set + '">첨삭완료</button>';
+    if (st.sub) return '<button class="mkbadge b-sub mkcell" data-code="' + esc(code) + '" data-label="' + esc(label||"") + '" data-set="' + set + '">응시완료</button>';
+    return '<span class="mkbadge b-none">미응시</span>';
+  }
   function renderMock() {
     $("mkcount").textContent = allCodes.length;
     if (!GBASE) { $("mklist").innerHTML = '<p class="lead no">채점 서버(NEO_GRADER)가 설정되지 않았어요.</p>'; return; }
     if (!allCodes.length) { $("mklist").innerHTML = '<p class="lead">발급된 코드가 없어요.</p>'; return; }
+    if (!mkSummary) {
+      $("mklist").innerHTML = '<p class="lead">완료 현황 불러오는 중…</p>';
+      loadSummary().then(renderMock).catch(function () { mkSummary = {}; renderMock(); });
+      return;
+    }
     const list = mkFiltered();
     if (!list.length) { $("mklist").innerHTML = '<p class="lead">검색 결과가 없어요.</p>'; return; }
-    $("mklist").innerHTML = list.map(c =>
-      '<button class="btn btn-sm btn-ghost btn-block mkrow" data-code="' + esc(c.code) + '" data-label="' + esc(c.label||"") +
-      '" style="text-align:left;margin:5px 0;">' + '<b>' + esc(c.code) + '</b>' + (c.label ? ' · ' + esc(c.label) : '') + '</button>').join("");
-    Array.from(document.querySelectorAll(".mkrow")).forEach(b =>
-      b.addEventListener("click", () => openMockReport(b.getAttribute("data-code"), b.getAttribute("data-label"))));
+    var rows = list.map(function (c) {
+      var name = c.label ? esc(c.label) : esc(c.code);
+      var sub = c.label ? '<span class="mk-code">' + esc(c.code) + '</span>' : '';
+      return '<tr><td class="mk-name">' + name + sub + '</td>' +
+        '<td class="mk-cell">' + cellBadge(c.code, c.label, 1) + '</td>' +
+        '<td class="mk-cell">' + cellBadge(c.code, c.label, 2) + '</td></tr>';
+    }).join("");
+    $("mklist").innerHTML = '<div class="mkscroll"><table class="mktable"><thead><tr>' +
+      '<th>학생<span class="th-en">STUDENT</span></th>' +
+      '<th style="text-align:center;">모의고사 1<span class="th-en">MOCK 1</span></th>' +
+      '<th style="text-align:center;">모의고사 2<span class="th-en">MOCK 2</span></th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    Array.from(document.querySelectorAll(".mkcell")).forEach(function (b) {
+      b.addEventListener("click", function () {
+        openMockReport(b.getAttribute("data-code"), b.getAttribute("data-label"), parseInt(b.getAttribute("data-set"), 10));
+      });
+    });
   }
   function fetchJSON(u) { return fetch(u, { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null); }
   function bandLine(name, x) {
@@ -669,9 +734,11 @@
       (ov.band != null ? ov.band : "–") + "</span></div>" +
       bandLine("Reading", r.R) + bandLine("Listening", r.L) + bandLine("Writing", r.W) + bandLine("Speaking", r.S) + "</div>";
   }
-  function openMockReport(code, label) {
-    var overlay = showMockOverlay(((label ? label + " · " : "") + code) + " 리포트", "불러오는 중…");
-    var jobs = [1, 2].map(function (s) {
+  function openMockReport(code, label, set) {
+    var sets = set ? [set] : [1, 2];
+    var titleSet = set ? (" · 모의고사 " + set) : "";
+    var overlay = showMockOverlay(((label ? label + " · " : "") + code) + titleSet + " 리포트", "불러오는 중…");
+    var jobs = sets.map(function (s) {
       return Promise.all([
         fetchJSON(GBASE + "/result?code=" + encodeURIComponent(code) + "&set=" + s),
         fetchJSON(GBASE + "/detail?code=" + encodeURIComponent(code) + "&set=" + s)

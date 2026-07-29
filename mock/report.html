@@ -101,15 +101,10 @@
     c.appendChild(el("div", "rp-sec-band" + (r.band === null ? " pending" : ""),
                      band(r.band)));
 
+    // 원점수(0/34 등)·막대는 표시하지 않는다 — 영역별로 밴드만 보여준다(사용자 요청).
+    // 아직 채점 전인 영역만 "채점 대기" 라벨을 남긴다.
     if (r.raw === null || r.raw === undefined) {
       c.appendChild(el("div", "rp-sec-raw", "채점 대기"));
-    } else {
-      c.appendChild(el("div", "rp-sec-raw", r.raw + " / " + r.max));
-      var bar = el("div", "rp-bar");
-      var fill = el("div", "rp-bar-fill");
-      fill.style.width = Math.round(100 * r.raw / r.max) + "%";
-      bar.appendChild(fill);
-      c.appendChild(bar);
     }
 
     if (r.provisional) c.appendChild(el("div", "rp-pending-tag", "AI 첨삭 대기"));
