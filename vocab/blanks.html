@@ -162,7 +162,7 @@
       html += `<div class="block-label">예문 EXAMPLES</div>`;
       html += ex.map(x => `<div class="ex"><div class="en">${highlight(x.en, x.form||w.answer)}</div><div class="ko">${esc(x.ko||"")}</div></div>`).join("");
     }
-    if (w.sentence) html += `<div class="block-label">출제 문장 IN CONTEXT</div><div class="ex ctest-sentence"><div class="en">${sentenceSlots(w.sentence)}</div></div>`;
+    if (w.sentence) html += `<div class="block-label">빈칸 문장 IN CONTEXT</div><div class="ex ctest-sentence"><div class="en">${sentenceSlots(w.sentence)}</div></div>`;
     return html;
   }
   function wordSection(w) {
