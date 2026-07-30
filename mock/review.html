@@ -33,7 +33,7 @@
   <span class="crumb" id="hd-sec">REVIEW</span>
 </div>
 
-<main class="rv-wrap" id="rv"><div class="center-state">불러오는 중…</div></main>
+<main class="rv-wrap" id="rv"><div class="center-state is-loading"><div class="neo-spin"></div>불러오는 중…</div></main>
 
 <script src="assets/examdb.js"></script>
 <script src="assets/score.js"></script>
@@ -95,7 +95,7 @@
   function listView() {
     host.textContent = "";
     var a = el("a", "rv-back", "← 리포트로");
-    a.href = "report.html?set=" + SET + (DEMO ? "&demo=1" : "");
+    a.href = "report.html?set=" + SET + (DEMO ? "&demo=1" : "") + (SERVER ? "&code=" + encodeURIComponent(CODE) : "");
     host.appendChild(a);
     host.appendChild(el("h1", "rp-h2", KO[SEC] + " 리뷰"));
 

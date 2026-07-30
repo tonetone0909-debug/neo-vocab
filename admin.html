@@ -48,6 +48,11 @@
   .mklegend { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; font-weight:700; margin:2px 0 12px; }
   .mklegend .lg { display:inline-flex; align-items:center; gap:6px; }
   .mklegend .sw { width:16px; height:16px; border:3px solid var(--neo-ink); border-radius:4px; }
+  /* NEO 로딩 스피너 — 3px ink 링(하드 엣지). 데이터 불러오는 화면 공용 */
+  @keyframes neo-spin { to { transform:rotate(360deg); } }
+  .neo-spin { width:34px; height:34px; margin:0 auto 12px; border:3px solid var(--neo-ink);
+    border-top-color:transparent; border-radius:50%; animation:neo-spin .7s linear infinite; }
+  .mk-loading { text-align:center; padding:40px 20px; font-weight:700; color:var(--neo-ink); }
 </style>
 </head>
 <body>
@@ -205,7 +210,7 @@
   let allCodes = [];
 
   function load() {
-    $("list").innerHTML = '<p class="lead">불러오는 중…</p>';
+    $("list").innerHTML = '<div class="mk-loading"><div class="neo-spin"></div><span>불러오는 중…</span></div>';
     return api("action=list&admin=" + encodeURIComponent(admin)).then(d => {
       if (!d || !d.ok) {
         if (d && d.error === "forbidden") { sessionStorage.removeItem("neo_admin"); $("panel").style.display="none"; $("gate").style.display="block"; return; }
@@ -554,7 +559,8 @@
   }
 
   function loadProg() {
-    $("pmsg").textContent = "불러오는 중…"; $("pmsg").className = "verdict"; $("plist").innerHTML = "";
+    $("pmsg").textContent = ""; $("pmsg").className = "verdict";
+    $("plist").innerHTML = '<div class="mk-loading"><div class="neo-spin"></div><span>불러오는 중…</span></div>';
     api("action=getallprog&admin=" + encodeURIComponent(admin)).then(d => {
       if (!d || !d.ok) {
         if (d && d.error === "forbidden") { sessionStorage.removeItem("neo_admin"); $("panel").style.display = "none"; $("gate").style.display = "block"; return; }
@@ -704,7 +710,7 @@
     if (!GBASE) { $("mklist").innerHTML = '<p class="lead no">채점 서버(NEO_GRADER)가 설정되지 않았어요.</p>'; return; }
     if (!allCodes.length) { $("mklist").innerHTML = '<p class="lead">발급된 코드가 없어요.</p>'; return; }
     if (!mkSummary) {
-      $("mklist").innerHTML = '<p class="lead">완료 현황 불러오는 중…</p>';
+      $("mklist").innerHTML = '<div class="mk-loading"><div class="neo-spin"></div><span>완료 현황 불러오는 중…</span></div>';
       loadSummary().then(renderMock).catch(function () { mkSummary = {}; renderMock(); });
       return;
     }
@@ -764,11 +770,17 @@
         body.innerHTML = ""; body.appendChild(f);
       },
       // 실제 앱 페이지를 그대로 임베드(같은 오리진이라 sandbox 불필요 — fetch/IndexedDB/이동 정상).
+      // iframe 이 로드될 때까지 스피너를 보여주고, 로드되면 페이지로 교체한다.
       setSrc: function (url) {
+        body.innerHTML = '<div class="mk-loading"><div class="neo-spin"></div><span>불러오는 중…</span></div>';
         var f = document.createElement("iframe");
-        f.style.cssText = "width:100%;height:100%;border:0;display:block;";
+        f.style.cssText = "width:100%;height:100%;border:0;display:none;";
+        f.addEventListener("load", function () {
+          var l = body.querySelector(".mk-loading"); if (l) l.remove();
+          f.style.display = "block";
+        });
         f.src = url;
-        body.innerHTML = ""; body.appendChild(f);
+        body.appendChild(f);
       }
     };
   }

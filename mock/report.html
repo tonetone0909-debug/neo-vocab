@@ -31,7 +31,7 @@
   <span class="crumb">REPORT</span>
 </div>
 
-<main class="rp" id="rp"><div class="center-state">불러오는 중…</div></main>
+<main class="rp" id="rp"><div class="center-state is-loading"><div class="neo-spin"></div>불러오는 중…</div></main>
 
 <script src="assets/examdb.js"></script>
 <script src="assets/score.js"></script>
@@ -169,9 +169,17 @@
       });
   }
 
+  /* 직전 화면(모의고사 목록)으로. 서버/데모 모드(어드민 임베드·미리보기)에서는 숨긴다. */
+  function backToList() {
+    if (SERVER || DEMO) return null;
+    var a = el("a", "rv-back", "← 모의고사 목록");
+    a.href = "index.html";
+    return a;
+  }
   function render(detail) {
     var res = detail.result;
     host.textContent = "";
+    var bk = backToList(); if (bk) host.appendChild(bk);
     host.appendChild(hero(res));
 
     var grid = el("section", "rp-sec-grid");

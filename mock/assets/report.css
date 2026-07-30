@@ -145,6 +145,14 @@
   font-family: var(--font-display-kr); font-size: 28px; margin-bottom: 8px;
 }
 .center-state .btn { margin-top: 16px; display: inline-block; }
+/* NEO 로딩 스피너 — 3px ink 링(하드 엣지, blur 없음)이 도는 형태. 로딩이 필요한 화면 공용. */
+@keyframes neo-spin { to { transform: rotate(360deg); } }
+.neo-spin {
+  width: 36px; height: 36px; margin: 0 auto 14px;
+  border: 3px solid var(--neo-ink); border-top-color: transparent;
+  border-radius: 50%; animation: neo-spin .7s linear infinite;
+}
+.center-state.is-loading { font-weight: 700; }
 
 /* ---- 리뷰: 문항 그리드 ---- */
 .rv-wrap { max-width: 900px; margin: 0 auto; padding: 22px 18px; }
