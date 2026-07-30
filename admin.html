@@ -180,7 +180,16 @@
   }
   function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
 
-  function showPanel() { $("gate").style.display = "none"; $("panel").style.display = "block"; load(); }
+  function showPanel() {
+    // 어드민 세션이 유효하면 앱 세션도 세워둔다 — 학생 리포트/리뷰 페이지(report.html·review.html)를
+    // iframe 으로 그대로 열 때 auth.js(로그인 게이트)를 통과시키기 위함. 어드민 코드는 유효(role=admin)하다.
+    try {
+      sessionStorage.setItem("neo_code", admin);
+      sessionStorage.setItem("neo_auth_ok", "1");
+      sessionStorage.setItem("neo_role", "admin");
+    } catch (e) {}
+    $("gate").style.display = "none"; $("panel").style.display = "block"; load();
+  }
 
   function gateIn() {
     const c = $("admincode").value.trim();
@@ -720,54 +729,12 @@
     });
   }
   function fetchJSON(u) { return fetch(u, { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null); }
-  function bandLine(name, x) {
-    x = x || {};
-    var b = x.band != null ? x.band : "–";
-    var rm = (x.raw != null && x.max != null) ? " (" + x.raw + "/" + x.max + ")" : "";
-    return "<div style='display:flex;justify-content:space-between;border-bottom:2px solid var(--neo-ink);padding:6px 0;font-size:15px;'>" +
-      "<span style='font-weight:700;'>" + name + "</span><span>Band <b>" + b + "</b>" + rm + "</span></div>";
-  }
-  function objectiveHTML(set, r) {
-    r = r || {}; var ov = r.overall || {};
-    return "<div class='fb-paper'><div class='fb-hd'><span><span class='fb-wm'>MOCK " + set +
-      "</span> <span class='fb-sub'>객관식 · 총점</span></span><span class='fb-chip'>TOTAL Band " +
-      (ov.band != null ? ov.band : "–") + "</span></div>" +
-      bandLine("Reading", r.R) + bandLine("Listening", r.L) + bandLine("Writing", r.W) + bandLine("Speaking", r.S) + "</div>";
-  }
+  /* 학생이 보는 실제 점수·리뷰 페이지(report.html)를 그 학생 코드로 그대로 연다(서버 모드 ?code=).
+   * 총점·영역 밴드·영역별 문항 리뷰까지 학생 화면과 동일. 밴드 재구성 안 함. */
   function openMockReport(code, label, set) {
-    var sets = set ? [set] : [1, 2];
     var titleSet = set ? (" · 모의고사 " + set) : "";
-    var overlay = showMockOverlay(((label ? label + " · " : "") + code) + titleSet + " 리포트", "불러오는 중…");
-    var jobs = sets.map(function (s) {
-      return Promise.all([
-        fetchJSON(GBASE + "/result?code=" + encodeURIComponent(code) + "&set=" + s),
-        fetchJSON(GBASE + "/detail?code=" + encodeURIComponent(code) + "&set=" + s)
-      ]).then(function (a) { return { set: s, fb: a[0], detail: a[1] }; });
-    });
-    Promise.all([
-      Promise.all(jobs),
-      fetch("mock/feedback/report.html", { cache: "no-store" }).then(function (r) { return r.text(); }),
-      fetch("mock/feedback/report-render.js", { cache: "no-store" }).then(function (r) { return r.text(); })
-    ]).then(function (res) {
-      var data = res[0], shell = res[1];
-      var objs = [], tasks = [], any = false;
-      data.forEach(function (d) {
-        if (d.detail && d.detail.result) { objs.push(objectiveHTML(d.set, d.detail.result)); any = true; }
-        if (d.fb) for (var gid in d.fb) { var rd = d.fb[gid] && d.fb[gid].report_data; if (rd) { tasks.push(rd); any = true; } }
-      });
-      if (!any) { overlay.setBody("<div class='fb-paper' style='max-width:840px;margin:24px auto;padding:24px 30px;'>아직 제출된 결과가 없어요.<br><span class='sc-l'>객관식(R/L)·총점은 이 업데이트 이후 응시분부터, AI 첨삭은 Writing/Speaking 채점 완료분부터 보여요.</span></div>"); return; }
-      // 피드백 shell 재사용: 데이터 주입 + 객관식 밴드 prepend. 상대경로 스크립트는 루트 기준으로 고쳐준다.
-      var html = shell
-        .replace('src="report-render.js"', 'src="mock/feedback/report-render.js"')
-        .replace('<div id="app"></div>',
-          '<div id="app"></div><script>window.FEEDBACK_LIST=' + JSON.stringify(tasks) +
-          ';window.NEO_OBJ=' + JSON.stringify(objs.join('')) + ';<\/script>')
-        .replace('</body>',
-          '<script>(function(){var a=document.getElementById("app");if(window.NEO_OBJ&&a)a.insertAdjacentHTML("afterbegin",window.NEO_OBJ);})();<\/script></body>');
-      overlay.setDoc(html);
-    }).catch(function () {
-      overlay.setBody("<div class='fb-paper' style='max-width:840px;margin:24px auto;padding:24px 30px;'>리포트를 불러오지 못했어요.</div>");
-    });
+    var overlay = showMockOverlay(((label ? label + " · " : "") + code) + titleSet + " 점수·리뷰", "");
+    overlay.setSrc("mock/report.html?set=" + (set || 1) + "&code=" + encodeURIComponent(code));
   }
   function showMockOverlay(title, loadingMsg) {
     var ov = document.createElement("div");
@@ -794,6 +761,13 @@
         f.style.cssText = "width:100%;height:100%;border:0;display:block;";
         f.setAttribute("sandbox", "allow-scripts allow-same-origin");
         f.srcdoc = html;
+        body.innerHTML = ""; body.appendChild(f);
+      },
+      // 실제 앱 페이지를 그대로 임베드(같은 오리진이라 sandbox 불필요 — fetch/IndexedDB/이동 정상).
+      setSrc: function (url) {
+        var f = document.createElement("iframe");
+        f.style.cssText = "width:100%;height:100%;border:0;display:block;";
+        f.src = url;
         body.innerHTML = ""; body.appendChild(f);
       }
     };
@@ -825,7 +799,10 @@
   });
   $("bulkdel").addEventListener("click", bulkDelete);
   $("csvexport").addEventListener("click", exportCsv);
-  $("logout").addEventListener("click", () => { sessionStorage.removeItem("neo_admin"); location.href = "login.html"; });
+  $("logout").addEventListener("click", () => {
+    ["neo_admin", "neo_code", "neo_auth_ok", "neo_role"].forEach(k => sessionStorage.removeItem(k));
+    location.href = "login.html";
+  });
 
   if (admin) showPanel(); else $("admincode").focus();
 })();

@@ -44,6 +44,9 @@
   var R = window.NEO_REVIEW, el = R.el;
   var SET = parseInt(R.qparam("set") || "1", 10);
   var DEMO = R.qparam("demo") === "1";
+  var CODE = R.qparam("code");         // ?code= 있으면 어드민이 학생 결과 열람(서버 모드)
+  var SERVER = !!CODE;
+  var WHO = R.adminCode();             // 조회 대상 코드(서버 모드=학생, 아니면 나)
   var host = document.getElementById("rp");
   var EXAM = null, KEY = null, FB = null;   // AI 첨삭 통합용
   var TASKLAB = { email: "Writing Task 2 · 이메일", disc: "Writing Task 3 · 토론",
@@ -119,7 +122,7 @@
     var grid = el("div", "rp-rv-grid");
     SEC.forEach(function (s) {
       var a = el("a", "rp-rv sec-" + s.k);
-      a.href = "review.html?set=" + SET + "&sec=" + s.k + (DEMO ? "&demo=1" : "");
+      a.href = "review.html?set=" + SET + "&sec=" + s.k + (DEMO ? "&demo=1" : "") + (SERVER ? "&code=" + encodeURIComponent(CODE) : "");
       a.appendChild(el("span", "rp-rv-ko", s.ko + " 리뷰"));
       a.appendChild(el("span", "rp-rv-go", "→"));
       grid.appendChild(a);
@@ -141,8 +144,9 @@
   function applyFeedback(fbObj, detail, persist) {
     FB = fbObj;
     // 세트당 한 번 채점 → IndexedDB 에 영구 저장(브라우저 껐다 켜도 재사용). persist=false 면 저장 안 함(이미 저장된 캐시 로드 시).
-    if (persist !== false && NEO_EXAMDB.putFeedback) {
-      NEO_EXAMDB.putFeedback(R.code(), SET, fbObj).catch(function () {});
+    // 서버 모드(어드민)에서는 남의 결과라 내 기기 IndexedDB 에 저장하지 않는다.
+    if (persist !== false && !SERVER && NEO_EXAMDB.putFeedback) {
+      NEO_EXAMDB.putFeedback(WHO, SET, fbObj).catch(function () {});
     }
     var ai = NEO_FBIO.aiMaps(EXAM, fbObj), res = detail.result;
     res.W = NEO_SCORE.scoreWriting(EXAM, KEY, detail.answers, ai.W);
@@ -262,19 +266,19 @@
     return R.loadDetail(SET).then(function (detail) {
       if (!detail) { empty(); return; }
       // 우선순위: 로컬 캐시 → 서버 저장결과(/result, 교차기기·재청구 없음) → 없고 pending 이면 자동 채점 1회 조용히.
-      return (NEO_EXAMDB.getFeedback ? NEO_EXAMDB.getFeedback(R.code(), SET) : Promise.resolve(null))
+      return (!SERVER && NEO_EXAMDB.getFeedback ? NEO_EXAMDB.getFeedback(WHO, SET) : Promise.resolve(null))
         .catch(function () { return null; })
         .then(function (rec) {
           var stored = rec && rec.fb;
           if (stored) { applyFeedback(stored, detail, false); return; }
           render(detail);
           if (!pendingWS(detail)) return;
-          // 서버에 이미 채점된 결과가 있으면 가져와 캐시(채점 안 함), 없으면 자동 채점.
-          return NEO_FBIO.fetchResult(RESULT_ENDPOINT, R.code(), SET)
+          // 서버에 이미 채점된 결과가 있으면 가져와 반영. 서버 모드(어드민)에서는 자동 채점하지 않는다.
+          return NEO_FBIO.fetchResult(RESULT_ENDPOINT, WHO, SET)
             .catch(function () { return null; })
             .then(function (fb) {
               if (fb && Object.keys(fb).length) { applyFeedback(fb, detail); }
-              else { autoGrade(detail, null, true); }
+              else if (!SERVER) { autoGrade(detail, null, true); }
             });
         });
     });

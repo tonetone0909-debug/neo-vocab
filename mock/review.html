@@ -49,6 +49,10 @@
   var SET = parseInt(R.qparam("set") || "1", 10);
   var SEC = (R.qparam("sec") || "R").toUpperCase();
   var DEMO = R.qparam("demo") === "1";
+  var CODE = R.qparam("code");         // ?code= 있으면 어드민이 학생 결과 열람(서버 모드)
+  var SERVER = !!CODE;
+  var WHO = R.adminCode();
+  var GBASE = (window.NEO_GRADER && NEO_GRADER.url) ? NEO_GRADER.url.replace(/\/+$/, "") : "";
   var host = document.getElementById("rv");
   var KO = { R: "Reading", L: "Listening", W: "Writing", S: "Speaking" };
   var exam, key, detail, FB = null;
@@ -57,7 +61,7 @@
 
   /* 태스크 클릭 → AI 첨삭 리포트(원 문제 + 내 답변 + 첨삭)를 새 창에. 첨삭 전이면 폴백. */
   function openTaskReport(gid, fallback) {
-    if (hasFB(gid) && window.NEO_FBIO) NEO_FBIO.openReport(exam, gid, FB[gid], R.code(), SET);
+    if (hasFB(gid) && window.NEO_FBIO) NEO_FBIO.openReport(exam, gid, FB[gid], WHO, SET);
     else if (fallback) fallback();
   }
 
@@ -391,12 +395,15 @@
     // 상세와 첨삭 캐시는 서로 독립이라 병렬로 읽는다(직렬 IndexedDB 왕복 1회 절약).
     return Promise.all([
       R.loadDetail(SET),
-      (NEO_EXAMDB.getFeedback ? NEO_EXAMDB.getFeedback(R.code(), SET) : Promise.resolve(null))
+      (SERVER
+        ? (window.NEO_FBIO ? NEO_FBIO.fetchResult(GBASE + "/result", WHO, SET) : Promise.resolve(null))
+        : (NEO_EXAMDB.getFeedback ? NEO_EXAMDB.getFeedback(WHO, SET) : Promise.resolve(null)))
         .catch(function () { return null; })
     ]).then(function (r) {
-      if (!r[0]) { location.replace("report.html?set=" + SET); return; }
+      if (!r[0]) { location.replace("report.html?set=" + SET + (SERVER ? "&code=" + encodeURIComponent(CODE) : "")); return; }
       detail = r[0];
-      FB = r[1] && r[1].fb;
+      // 서버 모드는 /result 가 fb 맵을 그대로 준다. 로컬은 {fb:...} 래퍼.
+      FB = SERVER ? r[1] : (r[1] && r[1].fb);
       listView();
     });
   }).catch(function (e) {

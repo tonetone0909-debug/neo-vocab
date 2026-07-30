@@ -25,8 +25,27 @@
     return m ? decodeURIComponent(m[1]) : "";
   }
 
-  /* 제출 확정된 상세를 읽는다. 없으면 null (아직 응시 안 함). */
+  function gbase() {
+    var g = window.NEO_GRADER;
+    return (g && g.url) ? g.url.replace(/\/+$/, "") : "";
+  }
+  /* 조회 대상 코드. URL 에 ?code= 가 있으면(어드민이 남의 결과 열람) 그 코드,
+   * 없으면 로그인한 내 코드. 학생 정상 흐름은 code 파라미터가 없어 그대로다. */
+  function adminCode() { return qparam("code") || code(); }
+
+  /* 제출 확정된 상세를 읽는다. 없으면 null (아직 응시 안 함).
+   * ?code= 가 있으면 서버(/detail)에서 그 학생 결과를 가져온다(교차기기·어드민용).
+   * 없으면 로컬 IndexedDB(학생 본인 기기). */
   function loadDetail(setId) {
+    var override = qparam("code");
+    if (override) {
+      var g = gbase();
+      if (!g) return Promise.resolve(null);
+      return fetch(g + "/detail?code=" + encodeURIComponent(override) + "&set=" + setId, { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { return (d && d.result) ? d : null; })
+        .catch(function () { return null; });
+    }
     if (!window.NEO_EXAMDB || !NEO_EXAMDB.supported()) return Promise.resolve(null);
     return NEO_EXAMDB.getDetail(code(), setId).catch(function () { return null; });
   }
@@ -250,7 +269,7 @@
   }
 
   window.NEO_REVIEW = {
-    el: el, code: code, qparam: qparam,
+    el: el, code: code, qparam: qparam, adminCode: adminCode,
     loadDetail: loadDetail,
     sectionRows: sectionRows, gidOf: gidOf, indexInGroup: indexInGroup,
     reviewCtx: reviewCtx, paintAnswers: paintAnswers,
