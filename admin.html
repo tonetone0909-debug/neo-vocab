@@ -261,14 +261,20 @@
   function toggleMock(code, enabled, ch) {
     if (!GBASE) { alert("채점 서버(NEO_GRADER)가 설정되지 않았어요."); ch.checked = !enabled; return; }
     ch.disabled = true;
+    var status = 0;
     fetch(GBASE + "/mock-access?admin=" + encodeURIComponent(admin), {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: code, enabled: enabled })
-    }).then(r => r.ok ? r.json() : null).then(d => {
+    }).then(r => { status = r.status; return r.text(); }).then(txt => {
       ch.disabled = false;
-      if (d && d.ok) { if (enabled) mockMap[code] = true; else delete mockMap[code]; }
-      else { ch.checked = !enabled; alert("저장 실패 — 다시 시도해 주세요."); }
-    }).catch(() => { ch.disabled = false; ch.checked = !enabled; alert("저장 실패 — 인터넷 연결을 확인해 주세요."); });
+      var d = null; try { d = JSON.parse(txt); } catch (e) {}
+      if (status === 200 && d && d.ok) { if (enabled) mockMap[code] = true; else delete mockMap[code]; return; }
+      ch.checked = !enabled;
+      var why = status === 401 ? "관리자 인증 실패 (admin 코드 확인)"
+        : (status !== 200 ? "서버 오류 " + status
+        : "Supabase 저장 실패 — " + ((d && d.error) || "mock_access 테이블이 없을 수 있어요"));
+      alert("모의고사 배정 실패\n" + why + (d && d.error ? "\n\n" + d.error : "\n\n" + (txt || "").slice(0, 200)));
+    }).catch(e => { ch.disabled = false; ch.checked = !enabled; alert("모의고사 배정 실패 — 네트워크 오류\n" + e); });
   }
   /* 선택한 코드들 모의고사 일괄 ON/OFF. */
   async function bulkMock(enabled) {
