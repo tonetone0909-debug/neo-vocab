@@ -846,6 +846,28 @@
     var x = /^(\d{4})-(\d{2})$/.exec(m || "");
     return x ? (x[1] + "년 " + parseInt(x[2], 10) + "월") : (m || "미지정");
   }
+  /* 월별 명단 정렬 상태 + 비교기. 헤더 클릭으로 컬럼/방향 토글. */
+  var rSort = { key: "name", dir: 1 };
+  function rCmp(a, b) {
+    var k = rSort.key;
+    if (k === "level") {   // 80+ / 60+ → 숫자로 비교
+      var an = parseInt(String(a.level || "").replace(/\D/g, ""), 10) || 0;
+      var bn = parseInt(String(b.level || "").replace(/\D/g, ""), 10) || 0;
+      if (an !== bn) return (an - bn) * rSort.dir;
+      return String(a.name || "").localeCompare(String(b.name || ""), "ko");   // 동레벨은 이름순
+    }
+    var av = String(a[k] || ""), bv = String(b[k] || "");
+    var c = av.localeCompare(bv, "ko");
+    if (c === 0 && k !== "name") c = String(a.name || "").localeCompare(String(b.name || ""), "ko");
+    return c * rSort.dir;
+  }
+  function rTh(label, en, key, center) {
+    var active = rSort.key === key;
+    var arrow = active ? (rSort.dir === 1 ? " ▲" : " ▼") : " ↕";
+    return '<th class="rsort" data-k="' + key + '" style="cursor:pointer;' + (center ? "text-align:center;" : "") + '">' +
+      esc(label) + '<span style="opacity:' + (active ? "1" : ".35") + ';">' + arrow + '</span>' +
+      (en ? '<span class="th-en">' + en + '</span>' : '') + '</th>';
+  }
   function loadRoster() {
     if (!GBASE) { $("rlist").innerHTML = '<p class="lead no">채점 서버(NEO_GRADER)가 설정되지 않았어요.</p>'; return; }
     if (rosterRows) { renderRoster(); return; }
@@ -885,7 +907,7 @@
     if (!rosterRows) return;
     var m = $("rmonth").value;
     var list = rosterRows.filter(function (r) { return (r.month || "미지정") === m; });
-    list.sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || ""), "ko"); });
+    list.sort(rCmp);
     if (!list.length) { $("rlist").innerHTML = '<p class="lead">이 달 명단이 없어요. 코드 관리 탭에서 엑셀 명단을 올리면 개강월별로 정리돼요.</p>'; $("rmsg").textContent = ""; return; }
     var rows = list.map(function (r, i) {
       return '<tr>' +
@@ -901,16 +923,24 @@
       '</tr>';
     }).join("");
     $("rlist").innerHTML = '<div class="mkscroll"><table class="mktable cmtable"><thead><tr>' +
-      '<th>No.</th><th>이름<span class="th-en">NAME</span></th>' +
-      '<th style="text-align:center;">레벨<span class="th-en">LEVEL</span></th>' +
-      '<th style="text-align:center;">시간<span class="th-en">TIME</span></th>' +
-      '<th style="text-align:center;">요일<span class="th-en">DAYS</span></th>' +
-      '<th style="text-align:center;">멤버쉽<span class="th-en">TIER</span></th>' +
-      '<th style="text-align:center;">비고<span class="th-en">NOTE</span></th>' +
+      '<th>No.</th>' +
+      rTh("이름", "NAME", "name", false) +
+      rTh("레벨", "LEVEL", "level", true) +
+      rTh("시간", "TIME", "class_time", true) +
+      rTh("요일", "DAYS", "days", true) +
+      rTh("멤버쉽", "TIER", "membership", true) +
+      rTh("비고", "NOTE", "note", true) +
       '<th style="text-align:center;">모의고사 1<span class="th-en">MOCK 1</span></th>' +
       '<th style="text-align:center;">모의고사 2<span class="th-en">MOCK 2</span></th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>';
     $("rmsg").textContent = monthLabel(m) + " · " + list.length + "명";
+    Array.from(document.querySelectorAll(".rsort")).forEach(function (th) {
+      th.addEventListener("click", function () {
+        var k = th.getAttribute("data-k");
+        if (rSort.key === k) rSort.dir = -rSort.dir; else { rSort.key = k; rSort.dir = 1; }
+        renderRoster();
+      });
+    });
     bindMockChks();
   }
 
