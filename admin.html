@@ -639,9 +639,11 @@
         var rr = await fetch(GBASE + "/roster?admin=" + encodeURIComponent(admin), {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows: rrows })
         });
-        var rd = rr.ok ? await rr.json() : null;
-        savedMsg = (rd && rd.ok) ? " · 명단 " + (rd.count || rrows.length) + "건 저장" : " · 명단 저장 실패";
-      } catch (e) { savedMsg = " · 명단 저장 실패"; }
+        var rtxt = await rr.text(); var rd = null; try { rd = JSON.parse(rtxt); } catch (e) {}
+        savedMsg = (rr.status === 200 && rd && rd.ok)
+          ? " · 명단 " + (rd.count || rrows.length) + "건 저장"
+          : " · 명단 저장 실패: " + (rr.status === 401 ? "관리자 인증 실패" : ((rd && rd.error) || ("HTTP " + rr.status + " " + (rtxt || "").slice(0, 150))));
+      } catch (e) { savedMsg = " · 명단 저장 실패: " + e; }
       rosterRows = null;   // 월별 명단 뷰 다음 진입 시 새로 로드
     }
     $("bulkadd").disabled = false;
@@ -848,13 +850,25 @@
     if (!GBASE) { $("rlist").innerHTML = '<p class="lead no">채점 서버(NEO_GRADER)가 설정되지 않았어요.</p>'; return; }
     if (rosterRows) { renderRoster(); return; }
     $("rlist").innerHTML = '<div class="mk-loading"><div class="neo-spin"></div><span>명단 불러오는 중…</span></div>';
+    var status = 0;
     Promise.all([
-      fetch(GBASE + "/roster?admin=" + encodeURIComponent(admin), { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(GBASE + "/roster?admin=" + encodeURIComponent(admin), { cache: "no-store" })
+        .then(r => { status = r.status; return r.text(); })
+        .then(t => { try { return JSON.parse(t); } catch (e) { return { _raw: t }; } }).catch(() => null),
       loadMockAccess()
     ]).then(function (res) {
-      rosterRows = (res[0] && res[0].rows) || [];
+      var d = res[0];
+      rosterRows = (d && d.rows) || [];
       buildMonthOptions();
       renderRoster();
+      if (!rosterRows.length) {
+        var why = status === 401 ? "관리자 인증 실패 (admin 코드 확인)"
+          : (status !== 200 ? "서버 오류 " + status
+          : (d && d.error ? "roster 테이블 오류 — " + d.error
+          : "저장된 명단이 없어요. ‘코드 관리’ 탭에서 엑셀을 올리고 ‘위 코드 모두 추가 →’ 를 눌러야 저장돼요."));
+        $("rmsg").textContent = why;
+        $("rmsg").className = "verdict" + ((status !== 200 || (d && d.error)) ? " no" : "");
+      } else { $("rmsg").className = "verdict"; }
     });
   }
   function buildMonthOptions() {
