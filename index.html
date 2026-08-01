@@ -126,15 +126,15 @@
   if (isPhone) { showMock(false); }
   else if (isAdmin || FREE_CODES.indexOf(c) >= 0) { showMock(true); }
   else {
-    showMock(false);   // 확인 전에는 숨겨두고, 서버가 허용이라고 하면 다시 보인다.
+    showMock(false);   // 확인 전에는 숨겨두고, 배정된 세트가 하나라도 있으면 카드를 보인다.
     var g = (window.NEO_GRADER && NEO_GRADER.url) ? NEO_GRADER.url.replace(/\/+$/, "") : "";
     if (g && c) {
       fetch(g + "/mock-allowed?code=" + encodeURIComponent(c), { cache: "no-store" })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (d) {
-          var ok = !!(d && d.allowed);
-          if (ok) { try { sessionStorage.setItem("neo_mock_allow", c); } catch (e) {} }
-          showMock(ok);
+          var sets = (d && d.sets) || [];
+          try { sessionStorage.setItem("neo_mock_code", c); sessionStorage.setItem("neo_mock_sets", sets.join(",")); } catch (e) {}
+          showMock(sets.length > 0);
         })
         .catch(function () {});
     }

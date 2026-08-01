@@ -717,15 +717,21 @@
   function mockAllowed() {
     var admin = false; try { admin = sessionStorage.getItem("neo_role") === "admin"; } catch (e) {}
     if (admin || ["랍슨4355", "사랑0624", "마리6789"].indexOf(code()) >= 0) return Promise.resolve(true);
-    try { if (sessionStorage.getItem("neo_mock_allow") === code()) return Promise.resolve(true); } catch (e) {}
+    var want = String(SET);   // 이 세트가 배정돼 있어야 응시 가능
+    try {
+      if (sessionStorage.getItem("neo_mock_code") === code()) {
+        var cs = (sessionStorage.getItem("neo_mock_sets") || "").split(",");
+        return Promise.resolve(cs.indexOf(want) >= 0);
+      }
+    } catch (e) {}
     var g = (window.NEO_GRADER && NEO_GRADER.url) ? NEO_GRADER.url.replace(/\/+$/, "") : "";
     if (!g || !code()) return Promise.resolve(false);
     return fetch(g + "/mock-allowed?code=" + encodeURIComponent(code()), { cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
-        var ok = !!(d && d.allowed);
-        if (ok) { try { sessionStorage.setItem("neo_mock_allow", code()); } catch (e) {} }
-        return ok;
+        var sets = ((d && d.sets) || []).map(String);
+        try { sessionStorage.setItem("neo_mock_code", code()); sessionStorage.setItem("neo_mock_sets", sets.join(",")); } catch (e) {}
+        return sets.indexOf(want) >= 0;
       })
       .catch(function () { return false; });
   }

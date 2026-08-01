@@ -248,27 +248,41 @@
     }).catch(() => { $("list").innerHTML = '<p class="lead no">인터넷 연결이 필요해요.</p>'; });
   }
 
-  /* 모의고사 배정 상태 로드 — {code: true}(허용). 채점서버(Supabase) 조회. */
+  /* 모의고사 배정 상태 — {code: {"1":true,"2":true}} (세트별). 채점서버(Supabase) 조회. */
   let mockMap = {};
+  function mockHas(code, set) { return !!(mockMap[code] && mockMap[code][String(set)]); }
+  function mockChk(code, set) {
+    return '<input type="checkbox" class="neo-chk mockchk" data-code="' + esc(code) + '" data-set="' + set + '"' + (mockHas(code, set) ? ' checked' : '') + '>';
+  }
   function loadMockAccess() {
     if (!GBASE) { mockMap = {}; return Promise.resolve(); }
     return fetch(GBASE + "/mock-access?admin=" + encodeURIComponent(admin), { cache: "no-store" })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { mockMap = {}; ((d && d.codes) || []).forEach(x => { if (x.enabled) mockMap[x.code] = true; }); })
+      .then(d => {
+        mockMap = {};
+        ((d && d.codes) || []).forEach(x => {
+          if (!x.code || x.set_id == null) return;
+          (mockMap[x.code] = mockMap[x.code] || {})[String(x.set_id)] = true;
+        });
+      })
       .catch(() => { mockMap = {}; });
   }
-  /* 한 코드의 모의고사 접근 토글 → 서버 저장. 실패 시 체크박스 되돌림. */
-  function toggleMock(code, enabled, ch) {
+  /* 한 코드의 특정 세트 모의고사 배정 토글 → 서버 저장. 실패 시 체크박스 되돌림. */
+  function toggleMock(code, set, enabled, ch) {
     if (!GBASE) { alert("채점 서버(NEO_GRADER)가 설정되지 않았어요."); ch.checked = !enabled; return; }
     ch.disabled = true;
     var status = 0;
     fetch(GBASE + "/mock-access?admin=" + encodeURIComponent(admin), {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: code, enabled: enabled })
+      body: JSON.stringify({ code: code, set: String(set), enabled: enabled })
     }).then(r => { status = r.status; return r.text(); }).then(txt => {
       ch.disabled = false;
       var d = null; try { d = JSON.parse(txt); } catch (e) {}
-      if (status === 200 && d && d.ok) { if (enabled) mockMap[code] = true; else delete mockMap[code]; return; }
+      if (status === 200 && d && d.ok) {
+        mockMap[code] = mockMap[code] || {};
+        if (enabled) mockMap[code][String(set)] = true; else delete mockMap[code][String(set)];
+        return;
+      }
       ch.checked = !enabled;
       var why = status === 401 ? "관리자 인증 실패 (admin 코드 확인)"
         : (status !== 200 ? "서버 오류 " + status
@@ -276,23 +290,30 @@
       alert("모의고사 배정 실패\n" + why + (d && d.error ? "\n\n" + d.error : "\n\n" + (txt || "").slice(0, 200)));
     }).catch(e => { ch.disabled = false; ch.checked = !enabled; alert("모의고사 배정 실패 — 네트워크 오류\n" + e); });
   }
-  /* 선택한 코드들 모의고사 일괄 ON/OFF. */
+  function bindMockChks() {
+    Array.from(document.querySelectorAll(".mockchk")).forEach(ch =>
+      ch.addEventListener("change", () => toggleMock(ch.getAttribute("data-code"), ch.getAttribute("data-set"), ch.checked, ch)));
+  }
+  /* 선택한 코드들 모의고사 일괄 ON/OFF — 세트 1·2 모두. */
   async function bulkMock(enabled) {
     const codes = selectedCodes();
     if (!codes.length || !GBASE) return;
-    var okN = 0;
+    var okN = 0, total = codes.length * 2, done = 0;
     for (var i = 0; i < codes.length; i++) {
-      $("bmsg").textContent = "적용 중… (" + (i + 1) + "/" + codes.length + ")";
-      try {
-        const r = await fetch(GBASE + "/mock-access?admin=" + encodeURIComponent(admin), {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: codes[i], enabled: enabled })
-        });
-        const d = r.ok ? await r.json() : null;
-        if (d && d.ok) { okN++; if (enabled) mockMap[codes[i]] = true; else delete mockMap[codes[i]]; }
-      } catch (e) {}
+      for (var s = 1; s <= 2; s++) {
+        done++;
+        $("bmsg").textContent = "적용 중… (" + done + "/" + total + ")";
+        try {
+          const r = await fetch(GBASE + "/mock-access?admin=" + encodeURIComponent(admin), {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: codes[i], set: String(s), enabled: enabled })
+          });
+          const d = r.ok ? await r.json() : null;
+          if (d && d.ok) { okN++; mockMap[codes[i]] = mockMap[codes[i]] || {}; if (enabled) mockMap[codes[i]][String(s)] = true; else delete mockMap[codes[i]][String(s)]; }
+        } catch (e) {}
+      }
     }
-    $("bmsg").textContent = "모의고사 " + (enabled ? "ON" : "OFF") + " · " + okN + "/" + codes.length + "명 적용됐어요";
+    $("bmsg").textContent = "모의고사 " + (enabled ? "ON" : "OFF") + " · " + okN + "/" + total + " 적용됐어요";
     render();
   }
 
@@ -308,7 +329,6 @@
     return d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + String(d.getDate()).padStart(2, "0");
   }
   function rowHTML(c) {
-    var on = !!mockMap[c.code];
     return '<tr>' +
       '<td style="width:30px;text-align:center;"><input type="checkbox" class="neo-chk rowchk" data-code="' + esc(c.code) + '"></td>' +
       '<td class="mk-name"><span class="copycode" data-code="' + esc(c.code) + '" style="cursor:pointer;" title="클릭하면 코드 복사">' +
@@ -316,7 +336,8 @@
         '<span class="mk-code">' + esc(c.code) + (c.createdAt ? " · " + esc(fmtDate(c.createdAt)) : "") + ' <span class="copyhint">⧉ 복사</span></span></span></td>' +
       '<td class="mk-cell"><span class="acc-yes">✓</span></td>' +
       '<td class="mk-cell"><span class="acc-yes">✓</span></td>' +
-      '<td class="mk-cell"><input type="checkbox" class="neo-chk mockchk" data-code="' + esc(c.code) + '"' + (on ? ' checked' : '') + '></td>' +
+      '<td class="mk-cell">' + mockChk(c.code, 1) + '</td>' +
+      '<td class="mk-cell">' + mockChk(c.code, 2) + '</td>' +
       '<td class="mk-cell"><button class="btn btn-sm btn-hard del" data-code="' + esc(c.code) + '">삭제</button></td>' +
     '</tr>';
   }
@@ -331,13 +352,14 @@
         '<th>학생<span class="th-en">STUDENT</span></th>' +
         '<th style="text-align:center;">Vocab<span class="th-en">VOCAB</span></th>' +
         '<th style="text-align:center;">Writing<span class="th-en">TASK 1</span></th>' +
-        '<th style="text-align:center;">모의고사<span class="th-en">MOCK</span></th>' +
+        '<th style="text-align:center;">모의고사 1<span class="th-en">MOCK 1</span></th>' +
+        '<th style="text-align:center;">모의고사 2<span class="th-en">MOCK 2</span></th>' +
         '<th style="text-align:center;">관리<span class="th-en">MANAGE</span></th>' +
         '</tr></thead><tbody>' + list.map(rowHTML).join("") + '</tbody></table></div>';
       Array.from(document.querySelectorAll(".del")).forEach(b => b.addEventListener("click", e => { e.stopPropagation(); del(b.getAttribute("data-code")); }));
       Array.from(document.querySelectorAll(".copycode")).forEach(el => el.addEventListener("click", () => copyCode(el)));
       Array.from(document.querySelectorAll(".rowchk")).forEach(ch => ch.addEventListener("change", updateSel));
-      Array.from(document.querySelectorAll(".mockchk")).forEach(ch => ch.addEventListener("change", () => toggleMock(ch.getAttribute("data-code"), ch.checked, ch)));
+      bindMockChks();
     }
     $("selall").checked = false; $("selall").indeterminate = false;
     updateSel();
@@ -852,7 +874,6 @@
     list.sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || ""), "ko"); });
     if (!list.length) { $("rlist").innerHTML = '<p class="lead">이 달 명단이 없어요. 코드 관리 탭에서 엑셀 명단을 올리면 개강월별로 정리돼요.</p>'; $("rmsg").textContent = ""; return; }
     var rows = list.map(function (r, i) {
-      var on = !!mockMap[r.code];
       return '<tr>' +
         '<td class="mk-cell" style="width:34px;">' + (i + 1) + '</td>' +
         '<td class="mk-name">' + esc(r.name || "") + '<span class="mk-code">' + esc(r.code || "") + '</span></td>' +
@@ -861,7 +882,8 @@
         '<td class="mk-cell">' + esc(r.days || "") + '</td>' +
         '<td class="mk-cell">' + esc(r.membership || "") + '</td>' +
         '<td class="mk-cell">' + esc(r.note || "") + '</td>' +
-        '<td class="mk-cell"><input type="checkbox" class="neo-chk rmockchk" data-code="' + esc(r.code) + '"' + (on ? ' checked' : '') + '></td>' +
+        '<td class="mk-cell">' + mockChk(r.code, 1) + '</td>' +
+        '<td class="mk-cell">' + mockChk(r.code, 2) + '</td>' +
       '</tr>';
     }).join("");
     $("rlist").innerHTML = '<div class="mkscroll"><table class="mktable cmtable"><thead><tr>' +
@@ -871,12 +893,11 @@
       '<th style="text-align:center;">요일<span class="th-en">DAYS</span></th>' +
       '<th style="text-align:center;">멤버쉽<span class="th-en">TIER</span></th>' +
       '<th style="text-align:center;">비고<span class="th-en">NOTE</span></th>' +
-      '<th style="text-align:center;">모의고사<span class="th-en">MOCK</span></th>' +
+      '<th style="text-align:center;">모의고사 1<span class="th-en">MOCK 1</span></th>' +
+      '<th style="text-align:center;">모의고사 2<span class="th-en">MOCK 2</span></th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>';
     $("rmsg").textContent = monthLabel(m) + " · " + list.length + "명";
-    Array.from(document.querySelectorAll(".rmockchk")).forEach(function (ch) {
-      ch.addEventListener("change", function () { toggleMock(ch.getAttribute("data-code"), ch.checked, ch); });
-    });
+    bindMockChks();
   }
 
   /* ---------- 모의고사 리포트 (어드민 풀 리포트) ---------- */

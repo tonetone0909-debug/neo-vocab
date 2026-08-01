@@ -141,38 +141,38 @@
     return (NEO_EXAMDB.getSession ? NEO_EXAMDB.getSession(R.code(), sid) : Promise.resolve(null))
       .catch(function () { return null; });
   }
-  function boot() {
+  // 배정된 세트만 카드로 그린다(sets = ["1"], ["2"], ["1","2"] 등).
+  function boot(sets) {
     Promise.all([R.loadDetail(1), R.loadDetail(2), sess(1), sess(2)]).then(function (r) {
       host.textContent = "";
-      host.appendChild(card(1, r[0], r[2]));
-      host.appendChild(card(2, r[1], r[3]));
+      var det = { "1": r[0], "2": r[1] }, ses = { "1": r[2], "2": r[3] };
+      sets.forEach(function (s) { host.appendChild(card(s, det[s], ses[s])); });
     }).catch(function () {
       // IndexedDB 를 못 쓰는 환경(사생활 보호 모드 등)이라도 응시는 되어야 한다.
       host.textContent = "";
-      host.appendChild(card(1, null, null));
-      host.appendChild(card(2, null, null));
+      sets.forEach(function (s) { host.appendChild(card(s, null, null)); });
     });
   }
 
-  /* 모의고사 접근 게이트 — admin·상시허용 코드는 즉시, 그 외에는 서버(/mock-allowed) 확인.
-   * 배정 안 된 코드는 목록을 감추고 안내한다(어드민이 대시보드에서 배정해야 응시 가능). */
+  /* 모의고사 접근 게이트 — admin·상시허용 코드는 모든 세트, 그 외에는 배정된 세트만.
+   * 배정 안 된 코드는 목록을 감추고 안내한다(어드민 대시보드에서 세트별 배정). */
   var FREE_CODES = ["랍슨4355", "사랑0624", "마리6789"];
-  function checkMockAccess() {
+  function allowedSets() {
     var code = R.code(), admin = false;
     try { admin = sessionStorage.getItem("neo_role") === "admin"; } catch (e) {}
-    if (admin || FREE_CODES.indexOf(code) >= 0) return Promise.resolve(true);
-    // 이번 세션에서 이미 허용 확인된 코드면 서버 재조회 없이 통과(콜드스타트 오차단 방지).
-    try { if (sessionStorage.getItem("neo_mock_allow") === code) return Promise.resolve(true); } catch (e) {}
+    if (admin || FREE_CODES.indexOf(code) >= 0) return Promise.resolve(["1", "2"]);
+    // 이번 세션에서 이미 확인된 코드면 서버 재조회 없이(콜드스타트 오차단 방지).
+    try { if (sessionStorage.getItem("neo_mock_code") === code) { var cs = sessionStorage.getItem("neo_mock_sets") || ""; return Promise.resolve(cs ? cs.split(",") : []); } } catch (e) {}
     var g = (window.NEO_GRADER && NEO_GRADER.url) ? NEO_GRADER.url.replace(/\/+$/, "") : "";
-    if (!g || !code) return Promise.resolve(false);
+    if (!g || !code) return Promise.resolve([]);
     return fetch(g + "/mock-allowed?code=" + encodeURIComponent(code), { cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
-        var ok = !!(d && d.allowed);
-        if (ok) { try { sessionStorage.setItem("neo_mock_allow", code); } catch (e) {} }
-        return ok;
+        var sets = ((d && d.sets) || []).map(String);
+        try { sessionStorage.setItem("neo_mock_code", code); sessionStorage.setItem("neo_mock_sets", sets.join(",")); } catch (e) {}
+        return sets;
       })
-      .catch(function () { return false; });
+      .catch(function () { return []; });
   }
   function showBlocked() {
     host.textContent = "";
@@ -183,7 +183,7 @@
     var a = el("a", "btn", "← 홈으로"); a.href = "../index.html"; c.appendChild(a);
     host.appendChild(c);
   }
-  checkMockAccess().then(function (ok) { if (ok) boot(); else showBlocked(); });
+  allowedSets().then(function (sets) { if (sets.length) boot(sets); else showBlocked(); });
 })();
 </script>
 </body>
