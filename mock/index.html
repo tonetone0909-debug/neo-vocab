@@ -141,16 +141,49 @@
     return (NEO_EXAMDB.getSession ? NEO_EXAMDB.getSession(R.code(), sid) : Promise.resolve(null))
       .catch(function () { return null; });
   }
-  Promise.all([R.loadDetail(1), R.loadDetail(2), sess(1), sess(2)]).then(function (r) {
+  function boot() {
+    Promise.all([R.loadDetail(1), R.loadDetail(2), sess(1), sess(2)]).then(function (r) {
+      host.textContent = "";
+      host.appendChild(card(1, r[0], r[2]));
+      host.appendChild(card(2, r[1], r[3]));
+    }).catch(function () {
+      // IndexedDB 를 못 쓰는 환경(사생활 보호 모드 등)이라도 응시는 되어야 한다.
+      host.textContent = "";
+      host.appendChild(card(1, null, null));
+      host.appendChild(card(2, null, null));
+    });
+  }
+
+  /* 모의고사 접근 게이트 — admin·상시허용 코드는 즉시, 그 외에는 서버(/mock-allowed) 확인.
+   * 배정 안 된 코드는 목록을 감추고 안내한다(어드민이 대시보드에서 배정해야 응시 가능). */
+  var FREE_CODES = ["랍슨4355", "사랑0624", "마리6789"];
+  function checkMockAccess() {
+    var code = R.code(), admin = false;
+    try { admin = sessionStorage.getItem("neo_role") === "admin"; } catch (e) {}
+    if (admin || FREE_CODES.indexOf(code) >= 0) return Promise.resolve(true);
+    // 이번 세션에서 이미 허용 확인된 코드면 서버 재조회 없이 통과(콜드스타트 오차단 방지).
+    try { if (sessionStorage.getItem("neo_mock_allow") === code) return Promise.resolve(true); } catch (e) {}
+    var g = (window.NEO_GRADER && NEO_GRADER.url) ? NEO_GRADER.url.replace(/\/+$/, "") : "";
+    if (!g || !code) return Promise.resolve(false);
+    return fetch(g + "/mock-allowed?code=" + encodeURIComponent(code), { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        var ok = !!(d && d.allowed);
+        if (ok) { try { sessionStorage.setItem("neo_mock_allow", code); } catch (e) {} }
+        return ok;
+      })
+      .catch(function () { return false; });
+  }
+  function showBlocked() {
     host.textContent = "";
-    host.appendChild(card(1, r[0], r[2]));
-    host.appendChild(card(2, r[1], r[3]));
-  }).catch(function () {
-    // IndexedDB 를 못 쓰는 환경(사생활 보호 모드 등)이라도 응시는 되어야 한다.
-    host.textContent = "";
-    host.appendChild(card(1, null, null));
-    host.appendChild(card(2, null, null));
-  });
+    var note = document.querySelector(".mk-note"); if (note) note.style.display = "none";
+    var c = el("div", "center-state");
+    c.appendChild(el("div", "big", "모의고사 접근 권한이 없어요"));
+    c.appendChild(el("p", null, "선생님이 배정해야 응시할 수 있어요. 배정을 요청해 주세요."));
+    var a = el("a", "btn", "← 홈으로"); a.href = "../index.html"; c.appendChild(a);
+    host.appendChild(c);
+  }
+  checkMockAccess().then(function (ok) { if (ok) boot(); else showBlocked(); });
 })();
 </script>
 </body>

@@ -114,17 +114,31 @@
   var who = document.getElementById("who");
   if (c) who.textContent = (c.replace(/\s*\d{4}$/, "").trim() || c) + " 님, 어서와요";
 
-  // 모의고사 열람 허용 코드(또는 admin 역할). 나머지는 COMING SOON 으로 잠금.
-  // 여기 있는 코드는 모의고사 카드가 열린다. 시험 자체는 exam.html 이 정규(시간제한)로 진행 —
-  // 강사 무제한/점프(자유 모드)는 exam.html 의 FREE_CODES 에 따로 넣어야 한다(현재 랍슨4355만).
+  // 모의고사 접근은 어드민 대시보드에서 코드별로 배정한다(서버 저장). admin·상시허용 코드는 즉시,
+  // 그 외에는 채점서버(/mock-allowed)에 이 코드가 배정됐는지 물어 카드 표시 여부를 정한다.
+  // 강사 무제한/점프(자유 모드)는 exam.html 의 FREE_CODES 에 따로 있다(현재 랍슨4355).
   var FREE_CODES = ["랍슨4355", "사랑0624", "마리6789"];
-  var canMock = false;
-  try { canMock = sessionStorage.getItem("neo_role") === "admin" || FREE_CODES.indexOf(c) >= 0; }
-  catch (e) { canMock = false; }
-  // 모의고사는 PC 전용 — 폰에서는 카드 자체를 숨긴다(직접 URL 접근은 각 mock 페이지가 차단).
-  if (window.NEO_MOBILE && NEO_MOBILE.isPhone()) canMock = false;
   var mock = document.getElementById("mock-card");
-  if (mock && !canMock) { mock.parentNode.removeChild(mock); }
+  function showMock(on) { if (mock) mock.style.display = on ? "" : "none"; }
+  var isPhone = window.NEO_MOBILE && NEO_MOBILE.isPhone();   // 모의고사는 PC 전용
+  var isAdmin = false;
+  try { isAdmin = sessionStorage.getItem("neo_role") === "admin"; } catch (e) {}
+  if (isPhone) { showMock(false); }
+  else if (isAdmin || FREE_CODES.indexOf(c) >= 0) { showMock(true); }
+  else {
+    showMock(false);   // 확인 전에는 숨겨두고, 서버가 허용이라고 하면 다시 보인다.
+    var g = (window.NEO_GRADER && NEO_GRADER.url) ? NEO_GRADER.url.replace(/\/+$/, "") : "";
+    if (g && c) {
+      fetch(g + "/mock-allowed?code=" + encodeURIComponent(c), { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          var ok = !!(d && d.allowed);
+          if (ok) { try { sessionStorage.setItem("neo_mock_allow", c); } catch (e) {} }
+          showMock(ok);
+        })
+        .catch(function () {});
+    }
+  }
 
   // 가이드 아코디언 (vocab/quiz.html 의 토글과 동일)
   var gh = document.getElementById("guide-head"), gs = document.getElementById("guide-sub");
