@@ -53,10 +53,15 @@
   .neo-spin { width:34px; height:34px; margin:0 auto 12px; border:3px solid var(--neo-ink);
     border-top-color:transparent; border-radius:50%; animation:neo-spin .7s linear infinite; }
   .mk-loading { text-align:center; padding:40px 20px; font-weight:700; color:var(--neo-ink); }
+  /* 관리자 페이지는 PC 전용 — 가로를 넓게 써서 대시보드 표가 잘리지 않게 한다. */
+  .app { max-width: min(1180px, 95vw); }
+  #gate { max-width: 460px; margin-left: auto; margin-right: auto; }   /* 로그인은 좁게 */
   /* 코드 관리 대시보드 — 접근 권한 표 */
   .acc-yes { color:var(--neo-blaze); font-weight:900; font-size:16px; }
-  .cmtable td.mk-name .mk-code { text-transform:none; }
+  .cmtable td.mk-name { white-space:nowrap; }
+  .cmtable td.mk-name .mk-code { text-transform:none; white-space:nowrap; }
   .cmtable td.mk-cell .neo-chk { vertical-align:middle; }
+  .cmtable th, .cmtable td { white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -275,13 +280,19 @@
     if (!q) return allCodes;
     return allCodes.filter(c => (c.code||"").toLowerCase().includes(q) || (c.label||"").toLowerCase().includes(q));
   }
+  function fmtDate(s) {
+    if (!s) return "";
+    var d = new Date(s);
+    if (isNaN(d.getTime())) return String(s).slice(0, 10);
+    return d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + String(d.getDate()).padStart(2, "0");
+  }
   function rowHTML(c) {
     var on = !!mockMap[c.code];
     return '<tr>' +
       '<td style="width:30px;text-align:center;"><input type="checkbox" class="neo-chk rowchk" data-code="' + esc(c.code) + '"></td>' +
       '<td class="mk-name"><span class="copycode" data-code="' + esc(c.code) + '" style="cursor:pointer;" title="클릭하면 코드 복사">' +
         (c.label ? esc(c.label) : esc(c.code)) +
-        '<span class="mk-code">' + esc(c.code) + (c.createdAt ? " · " + esc(c.createdAt) : "") + ' <span class="copyhint">⧉ 복사</span></span></span></td>' +
+        '<span class="mk-code">' + esc(c.code) + (c.createdAt ? " · " + esc(fmtDate(c.createdAt)) : "") + ' <span class="copyhint">⧉ 복사</span></span></span></td>' +
       '<td class="mk-cell"><span class="acc-yes">✓</span></td>' +
       '<td class="mk-cell"><span class="acc-yes">✓</span></td>' +
       '<td class="mk-cell"><input type="checkbox" class="neo-chk mockchk" data-code="' + esc(c.code) + '"' + (on ? ' checked' : '') + '></td>' +
