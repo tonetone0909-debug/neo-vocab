@@ -85,6 +85,7 @@
   <div id="panel" style="display:none;">
     <div style="display:flex;gap:6px;margin-top:16px;">
       <button class="btn btn-sm btn-grind" id="tab-code" style="flex:1;">코드 관리</button>
+      <button class="btn btn-sm btn-ghost" id="tab-roster" style="flex:1;">월별 명단</button>
       <button class="btn btn-sm btn-ghost" id="tab-prog" style="flex:1;">학생 진도</button>
       <button class="btn btn-sm btn-ghost" id="tab-mock" style="flex:1;">모의고사 리포트</button>
     </div>
@@ -170,6 +171,20 @@
       </div>
       <div class="verdict" id="mkmsg" style="min-height:18px;"></div>
       <div id="mklist"></div>
+    </div>
+
+    <div id="roster-panel" style="display:none;">
+      <div class="detail-head" style="margin-top:16px;gap:10px;flex-wrap:wrap;">
+        <span class="sc-l" style="flex:0 0 auto;">월 선택</span>
+        <select id="rmonth" class="quiz-input" style="flex:1;min-width:140px;margin:0;padding:8px 10px;"></select>
+        <button class="btn btn-sm btn-ghost" id="rrefresh" style="flex:0 0 auto;">새로고침 ↻</button>
+      </div>
+      <div class="mklegend" style="margin-top:6px;">
+        <span class="lg"><span class="sw" style="background:var(--neo-acid);"></span>모의고사 배정됨</span>
+        <span class="sc-l" style="opacity:.7;">Vocab · Writing T1 은 모두에게 열려 있어요</span>
+      </div>
+      <div class="verdict" id="rmsg" style="min-height:18px;"></div>
+      <div id="rlist"></div>
     </div>
 
     <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:20px;">관리자 로그아웃</button>
@@ -424,6 +439,14 @@
     return out.slice(0, 3);
   }
   function last4(phone) { return (phone || "").replace(/\D/g, "").slice(-4); }
+  // 개강일자 → "YYYY-MM". "20260804"·"2026-08-04"·"2026.8" 등 허용. 못 읽으면 "미지정".
+  function toMonth(s) {
+    s = String(s || "").trim();
+    if (/^\d{8}$/.test(s)) return s.slice(0, 4) + "-" + s.slice(4, 6);
+    var m = s.match(/(20\d\d)\D+(\d{1,2})/);
+    if (m) return m[1] + "-" + String(m[2]).padStart(2, "0");
+    return "미지정";
+  }
 
   // 브라우저 내장 기능(DecompressionStream)으로 .xlsx(zip) 직접 읽기 — 외부 라이브러리 불필요
   async function readXlsx(file) {
@@ -518,25 +541,42 @@
       const { sheet, shared } = await readXlsx(file);
       if (!sheet) throw new Error("시트를 찾지 못했어요");
       const rows = parseSheet(sheet, parseShared(shared));
-      let nameCol = null, phoneCol = null, headerIdx = -1;
-      for (let i = 0; i < Math.min(rows.length, 6); i++) {
-        for (const col in rows[i]) {
-          const val = (rows[i][col] || "").trim();
-          if (["이름", "성명", "학생명", "수강생"].includes(val)) nameCol = col;
-          if (val === "연락처" || val.includes("전화") || val.includes("휴대") || val.includes("핸드폰")) phoneCol = col;
-        }
-        if (nameCol && phoneCol) { headerIdx = i; break; }
+      // 헤더 한 줄에서 컬럼 종류를 판별한다(우선순위 순서 중요: 메모→멤버쉽이 요일보다 먼저).
+      function classify(v) {
+        if (["이름", "성명", "학생명", "수강생"].includes(v)) return "name";
+        if (v === "연락처" || v.includes("전화") || v.includes("휴대") || v.includes("핸드폰")) return "phone";
+        if (v.includes("레벨")) return "level";
+        if (v.includes("개강") || v.includes("시작일")) return "date";
+        if (v.includes("시간")) return "time";
+        if (v.includes("멤버") || v.includes("메모")) return "membership";
+        if (v.includes("요일")) return "days";
+        if (v.includes("비고") || v.includes("신규") || v.includes("재등록") || v.includes("재수강")) return "note";
+        return null;
       }
-      if (!nameCol || !phoneCol) throw new Error("'이름'과 '연락처' 열을 찾지 못했어요");
+      let cols = {}, headerIdx = -1;
+      for (let i = 0; i < Math.min(rows.length, 8); i++) {
+        const found = {};
+        for (const col in rows[i]) {
+          const cat = classify((rows[i][col] || "").trim());
+          if (cat && !found[cat]) found[cat] = col;
+        }
+        if (found.name && found.phone) { cols = found; headerIdx = i; break; }
+      }
+      if (!cols.name || !cols.phone) throw new Error("'이름'과 '연락처' 열을 찾지 못했어요");
+      const gcell = (row, c) => (cols[c] ? (row[cols[c]] || "").trim() : "");
       const seen = new Set(); let dupPeople = 0;
       for (let i = headerIdx + 1; i < rows.length; i++) {
-        const name = (rows[i][nameCol] || "").trim();
+        const name = (rows[i][cols.name] || "").trim();
         if (!name) continue;
-        const phoneDigits = (rows[i][phoneCol] || "").replace(/\D/g, "");
+        const phoneDigits = (rows[i][cols.phone] || "").replace(/\D/g, "");
         const key = name + "|" + phoneDigits;       // 동일인 = 이름+전화 동일
         if (seen.has(key)) { dupPeople++; continue; }
         seen.add(key);
-        bulkRows.push({ name, code: name.replace(/\s+/g, "") + phoneDigits.slice(-4) });   // 한글 풀네임 + 전화 뒤4
+        bulkRows.push({
+          name, code: name.replace(/\s+/g, "") + phoneDigits.slice(-4),   // 한글 풀네임 + 전화 뒤4
+          level: gcell(rows[i], "level"), time: gcell(rows[i], "time"), days: gcell(rows[i], "days"),
+          membership: gcell(rows[i], "membership"), note: gcell(rows[i], "note"), month: toMonth(gcell(rows[i], "date"))
+        });
       }
       if (!bulkRows.length) throw new Error("학생 행을 찾지 못했어요");
       renderPreview();
@@ -558,8 +598,26 @@
         if (d && d.ok) ok++; else if (d && d.error === "exists") dup++; else fail++;
       } catch (e) { fail++; }
     }
+    // 월별 명단 서버 저장(코드 생성과 별개) — roster 에 upsert. 엑셀에서 읽은 필드 그대로.
+    var savedMsg = "";
+    if (GBASE && valid.length) {
+      $("xmsg").textContent = "명단 저장 중…";
+      var rrows = valid.map(r => ({
+        code: r.code, name: r.name, month: r.month || "미지정",
+        level: r.level || "", class_time: r.time || "", days: r.days || "",
+        membership: r.membership || "", note: r.note || "", teacher: ""
+      }));
+      try {
+        var rr = await fetch(GBASE + "/roster?admin=" + encodeURIComponent(admin), {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows: rrows })
+        });
+        var rd = rr.ok ? await rr.json() : null;
+        savedMsg = (rd && rd.ok) ? " · 명단 " + (rd.count || rrows.length) + "건 저장" : " · 명단 저장 실패";
+      } catch (e) { savedMsg = " · 명단 저장 실패"; }
+      rosterRows = null;   // 월별 명단 뷰 다음 진입 시 새로 로드
+    }
     $("bulkadd").disabled = false;
-    $("xmsg").textContent = "완료: 추가 " + ok + "명" + (dup ? ", 이미있음 " + dup : "") + (fail ? ", 실패 " + fail : "");
+    $("xmsg").textContent = "완료: 추가 " + ok + "명" + (dup ? ", 이미있음 " + dup : "") + (fail ? ", 실패 " + fail : "") + savedMsg;
     $("xmsg").className = fail ? "verdict no" : "verdict ok";
     $("preview").innerHTML = ""; $("bulkadd").style.display = "none"; bulkRows = []; $("xlsxfile").value = "";
     load();
@@ -735,17 +793,84 @@
     $("plist-view").style.display = "none"; $("pdetail-view").style.display = "block";
   }
   function switchTab(which) {
-    const prog = which === "prog", mock = which === "mock", code = !prog && !mock;
+    const prog = which === "prog", mock = which === "mock", roster = which === "roster",
+          code = !prog && !mock && !roster;
     $("code-panel").style.display = code ? "block" : "none";
+    $("roster-panel").style.display = roster ? "block" : "none";
     $("prog-panel").style.display = prog ? "block" : "none";
     $("mock-panel").style.display = mock ? "block" : "none";
     $("tab-code").className = "btn btn-sm " + (code ? "btn-grind" : "btn-ghost");
+    $("tab-roster").className = "btn btn-sm " + (roster ? "btn-grind" : "btn-ghost");
     $("tab-prog").className = "btn btn-sm " + (prog ? "btn-grind" : "btn-ghost");
     $("tab-mock").className = "btn btn-sm " + (mock ? "btn-grind" : "btn-ghost");
-    $("akick").textContent = mock ? "ADMIN · MOCK REPORTS" : prog ? "ADMIN · STUDENT PROGRESS" : "ADMIN · CODE MANAGER";
-    $("atitle").textContent = mock ? "모의고사 리포트" : prog ? "학생 진도" : "코드 관리";
+    $("akick").textContent = mock ? "ADMIN · MOCK REPORTS" : roster ? "ADMIN · MONTHLY ROSTER" : prog ? "ADMIN · STUDENT PROGRESS" : "ADMIN · CODE MANAGER";
+    $("atitle").textContent = mock ? "모의고사 리포트" : roster ? "월별 명단" : prog ? "학생 진도" : "코드 관리";
     if (prog) { $("plist-view").style.display = "block"; $("pdetail-view").style.display = "none"; if (!students.length) loadProg(); }
     if (mock) { mkSummary = null; if (!allCodes.length) load().then(renderMock); else renderMock(); }
+    if (roster) { loadRoster(); }
+  }
+
+  /* ---------- 월별 명단 ---------- */
+  let rosterRows = null;
+  function monthLabel(m) {
+    var x = /^(\d{4})-(\d{2})$/.exec(m || "");
+    return x ? (x[1] + "년 " + parseInt(x[2], 10) + "월") : (m || "미지정");
+  }
+  function loadRoster() {
+    if (!GBASE) { $("rlist").innerHTML = '<p class="lead no">채점 서버(NEO_GRADER)가 설정되지 않았어요.</p>'; return; }
+    if (rosterRows) { renderRoster(); return; }
+    $("rlist").innerHTML = '<div class="mk-loading"><div class="neo-spin"></div><span>명단 불러오는 중…</span></div>';
+    Promise.all([
+      fetch(GBASE + "/roster?admin=" + encodeURIComponent(admin), { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null),
+      loadMockAccess()
+    ]).then(function (res) {
+      rosterRows = (res[0] && res[0].rows) || [];
+      buildMonthOptions();
+      renderRoster();
+    });
+  }
+  function buildMonthOptions() {
+    var months = {};
+    rosterRows.forEach(function (r) { var m = r.month || "미지정"; months[m] = (months[m] || 0) + 1; });
+    var keys = Object.keys(months).sort().reverse();   // 최신 월 먼저
+    var sel = $("rmonth"), prev = sel.value;
+    sel.innerHTML = keys.length
+      ? keys.map(function (m) { return '<option value="' + esc(m) + '">' + esc(monthLabel(m)) + ' (' + months[m] + '명)</option>'; }).join("")
+      : '<option value="">명단 없음</option>';
+    if (keys.indexOf(prev) >= 0) sel.value = prev;
+  }
+  function renderRoster() {
+    if (!rosterRows) return;
+    var m = $("rmonth").value;
+    var list = rosterRows.filter(function (r) { return (r.month || "미지정") === m; });
+    list.sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || ""), "ko"); });
+    if (!list.length) { $("rlist").innerHTML = '<p class="lead">이 달 명단이 없어요. 코드 관리 탭에서 엑셀 명단을 올리면 개강월별로 정리돼요.</p>'; $("rmsg").textContent = ""; return; }
+    var rows = list.map(function (r, i) {
+      var on = !!mockMap[r.code];
+      return '<tr>' +
+        '<td class="mk-cell" style="width:34px;">' + (i + 1) + '</td>' +
+        '<td class="mk-name">' + esc(r.name || "") + '<span class="mk-code">' + esc(r.code || "") + '</span></td>' +
+        '<td class="mk-cell">' + esc(r.level || "") + '</td>' +
+        '<td class="mk-cell">' + esc(r.class_time || "") + '</td>' +
+        '<td class="mk-cell">' + esc(r.days || "") + '</td>' +
+        '<td class="mk-cell">' + esc(r.membership || "") + '</td>' +
+        '<td class="mk-cell">' + esc(r.note || "") + '</td>' +
+        '<td class="mk-cell"><input type="checkbox" class="neo-chk rmockchk" data-code="' + esc(r.code) + '"' + (on ? ' checked' : '') + '></td>' +
+      '</tr>';
+    }).join("");
+    $("rlist").innerHTML = '<div class="mkscroll"><table class="mktable cmtable"><thead><tr>' +
+      '<th>No.</th><th>이름<span class="th-en">NAME</span></th>' +
+      '<th style="text-align:center;">레벨<span class="th-en">LEVEL</span></th>' +
+      '<th style="text-align:center;">시간<span class="th-en">TIME</span></th>' +
+      '<th style="text-align:center;">요일<span class="th-en">DAYS</span></th>' +
+      '<th style="text-align:center;">멤버쉽<span class="th-en">TIER</span></th>' +
+      '<th style="text-align:center;">비고<span class="th-en">NOTE</span></th>' +
+      '<th style="text-align:center;">모의고사<span class="th-en">MOCK</span></th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    $("rmsg").textContent = monthLabel(m) + " · " + list.length + "명";
+    Array.from(document.querySelectorAll(".rmockchk")).forEach(function (ch) {
+      ch.addEventListener("change", function () { toggleMock(ch.getAttribute("data-code"), ch.checked, ch); });
+    });
   }
 
   /* ---------- 모의고사 리포트 (어드민 풀 리포트) ---------- */
@@ -857,8 +982,11 @@
   }
 
   $("tab-code").addEventListener("click", () => switchTab("code"));
+  $("tab-roster").addEventListener("click", () => switchTab("roster"));
   $("tab-prog").addEventListener("click", () => switchTab("prog"));
   $("tab-mock").addEventListener("click", () => switchTab("mock"));
+  $("rrefresh").addEventListener("click", () => { rosterRows = null; loadRoster(); });
+  $("rmonth").addEventListener("change", renderRoster);
   $("mksearch").addEventListener("input", renderMock);
   $("prefresh").addEventListener("click", loadProg);
   $("psearch").addEventListener("input", renderProg);
