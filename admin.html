@@ -62,6 +62,12 @@
   .cmtable td.mk-name .mk-code { text-transform:none; white-space:nowrap; }
   .cmtable td.mk-cell .neo-chk { vertical-align:middle; }
   .cmtable th, .cmtable td { white-space:nowrap; }
+  /* 월별 명단 요약(집계) — 요일×레벨 / 요일×멤버쉽 */
+  .rsum { display:flex; gap:16px; flex-wrap:wrap; margin:4px 0 18px; }
+  .rsum-box { flex:1 1 320px; min-width:280px; }
+  .rsum-h { font-weight:800; font-size:15px; margin:0 0 6px; }
+  .rsum-box table { min-width:0; }
+  .rsum-tot td { background:var(--neo-acid); font-weight:800; }
 </style>
 </head>
 <body>
@@ -861,6 +867,33 @@
     if (c === 0 && k !== "name") c = String(a.name || "").localeCompare(String(b.name || ""), "ko");
     return c * rSort.dir;
   }
+  /* 집계용 분류기 */
+  function tier(m) { m = String(m || "").toUpperCase(); return m.indexOf("PREMIUM") >= 0 ? "프리미엄" : (m.indexOf("CARE") >= 0 ? "케어" : (m.indexOf("BASIC") >= 0 ? "베이직" : "기타")); }
+  function lvOf(l) { l = String(l || ""); return l.indexOf("80") >= 0 ? "80+" : (l.indexOf("60") >= 0 ? "60+" : "기타"); }
+  function schedOf(d) { d = String(d || "").trim(); return d || "미지정"; }
+  /* 요일 × 레벨, 요일 × 멤버쉽 집계표 HTML */
+  function summaryHTML(list) {
+    var scheds = [], S = {};
+    list.forEach(function (r) {
+      var s = schedOf(r.days);
+      if (!S[s]) { S[s] = { "80+": 0, "60+": 0, "베이직": 0, "케어": 0, "프리미엄": 0, tot: 0 }; scheds.push(s); }
+      var o = S[s]; o.tot++;
+      var lv = lvOf(r.level); if (o[lv] != null) o[lv]++;
+      var t = tier(r.membership); if (o[t] != null) o[t]++;
+    });
+    scheds.sort(function (a, b) { return S[b].tot - S[a].tot; });
+    var T = { "80+": 0, "60+": 0, "베이직": 0, "케어": 0, "프리미엄": 0, tot: 0 };
+    scheds.forEach(function (s) { ["80+", "60+", "베이직", "케어", "프리미엄", "tot"].forEach(function (k) { T[k] += S[s][k]; }); });
+    var cell = function (v, b) { return '<td class="mk-cell">' + (b ? "<b>" + v + "</b>" : v) + '</td>'; };
+    var lvRows = scheds.map(function (s) { var o = S[s]; return '<tr><td class="mk-name">' + esc(s) + '</td>' + cell(o["80+"]) + cell(o["60+"]) + cell(o.tot, 1) + '</tr>'; }).join("")
+      + '<tr class="rsum-tot"><td class="mk-name">계</td>' + cell(T["80+"]) + cell(T["60+"]) + cell(T.tot, 1) + '</tr>';
+    var tierRows = scheds.map(function (s) { var o = S[s]; return '<tr><td class="mk-name">' + esc(s) + '</td>' + cell(o["베이직"]) + cell(o["케어"]) + cell(o["프리미엄"]) + cell(o.tot, 1) + '</tr>'; }).join("")
+      + '<tr class="rsum-tot"><td class="mk-name">계</td>' + cell(T["베이직"]) + cell(T["케어"]) + cell(T["프리미엄"]) + cell(T.tot, 1) + '</tr>';
+    return '<div class="rsum">' +
+      '<div class="rsum-box"><div class="rsum-h">요일 × 레벨</div><table class="mktable cmtable"><thead><tr><th>요일</th><th style="text-align:center;">80+</th><th style="text-align:center;">60+</th><th style="text-align:center;">계</th></tr></thead><tbody>' + lvRows + '</tbody></table></div>' +
+      '<div class="rsum-box"><div class="rsum-h">요일 × 멤버쉽</div><table class="mktable cmtable"><thead><tr><th>요일</th><th style="text-align:center;">베이직</th><th style="text-align:center;">케어</th><th style="text-align:center;">프리미엄</th><th style="text-align:center;">계</th></tr></thead><tbody>' + tierRows + '</tbody></table></div>' +
+      '</div>';
+  }
   function rTh(label, en, key, center) {
     var active = rSort.key === key;
     var arrow = active ? (rSort.dir === 1 ? " ▲" : " ▼") : " ↕";
@@ -922,7 +955,8 @@
         '<td class="mk-cell">' + mockChk(r.code, 2) + '</td>' +
       '</tr>';
     }).join("");
-    $("rlist").innerHTML = '<div class="mkscroll"><table class="mktable cmtable"><thead><tr>' +
+    $("rlist").innerHTML = summaryHTML(list) +
+      '<div class="mkscroll"><table class="mktable cmtable"><thead><tr>' +
       '<th>No.</th>' +
       rTh("이름", "NAME", "name", false) +
       rTh("레벨", "LEVEL", "level", true) +
