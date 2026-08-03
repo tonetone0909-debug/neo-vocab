@@ -326,6 +326,27 @@
     Array.from(document.querySelectorAll(".mockchk")).forEach(ch =>
       ch.addEventListener("change", () => toggleMock(ch.getAttribute("data-code"), ch.getAttribute("data-set"), ch.checked, ch)));
   }
+  /* 월별 명단 — 교재구매 여부(내부 확인용). roster 행의 book 필드에 저장. */
+  function bookChk(r) {
+    var m = r.month || "미지정";
+    return '<input type="checkbox" class="neo-chk bookchk" data-code="' + esc(r.code) + '" data-month="' + esc(m) + '"' + (r.book ? ' checked' : '') + '>';
+  }
+  function toggleBook(code, month, checked, ch) {
+    if (!GBASE) { ch.checked = !checked; return; }
+    ch.disabled = true;
+    fetch(GBASE + "/roster-book?admin=" + encodeURIComponent(admin), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: code, month: month, book: checked })
+    }).then(r => r.ok ? r.json() : null).then(d => {
+      ch.disabled = false;
+      if (d && d.ok) { (rosterRows || []).forEach(function (x) { if (x.code === code && (x.month || "미지정") === month) x.book = checked; }); }
+      else { ch.checked = !checked; alert("교재구매 저장 실패" + (d && d.error ? ": " + d.error : "")); }
+    }).catch(function () { ch.disabled = false; ch.checked = !checked; alert("교재구매 저장 실패 — 네트워크 오류"); });
+  }
+  function bindBookChks() {
+    Array.from(document.querySelectorAll(".bookchk")).forEach(ch =>
+      ch.addEventListener("change", () => toggleBook(ch.getAttribute("data-code"), ch.getAttribute("data-month"), ch.checked, ch)));
+  }
   /* 선택한 코드들 모의고사 일괄 ON/OFF — 세트 1·2 모두. */
   async function bulkMock(enabled) {
     const codes = selectedCodes();
@@ -979,6 +1000,7 @@
       return '<tr>' +
         '<td class="mk-cell" style="width:34px;">' + (i + 1) + '</td>' +
         '<td class="mk-name">' + esc(r.name || "") + '<span class="mk-code">' + esc(r.code || "") + '</span></td>' +
+        '<td class="mk-cell">' + bookChk(r) + '</td>' +
         '<td class="mk-cell">' + esc(r.level || "") + '</td>' +
         '<td class="mk-cell">' + esc(r.class_time || "") + '</td>' +
         '<td class="mk-cell">' + esc(r.days || "") + '</td>' +
@@ -992,6 +1014,7 @@
       '<div class="mkscroll"><table class="mktable cmtable"><thead><tr>' +
       '<th>No.</th>' +
       rTh("이름", "NAME", "name", false) +
+      '<th style="text-align:center;">교재구매<span class="th-en">BOOK</span></th>' +
       rTh("레벨", "LEVEL", "level", true) +
       rTh("시간", "TIME", "class_time", true) +
       rTh("요일", "DAYS", "days", true) +
@@ -1009,6 +1032,7 @@
       });
     });
     bindMockChks();
+    bindBookChks();
   }
 
   /* ---------- 모의고사 리포트 (어드민 풀 리포트) ---------- */
