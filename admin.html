@@ -130,8 +130,6 @@
         <input type="checkbox" id="selall" class="neo-chk"> 전체 선택 <span id="selcount" style="opacity:.7;font-weight:700;"></span>
       </label>
       <span style="display:flex;gap:8px;flex:0 0 auto;flex-wrap:wrap;">
-        <button class="btn btn-sm btn-known" id="mockon" disabled>모의고사 ON</button>
-        <button class="btn btn-sm btn-ghost" id="mockoff" disabled>모의고사 OFF</button>
         <button class="btn btn-sm btn-ghost" id="csvexport">CSV ↓</button>
         <button class="btn btn-sm btn-hard" id="bulkdel" disabled>선택 삭제</button>
       </span>
@@ -282,6 +280,12 @@
   function mockChk(code, set) {
     return '<input type="checkbox" class="neo-chk mockchk" data-code="' + esc(code) + '" data-set="' + set + '"' + (mockHas(code, set) ? ' checked' : '') + '>';
   }
+  // 코드 관리 탭 전용 — 읽기 전용 배정 상태(배정은 월별 명단에서만).
+  function mockStat(code, set) {
+    return mockHas(code, set)
+      ? '<span class="rbadge">배정</span>'
+      : '<span style="opacity:.4;font-weight:700;">–</span>';
+  }
   function loadMockAccess() {
     if (!GBASE) { mockMap = {}; return Promise.resolve(); }
     return fetch(GBASE + "/mock-access?admin=" + encodeURIComponent(admin), { cache: "no-store" })
@@ -365,8 +369,8 @@
       '<td class="mk-cell"><span class="acc-yes">✓</span></td>' +
       '<td class="mk-cell"><span class="acc-yes">✓</span></td>' +
       '<td class="mk-cell">' + rosterCell(c.code) + '</td>' +
-      '<td class="mk-cell">' + mockChk(c.code, 1) + '</td>' +
-      '<td class="mk-cell">' + mockChk(c.code, 2) + '</td>' +
+      '<td class="mk-cell">' + mockStat(c.code, 1) + '</td>' +
+      '<td class="mk-cell">' + mockStat(c.code, 2) + '</td>' +
       '<td class="mk-cell"><button class="btn btn-sm btn-hard del" data-code="' + esc(c.code) + '">삭제</button></td>' +
     '</tr>';
   }
@@ -396,7 +400,6 @@
       Array.from(document.querySelectorAll(".del")).forEach(b => b.addEventListener("click", e => { e.stopPropagation(); del(b.getAttribute("data-code")); }));
       Array.from(document.querySelectorAll(".copycode")).forEach(el => el.addEventListener("click", () => copyCode(el)));
       Array.from(document.querySelectorAll(".rowchk")).forEach(ch => ch.addEventListener("change", updateSel));
-      bindMockChks();
     }
     $("selall").checked = false; $("selall").indeterminate = false;
     updateSel();
@@ -407,7 +410,6 @@
     $("selcount").textContent = sel ? "· " + sel + "개 선택" : "";
     $("bulkdel").disabled = !sel;
     $("bulkdel").textContent = sel ? "선택 " + sel + "개 삭제" : "선택 삭제";
-    $("mockon").disabled = !sel; $("mockoff").disabled = !sel;
     $("selall").checked = total > 0 && sel === total;
     $("selall").indeterminate = sel > 0 && sel < total;
   }
@@ -1146,8 +1148,6 @@
   });
   $("bulkdel").addEventListener("click", bulkDelete);
   $("csvexport").addEventListener("click", exportCsv);
-  $("mockon").addEventListener("click", () => bulkMock(true));
-  $("mockoff").addEventListener("click", () => bulkMock(false));
   $("logout").addEventListener("click", () => {
     ["neo_admin", "neo_code", "neo_auth_ok", "neo_role"].forEach(k => sessionStorage.removeItem(k));
     location.href = "login.html";
