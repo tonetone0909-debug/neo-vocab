@@ -718,14 +718,13 @@
     var admin = false; try { admin = sessionStorage.getItem("neo_role") === "admin"; } catch (e) {}
     if (admin || ["랍슨4355", "사랑0624", "마리6789"].indexOf(code()) >= 0) return Promise.resolve(true);
     var want = String(SET);   // 이 세트가 배정돼 있어야 응시 가능
-    try {
-      if (sessionStorage.getItem("neo_mock_code") === code()) {
-        var cs = (sessionStorage.getItem("neo_mock_sets") || "").split(",");
-        return Promise.resolve(cs.indexOf(want) >= 0);
-      }
-    } catch (e) {}
+    function cachedHas() {    // 서버 실패 시에만 폴백
+      try { if (sessionStorage.getItem("neo_mock_code") === code()) return (sessionStorage.getItem("neo_mock_sets") || "").split(",").indexOf(want) >= 0; } catch (e) {}
+      return false;
+    }
     var g = (window.NEO_GRADER && NEO_GRADER.url) ? NEO_GRADER.url.replace(/\/+$/, "") : "";
-    if (!g || !code()) return Promise.resolve(false);
+    if (!g || !code()) return Promise.resolve(cachedHas());
+    // 항상 서버에서 최신 배정 확인(해제 즉시 반영). 실패 시에만 캐시 폴백.
     return fetch(g + "/mock-allowed?code=" + encodeURIComponent(code()), { cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
@@ -733,7 +732,7 @@
         try { sessionStorage.setItem("neo_mock_code", code()); sessionStorage.setItem("neo_mock_sets", sets.join(",")); } catch (e) {}
         return sets.indexOf(want) >= 0;
       })
-      .catch(function () { return false; });
+      .catch(function () { return cachedHas(); });
   }
   function blockedGate() {
     stage.innerHTML = "";
