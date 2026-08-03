@@ -48,7 +48,7 @@
 <script>
 (function () {
   "use strict";
-  if (window.NEO_MOBILE && NEO_MOBILE.guard()) return;   // 폰이면 여기서 차단
+  if (window.NEO_MOBILE && NEO_MOBILE.guardMock()) return;   // 폰·태블릿이면 차단(PC 전용)
   var R = window.NEO_REVIEW, el = R.el;
   var host = document.getElementById("list");
 

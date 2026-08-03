@@ -18,6 +18,17 @@
     } catch (e) { return false; }
   }
 
+  // 폰 + 태블릿(=PC가 아닌 터치기기). 모의고사는 넓은 화면·키보드가 필요해 PC 전용.
+  // 태블릿 판별: 마우스(fine pointer)가 없고 터치가 있으면 태블릿(iPadOS 데스크탑 UA 포함).
+  function isMobileOrTablet() {
+    try {
+      if (isPhone()) return true;
+      var hasFine = !!(window.matchMedia && matchMedia("(any-pointer: fine)").matches);
+      var touch = (navigator.maxTouchPoints || 0) > 0 || ("ontouchstart" in window);
+      return touch && !hasFine;
+    } catch (e) { return false; }
+  }
+
   function block() {
     try { document.documentElement.style.visibility = "visible"; } catch (e) {}
     var overlay =
@@ -52,7 +63,10 @@
 
   window.NEO_MOBILE = {
     isPhone: isPhone,
+    isMobileOrTablet: isMobileOrTablet,
     /* 폰이면 차단 화면을 띄우고 true 반환(호출부가 return 으로 중단). */
-    guard: function () { if (!isPhone()) return false; block(); return true; }
+    guard: function () { if (!isPhone()) return false; block(); return true; },
+    /* 모의고사 응시용 — 폰·태블릿이면 차단(PC 전용). */
+    guardMock: function () { if (!isMobileOrTablet()) return false; block(); return true; }
   };
 })();

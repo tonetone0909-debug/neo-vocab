@@ -43,6 +43,17 @@
   .hub-foot { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
   .hub-foot .who { font-size: 14px; font-weight: 700; color: var(--neo-ink); }
   .hub-foot .sp { margin-left: auto; }
+  /* 폰·패드 — 모의고사 카드 회색 처리 + PC 전용 안내 스탬프 */
+  .mock-locked { position: relative; pointer-events: none; box-shadow: var(--sh-1) !important; }
+  .mock-locked > *:not(.mock-pc-note) { opacity: .28; filter: grayscale(1); }
+  .mock-pc-note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 12px; }
+  .mock-pc-note span {
+    border: 3px solid var(--neo-hot); color: var(--neo-hot);
+    font-family: var(--font-display-kr), 'Noto Sans KR', sans-serif; font-weight: 900;
+    font-size: clamp(15px, 4.4vw, 20px); line-height: 1.25; letter-spacing: -0.01em; text-align: center;
+    padding: 10px 16px; transform: rotate(-6deg); background: rgba(255, 255, 255, 0.92);
+    border-radius: 6px; box-shadow: 4px 4px 0 var(--neo-ink);
+  }
 </style>
 </head>
 <body>
@@ -119,14 +130,28 @@
   // 강사 무제한/점프(자유 모드)는 exam.html 의 FREE_CODES 에 따로 있다(현재 랍슨4355).
   var FREE_CODES = ["랍슨4355", "사랑0624", "마리6789"];
   var mock = document.getElementById("mock-card");
-  function showMock(on) { if (mock) mock.style.display = on ? "" : "none"; }
-  var isPhone = window.NEO_MOBILE && NEO_MOBILE.isPhone();   // 모의고사는 PC 전용
+  // 폰·패드에서는 배정된 학생이라도 카드를 회색으로 두고 'PC 전용' 안내를 덮는다(응시는 PC만).
+  var mobile = window.NEO_MOBILE && NEO_MOBILE.isMobileOrTablet();
+  function lockMock() {
+    if (!mock || mock.querySelector(".mock-pc-note")) return;
+    mock.classList.add("mock-locked");
+    mock.setAttribute("aria-disabled", "true");
+    mock.addEventListener("click", function (e) { e.preventDefault(); }, true);
+    var n = document.createElement("div"); n.className = "mock-pc-note";
+    n.innerHTML = "<span>🖥 모의고사는<br>PC로만 진행 가능해요</span>";
+    mock.appendChild(n);
+  }
+  function applyMock(allowed) {
+    if (!mock) return;
+    if (!allowed) { mock.style.display = "none"; return; }
+    mock.style.display = "";
+    if (mobile) lockMock();
+  }
   var isAdmin = false;
   try { isAdmin = sessionStorage.getItem("neo_role") === "admin"; } catch (e) {}
-  if (isPhone) { showMock(false); }
-  else if (isAdmin || FREE_CODES.indexOf(c) >= 0) { showMock(true); }
+  if (isAdmin || FREE_CODES.indexOf(c) >= 0) { applyMock(true); }
   else {
-    showMock(false);   // 확인 전에는 숨겨두고, 배정된 세트가 하나라도 있으면 카드를 보인다.
+    if (mock) mock.style.display = "none";   // 확인 전에는 숨겨두고, 배정된 세트가 하나라도 있으면 표시.
     var g = (window.NEO_GRADER && NEO_GRADER.url) ? NEO_GRADER.url.replace(/\/+$/, "") : "";
     if (g && c) {
       fetch(g + "/mock-allowed?code=" + encodeURIComponent(c), { cache: "no-store" })
@@ -134,7 +159,7 @@
         .then(function (d) {
           var sets = (d && d.sets) || [];
           try { sessionStorage.setItem("neo_mock_code", c); sessionStorage.setItem("neo_mock_sets", sets.join(",")); } catch (e) {}
-          showMock(sets.length > 0);
+          applyMock(sets.length > 0);
         })
         .catch(function () {});
     }
