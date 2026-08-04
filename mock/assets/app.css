@@ -605,6 +605,19 @@ mark.hl {
 .sp-panel.rec .sp-clock { color: var(--neo-ink); }
 .sp-panel.done { opacity: .5; }
 .sp-note { font-size: 14px; font-weight: 700; margin-top: 14px; min-height: 20px; }
+/* 지시 화면 Next — 안내문 재생 끝나기 전엔 회색(disabled), 끝나면 활성화 */
+.sp-dir-next { margin-top: 20px; }
+.sp-next-btn {
+  font-family: inherit; font-weight: 800; font-size: 16px;
+  border: 3px solid var(--neo-ink); background: var(--neo-acid); color: var(--neo-ink);
+  padding: 11px 30px; border-radius: 8px; box-shadow: 4px 4px 0 var(--neo-ink); cursor: pointer;
+  transition: transform var(--dur-fast, .15s) var(--ease-snap, ease);
+}
+.sp-next-btn:not(:disabled):hover { transform: translate(-1px, -1px); }
+.sp-next-btn:disabled {
+  background: var(--neo-paper-2); color: var(--neo-mute-aa); border-color: var(--neo-mute-aa);
+  box-shadow: none; cursor: not-allowed;
+}
 
 /* 화자 이미지 — 없으면 render-l.js 가 도형으로 떨어뜨린다 */
 .fig-img {

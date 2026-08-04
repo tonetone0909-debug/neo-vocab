@@ -95,7 +95,8 @@
   }
 
   /* 지시 화면 — 지시문 + 이미지(Task2 면접관 초상 / Task1 흑백 장면) + 여성·US TTS 낭독.
-   * 낭독이 끝나면(또는 미지원/실패 시) 곧바로 1번 문항으로 진행한다. */
+   * 낭독이 끝나야 Next 버튼이 켜지고(그 전엔 회색), Next 를 눌러야 1번 문항으로 넘어간다
+   * (자동 전환 시 1번 음원이 잘리던 문제 해결). */
   function directionScreen(host, g, done) {
     host.innerHTML = "";
     var box = el("div", "single speak-single sp-direction");
@@ -111,22 +112,34 @@
       media.appendChild(im);
       box.appendChild(media);
     }
-    box.appendChild(el("div", "sp-note", "Listen to the directions."));
+    var note = el("div", "sp-note", "Listen to the directions.");
+    box.appendChild(note);
+    var nextWrap = el("div", "sp-dir-next");
+    var nextBtn = el("button", "sp-next-btn", "Next →");
+    nextBtn.type = "button";
+    nextBtn.disabled = true;                 // 안내문 재생 끝나기 전엔 회색(비활성)
+    nextWrap.appendChild(nextBtn);
+    box.appendChild(nextWrap);
     host.appendChild(box);
 
     var moved = false;
-    function proceed() { if (moved) return; moved = true; sTimeout(done, 500); }
+    function proceed() { if (moved || nextBtn.disabled) return; moved = true; sTimeout(done, 200); }
+    nextBtn.addEventListener("click", proceed);
+    function ready() {                        // 안내문 낭독 끝 → Next 활성화
+      nextBtn.disabled = false;
+      note.textContent = "When you are ready, press Next to begin.";
+    }
     // 지시문 음원(질문 음원처럼 미리 생성한 여성·US mp3)을 재생. 아직 없으면 브라우저 TTS 폴백.
     if (g.dir_audio) {
       var au = new Audio(g.dir_audio);
       if (sLive) sLive.dirAu = au;
       if (window.NEO_VOL) NEO_VOL.apply(au);
-      au.addEventListener("ended", proceed);
-      au.addEventListener("error", function () { speakTTS(g.instr, proceed); });
+      au.addEventListener("ended", ready);
+      au.addEventListener("error", function () { speakTTS(g.instr, ready); });
       var p = au.play();
-      if (p && p.catch) p.catch(function () { speakTTS(g.instr, proceed); });
+      if (p && p.catch) p.catch(function () { speakTTS(g.instr, ready); });
     } else {
-      speakTTS(g.instr, proceed);
+      speakTTS(g.instr, ready);
     }
   }
 
