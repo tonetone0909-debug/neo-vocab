@@ -198,10 +198,7 @@
   </div>
 </main>
 
-<script src="vocab/data/meta.js"></script>
-<script src="vocab/data/vocab.js"></script>
-<script src="vocab/data/blanks.js"></script>
-<script src="vocab/assets/deck.js"></script>
+<!-- 어휘 데이터(meta/vocab/blanks/deck)는 대용량 → 어드민 첫 로드에서 빼고, '학생 진도' 탭 첫 진입 시 동적 로드(ensureVocabData). -->
 <!-- Writing 진도 분모(개념·세트 수)만 필요 → 소형 메타(908B). w1.js/w1_mock.js 는 로드하지 않음. -->
 <script src="writing/data/w1_meta.js"></script>
 <script src="assets/config.js"></script>
@@ -242,6 +239,23 @@
 
   let allCodes = [];
 
+  // 어휘 데이터(대용량)는 '학생 진도' 탭에서만 필요 → 처음 열 때 한 번만 동적 로드.
+  var vocabLoaded = false, vocabLoading = null;
+  function ensureVocabData() {
+    if (vocabLoaded) return Promise.resolve();
+    if (vocabLoading) return vocabLoading;
+    var srcs = ["vocab/data/meta.js", "vocab/data/vocab.js", "vocab/data/blanks.js", "vocab/assets/deck.js"];
+    vocabLoading = srcs.reduce(function (p, s) {
+      return p.then(function () {
+        return new Promise(function (res) {
+          var el = document.createElement("script");
+          el.src = s; el.onload = res; el.onerror = res; document.head.appendChild(el);
+        });
+      });
+    }, Promise.resolve()).then(function () { vocabLoaded = true; });
+    return vocabLoading;
+  }
+
   function load() {
     $("list").innerHTML = '<div class="mk-loading"><div class="neo-spin"></div><span>불러오는 중…</span></div>';
     return api("action=list&admin=" + encodeURIComponent(admin)).then(d => {
@@ -251,7 +265,9 @@
       }
       allCodes = d.codes || [];
       $("count").textContent = allCodes.length;
-      return Promise.all([loadMockAccess(), loadRosterData()]).then(render);
+      render();   // 코드 목록 즉시 렌더(모의고사/월별명단 칼럼은 데이터 도착 후 채움)
+      // grader 데이터(모의고사 배정·명단)는 백그라운드 — Render 콜드스타트가 초기 렌더를 막지 않게.
+      Promise.all([loadMockAccess(), loadRosterData()]).then(function () { render(); });
     }).catch(() => { $("list").innerHTML = '<p class="lead no">인터넷 연결이 필요해요.</p>'; });
   }
 
@@ -895,7 +911,7 @@
     $("tab-mock").className = "btn btn-sm " + (mock ? "btn-grind" : "btn-ghost");
     $("akick").textContent = mock ? "ADMIN · MOCK REPORTS" : roster ? "ADMIN · MONTHLY ROSTER" : prog ? "ADMIN · STUDENT PROGRESS" : "ADMIN · CODE MANAGER";
     $("atitle").textContent = mock ? "모의고사 리포트" : roster ? "월별 명단" : prog ? "학생 진도" : "코드 관리";
-    if (prog) { $("plist-view").style.display = "block"; $("pdetail-view").style.display = "none"; if (!students.length) loadProg(); }
+    if (prog) { $("plist-view").style.display = "block"; $("pdetail-view").style.display = "none"; ensureVocabData().then(function () { if (!students.length) loadProg(); }); }
     if (mock) { mkSummary = null; if (!allCodes.length) load().then(renderMock); else renderMock(); }
     if (roster) { loadRoster(); }
   }
