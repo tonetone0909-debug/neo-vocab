@@ -162,17 +162,28 @@
 
       // 2) 백그라운드 새로고침 (캐시 5분 넘었거나 없을 때만) → 상태 보정 + 캐시 갱신
       const fresh = cached && cached.code === code && (Date.now() - cached.ts < 5 * 60 * 1000);
-      if (authUrl && !fresh) {
-        fetch(authUrl + "?action=profile&code=" + encodeURIComponent(code))
-          .then(r => r.json())
-          .then(p => {
-            if (!p || !p.ok) return;
-            try { localStorage.setItem(PKEY, JSON.stringify({ code: code, p: p, ts: Date.now() })); } catch (e) {}
-            try { sessionStorage.setItem("neo_profile", JSON.stringify(p)); } catch (e) {}
-            if (p.membership) { setBadge(p.membership); if (link) link.style.display = "flex"; }
-            else { if (link) link.style.display = "none"; mi.style.display = "none"; mi.innerHTML = ""; }  // 리스트 없으면 표기 X
-          })
-          .catch(() => {});
+      function handleP(p) {
+        if (!p || !p.ok) return;
+        try { localStorage.setItem(PKEY, JSON.stringify({ code: code, p: p, ts: Date.now() })); } catch (e) {}
+        try { sessionStorage.setItem("neo_profile", JSON.stringify(p)); } catch (e) {}
+        if (p.membership) { setBadge(p.membership); if (link) link.style.display = "flex"; }
+        else { if (link) link.style.display = "none"; mi.style.display = "none"; mi.innerHTML = ""; }  // 리스트 없으면 표기 X
+      }
+      function refreshApps() {
+        if (!authUrl) return;
+        fetch(authUrl + "?action=profile&code=" + encodeURIComponent(code)).then(r => r.json()).then(handleP).catch(() => {});
+      }
+      if (!fresh) {
+        // 보카케어 점수는 어드민 앱(Supabase) 우선, 미이관 학생은 기존 시트 폴백.
+        var Gv = ((window.NEO_GRADER || {}).url || "").replace(/\/+$/, "");
+        if (Gv) {
+          fetch(Gv + "/vocacare-profile?code=" + encodeURIComponent(code), { cache: "no-store" })
+            .then(r => r.ok ? r.json() : null)
+            .then(function (d) {
+              if (d && d.membership && d.score != null) handleP({ ok: true, name: d.name, membership: d.membership, score: d.score });
+              else refreshApps();
+            }).catch(refreshApps);
+        } else refreshApps();
       }
     }
     const pad = n => (n < 10 ? "0" : "") + n;

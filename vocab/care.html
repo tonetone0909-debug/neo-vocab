@@ -213,18 +213,33 @@
     }
   } catch (e) {}
 
-  if (!authUrl || !code) { if (!shown) renderEmpty("로그인이 필요해요"); return; }
+  if (!code) { if (!shown) renderEmpty("로그인이 필요해요"); return; }
   if (shown && fresh) return;   // 캐시가 최신이면 재조회 생략(부하↓)
-  fetch(authUrl + "?action=profile&code=" + encodeURIComponent(code))
-    .then(r => r.json())
-    .then(p => {
-      if (!p || !p.ok) { if (!shown) renderEmpty("불러오지 못했어요"); return; }
-      try { localStorage.setItem(PKEY, JSON.stringify({ code: code, p: p, ts: Date.now() })); } catch (e) {}
-      try { sessionStorage.setItem("neo_profile", JSON.stringify(p)); } catch (e) {}
-      if (!p.membership) { renderEmpty("아직 성적 기록이 없어요"); return; }
-      render(p);
-    })
-    .catch(() => { if (!shown) renderEmpty("네트워크 오류"); });
+
+  function useProfile(p) {
+    if (!p || !p.ok) { if (!shown) renderEmpty("불러오지 못했어요"); return; }
+    try { localStorage.setItem(PKEY, JSON.stringify({ code: code, p: p, ts: Date.now() })); } catch (e) {}
+    try { sessionStorage.setItem("neo_profile", JSON.stringify(p)); } catch (e) {}
+    if (!p.membership) { renderEmpty("아직 성적 기록이 없어요"); return; }
+    render(p);
+  }
+  function fromApps() {
+    if (!authUrl) { if (!shown) renderEmpty("불러오지 못했어요"); return; }
+    fetch(authUrl + "?action=profile&code=" + encodeURIComponent(code))
+      .then(r => r.json()).then(useProfile)
+      .catch(() => { if (!shown) renderEmpty("네트워크 오류"); });
+  }
+  // 보카케어 점수는 어드민 앱(Supabase)이 우선. 이관 안 된 학생은 기존 시트(Apps Script) 폴백 → 무regression.
+  var G = ((window.NEO_GRADER || {}).url || "").replace(/\/+$/, "");
+  if (G) {
+    fetch(G + "/vocacare-profile?code=" + encodeURIComponent(code), { cache: "no-store" })
+      .then(r => r.ok ? r.json() : null)
+      .then(function (d) {
+        if (d && d.membership && d.score != null) useProfile({ ok: true, name: d.name, membership: d.membership, score: d.score });
+        else fromApps();
+      })
+      .catch(fromApps);
+  } else fromApps();
 })();
 </script>
 </body>

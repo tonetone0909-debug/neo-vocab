@@ -97,6 +97,7 @@
       <button class="btn btn-sm btn-ghost" id="tab-roster" style="flex:1;">월별 명단</button>
       <button class="btn btn-sm btn-ghost" id="tab-prog" style="flex:1;">학생 진도</button>
       <button class="btn btn-sm btn-ghost" id="tab-mock" style="flex:1;">모의고사 리포트</button>
+      <button class="btn btn-sm btn-ghost" id="tab-voca" style="flex:1;">보카케어 성적표</button>
     </div>
 
     <div id="code-panel">
@@ -194,6 +195,18 @@
       <div id="rlist"></div>
     </div>
 
+    <div id="voca-panel" style="display:none;">
+      <div class="detail-head" style="margin-top:16px;gap:10px;flex-wrap:wrap;">
+        <span class="sc-l" style="flex:0 0 auto;">월 선택</span>
+        <select id="vmonth" class="quiz-input" style="flex:1;min-width:140px;margin:0;padding:8px 10px;"></select>
+        <button class="btn btn-sm btn-known" id="vsync" style="flex:0 0 auto;">명단에서 Care/Premium 불러오기</button>
+        <button class="btn btn-sm btn-ghost" id="vrefresh" style="flex:0 0 auto;">새로고침 ↻</button>
+      </div>
+      <div class="sc-l" style="opacity:.7;margin:2px 0 8px;">점수 칸(1A~9B)에 입력하면 자동 저장 · 합계=누적+점수합 · 상품은 합계로 자동 표시 (내부 관리용)</div>
+      <div class="verdict" id="vmsg" style="min-height:18px;"></div>
+      <div id="vlist"></div>
+    </div>
+
     <button class="btn btn-sm btn-ghost btn-block" id="logout" style="margin-top:20px;">관리자 로그아웃</button>
   </div>
 </main>
@@ -209,32 +222,57 @@
   if (!url) { document.querySelector(".app").innerHTML = '<p class="lead" style="margin-top:30px;">인증 백엔드(URL)가 아직 설정되지 않았어요. <code>assets/config.js</code>에 URL을 넣으면 관리자 기능이 활성화돼요. (AUTH_SETUP.md 참고)</p>'; return; }
 
   let admin = sessionStorage.getItem("neo_admin") || "";
+  let adminLevel = sessionStorage.getItem("neo_admin_level") || "";   // 'admin' | 'vocacare'
 
   function api(params) {
     return fetch(url + "?" + params).then(r => r.json());
   }
   function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
 
+  // 접근등급에 따라 탭 노출. vocacare = 보카케어 탭만.
+  function applyLevel() {
+    var voca = adminLevel === "vocacare";
+    ["tab-code", "tab-roster", "tab-prog", "tab-mock"].forEach(function (id) { var b = $(id); if (b) b.style.display = voca ? "none" : ""; });
+    var tv = $("tab-voca"); if (tv) tv.style.display = "";
+    if (voca) switchTab("voca");
+  }
   function showPanel() {
-    // 어드민 세션이 유효하면 앱 세션도 세워둔다 — 학생 리포트/리뷰 페이지(report.html·review.html)를
-    // iframe 으로 그대로 열 때 auth.js(로그인 게이트)를 통과시키기 위함. 어드민 코드는 유효(role=admin)하다.
-    try {
-      sessionStorage.setItem("neo_code", admin);
-      sessionStorage.setItem("neo_auth_ok", "1");
-      sessionStorage.setItem("neo_role", "admin");
-    } catch (e) {}
-    $("gate").style.display = "none"; $("panel").style.display = "block"; load();
+    if (admin && !adminLevel) adminLevel = "admin";   // 구세션 호환(등급 없으면 전체 어드민)
+    // 전체 어드민만 앱 세션을 세운다(리포트/리뷰 iframe auth 통과용). 보카케어 전용은 불필요.
+    if (adminLevel === "admin") {
+      try {
+        sessionStorage.setItem("neo_code", admin);
+        sessionStorage.setItem("neo_auth_ok", "1");
+        sessionStorage.setItem("neo_role", "admin");
+      } catch (e) {}
+    }
+    $("gate").style.display = "none"; $("panel").style.display = "block";
+    applyLevel();
+    if (adminLevel !== "vocacare") load();   // 코드 목록은 전체 어드민만
   }
 
   function gateIn() {
     const c = $("admincode").value.trim();
     if (!c) return;
     $("gmsg").textContent = "확인 중…"; $("gmsg").className = "verdict";
-    api("action=validate&code=" + encodeURIComponent(c)).then(d => {
-      if (d && d.ok && d.role === "admin") {
-        admin = c; sessionStorage.setItem("neo_admin", c); $("gmsg").textContent = ""; showPanel();
+    var G = ((window.NEO_GRADER || {}).url || "").replace(/\/+$/, "");
+    function done(level) {
+      if (level) {
+        admin = c; adminLevel = level;
+        sessionStorage.setItem("neo_admin", c); sessionStorage.setItem("neo_admin_level", level);
+        $("gmsg").textContent = ""; showPanel();
       } else { $("gmsg").textContent = "관리자 코드가 아니에요."; $("gmsg").className = "verdict no"; }
-    }).catch(() => { $("gmsg").textContent = "인터넷 연결이 필요해요."; $("gmsg").className = "verdict no"; });
+    }
+    // 접근등급은 grader /admin-access 로 판별(전체 admin / 보카케어 전용). 미도달 시 Apps Script role 폴백.
+    (G ? fetch(G + "/admin-access?code=" + encodeURIComponent(c), { cache: "no-store" })
+          .then(r => { if (!r.ok) throw 0; return r.json(); }).then(d => d && d.level)
+       : Promise.reject(0))
+      .then(done)
+      .catch(function () {
+        api("action=validate&code=" + encodeURIComponent(c))
+          .then(d => done(d && d.ok && d.role === "admin" ? "admin" : null))
+          .catch(() => { $("gmsg").textContent = "인터넷 연결이 필요해요."; $("gmsg").className = "verdict no"; });
+      });
   }
 
   let allCodes = [];
@@ -721,6 +759,24 @@
           : " · 명단 저장 실패: " + (rr.status === 401 ? "관리자 인증 실패" : ((rd && rd.error) || ("HTTP " + rr.status + " " + (rtxt || "").slice(0, 150))));
       } catch (e) { savedMsg = " · 명단 저장 실패: " + e; }
       rosterRows = null;   // 월별 명단 뷰 다음 진입 시 새로 로드
+      // 보카케어: 업로드한 달의 Care/Premium 학생을 성적표에 자동 추가(이월 포함).
+      var byMonth = {};
+      valid.forEach(function (r) {
+        if (!/CARE/i.test(r.membership || "")) return;
+        var mo = r.month || "미지정";
+        (byMonth[mo] = byMonth[mo] || []).push({ code: r.code, name: r.name, level: r.level || "", days: r.days || "", membership: r.membership || "", start_time: r.time || "" });
+      });
+      var vcAdded = 0;
+      for (var mo in byMonth) {
+        try {
+          var vr = await fetch(GBASE + "/vocacare-add?admin=" + encodeURIComponent(admin) + "&month=" + encodeURIComponent(mo), {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ students: byMonth[mo] })
+          });
+          var vd = vr.ok ? await vr.json() : null; if (vd && vd.ok) vcAdded += (vd.count || 0);
+        } catch (e) {}
+      }
+      if (vcAdded) savedMsg += " · 보카케어 " + vcAdded + "명 추가";
+      vocaRows = null;
     }
     $("bulkadd").disabled = false;
     $("xmsg").textContent = "완료: 추가 " + ok + "명" + (dup ? ", 이미있음 " + dup : "") + (fail ? ", 실패 " + fail : "") + savedMsg;
@@ -899,21 +955,24 @@
     $("plist-view").style.display = "none"; $("pdetail-view").style.display = "block";
   }
   function switchTab(which) {
-    const prog = which === "prog", mock = which === "mock", roster = which === "roster",
-          code = !prog && !mock && !roster;
+    const prog = which === "prog", mock = which === "mock", roster = which === "roster", voca = which === "voca",
+          code = !prog && !mock && !roster && !voca;
     $("code-panel").style.display = code ? "block" : "none";
     $("roster-panel").style.display = roster ? "block" : "none";
     $("prog-panel").style.display = prog ? "block" : "none";
     $("mock-panel").style.display = mock ? "block" : "none";
+    $("voca-panel").style.display = voca ? "block" : "none";
     $("tab-code").className = "btn btn-sm " + (code ? "btn-grind" : "btn-ghost");
     $("tab-roster").className = "btn btn-sm " + (roster ? "btn-grind" : "btn-ghost");
     $("tab-prog").className = "btn btn-sm " + (prog ? "btn-grind" : "btn-ghost");
     $("tab-mock").className = "btn btn-sm " + (mock ? "btn-grind" : "btn-ghost");
-    $("akick").textContent = mock ? "ADMIN · MOCK REPORTS" : roster ? "ADMIN · MONTHLY ROSTER" : prog ? "ADMIN · STUDENT PROGRESS" : "ADMIN · CODE MANAGER";
-    $("atitle").textContent = mock ? "모의고사 리포트" : roster ? "월별 명단" : prog ? "학생 진도" : "코드 관리";
+    $("tab-voca").className = "btn btn-sm " + (voca ? "btn-grind" : "btn-ghost");
+    $("akick").textContent = voca ? "ADMIN · VOCA CARE" : mock ? "ADMIN · MOCK REPORTS" : roster ? "ADMIN · MONTHLY ROSTER" : prog ? "ADMIN · STUDENT PROGRESS" : "ADMIN · CODE MANAGER";
+    $("atitle").textContent = voca ? "보카케어 성적표" : mock ? "모의고사 리포트" : roster ? "월별 명단" : prog ? "학생 진도" : "코드 관리";
     if (prog) { $("plist-view").style.display = "block"; $("pdetail-view").style.display = "none"; ensureVocabData().then(function () { if (!students.length) loadProg(); }); }
     if (mock) { mkSummary = null; if (!allCodes.length) load().then(renderMock); else renderMock(); }
     if (roster) { loadRoster(); }
+    if (voca) { loadVoca(); }
   }
 
   /* ---------- 월별 명단 ---------- */
@@ -1051,6 +1110,107 @@
     bindBookChks();
   }
 
+  /* ---------- 보카케어 성적표 ---------- */
+  var VOCA_SLOTS = ["1A","1B","2A","2B","3A","3B","4A","4B","5A","5B","6A","6B","7A","7B","8A","8B","9A","9B"];
+  var VOCA_THRESHOLDS = [200,300,400,500,600,700,800,900,1000,1200,1400,1550];
+  var vocaRows = null;
+  function cssq(s) { return String(s).replace(/["\\]/g, "\\$&"); }
+  function vocaTotal(r) {
+    var t = parseInt(r.carry || 0, 10) || 0, sc = r.scores || {};
+    VOCA_SLOTS.forEach(function (s) { var v = parseInt(sc[s], 10); if (!isNaN(v)) t += v; });
+    return t;
+  }
+  function loadVoca() {
+    if (!GBASE) { $("vlist").innerHTML = '<p class="lead no">채점 서버(NEO_GRADER)가 설정되지 않았어요.</p>'; return; }
+    $("vsync").style.display = (adminLevel === "admin") ? "" : "none";   // 불러오기는 명단 접근되는 전체 어드민만
+    $("vlist").innerHTML = '<div class="mk-loading"><div class="neo-spin"></div><span>성적표 불러오는 중…</span></div>';
+    var pre = (adminLevel === "admin") ? loadRosterData() : Promise.resolve();
+    pre.then(function () {
+      var month = $("vmonth").value;
+      return fetch(GBASE + "/vocacare?admin=" + encodeURIComponent(admin) + (month ? "&month=" + encodeURIComponent(month) : ""), { cache: "no-store" })
+        .then(r => r.ok ? r.json() : null).then(function (d) {
+          var extra = (rosterRows || []).map(function (r) { return r.month || "미지정"; });
+          var months = ((d && d.months) || []).concat(extra).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).sort().reverse();
+          buildVMonths(months);
+          vocaRows = (d && d.rows) || [];
+          renderVoca();
+          if (d && d.error) { $("vmsg").textContent = "오류: " + d.error; $("vmsg").className = "verdict no"; } else { $("vmsg").className = "verdict"; }
+        });
+    }).catch(function () { $("vlist").innerHTML = '<p class="lead no">불러오지 못했어요.</p>'; });
+  }
+  function buildVMonths(months) {
+    var sel = $("vmonth"), prev = sel.value;
+    sel.innerHTML = months.length ? months.map(function (m) { return '<option value="' + esc(m) + '">' + esc(monthLabel(m)) + '</option>'; }).join("") : '<option value="">데이터 없음</option>';
+    if (months.indexOf(prev) >= 0) sel.value = prev;
+  }
+  function renderVoca() {
+    var m = $("vmonth").value;
+    var list = (vocaRows || []).slice().sort(function (a, b) { return String(a.name || "").localeCompare(String(b.name || ""), "ko"); });
+    if (!list.length) {
+      $("vlist").innerHTML = '<p class="lead">이 달 성적표가 없어요. ' + (adminLevel === "admin" ? "‘명단에서 Care/Premium 불러오기’를 누르거나, 코드 관리에서 그 달 명단을 업로드하세요." : "관리자가 명단을 올리면 여기에 떠요.") + '</p>';
+      $("vmsg").textContent = ""; return;
+    }
+    var head = '<div class="mkscroll"><table class="mktable cmtable" style="min-width:1180px;"><thead><tr>' +
+      '<th>이름<span class="th-en">NAME</span></th><th style="text-align:center;">레벨</th><th style="text-align:center;">요일</th><th style="text-align:center;">멤버쉽</th><th style="text-align:center;">시간</th>' +
+      '<th style="text-align:center;">누적</th>' + VOCA_SLOTS.map(function (s) { return '<th style="text-align:center;">' + s + '</th>'; }).join("") +
+      '<th style="text-align:center;">합계</th><th style="text-align:center;">상품</th></tr></thead><tbody>';
+    var body = list.map(function (r) {
+      var sc = r.scores || {};
+      var cells = VOCA_SLOTS.map(function (s) {
+        return '<td class="mk-cell"><input class="vcell" data-code="' + esc(r.code) + '" data-slot="' + s + '" inputmode="numeric" value="' + (sc[s] != null ? esc(sc[s]) : "") + '" style="width:42px;text-align:center;padding:4px;border:2px solid var(--neo-ink);border-radius:4px;"></td>';
+      }).join("");
+      var tot = vocaTotal(r), przN = VOCA_THRESHOLDS.filter(function (t) { return tot >= t; }).length;
+      return '<tr>' +
+        '<td class="mk-name">' + esc(r.name || "") + '<span class="mk-code">' + esc(r.code || "") + '</span></td>' +
+        '<td class="mk-cell">' + esc(r.level || "") + '</td><td class="mk-cell">' + esc(r.days || "") + '</td>' +
+        '<td class="mk-cell">' + esc(r.membership || "") + '</td><td class="mk-cell">' + esc(r.start_time || "") + '</td>' +
+        '<td class="mk-cell"><input class="vcarry" data-code="' + esc(r.code) + '" inputmode="numeric" value="' + (parseInt(r.carry || 0, 10) || 0) + '" style="width:56px;text-align:center;padding:4px;border:2px solid var(--neo-ink);border-radius:4px;"></td>' +
+        cells +
+        '<td class="mk-cell vtot" data-code="' + esc(r.code) + '"><b>' + tot + '</b></td>' +
+        '<td class="mk-cell vprize" data-code="' + esc(r.code) + '">' + (przN ? '<span class="rbadge">' + przN + '개</span>' : '<span style="opacity:.4;">–</span>') + '</td></tr>';
+    }).join("");
+    $("vlist").innerHTML = head + body + '</tbody></table></div>';
+    $("vmsg").textContent = monthLabel(m) + " · " + list.length + "명";
+    Array.from(document.querySelectorAll(".vcell, .vcarry")).forEach(function (inp) {
+      inp.addEventListener("change", function () { saveVocaRow(inp.getAttribute("data-code"), m); });
+    });
+  }
+  function saveVocaRow(code, month) {
+    var row = (vocaRows || []).filter(function (r) { return r.code === code; })[0];
+    if (!row) return;
+    var scores = {};
+    Array.from(document.querySelectorAll('.vcell[data-code="' + cssq(code) + '"]')).forEach(function (inp) {
+      var v = inp.value.trim(), n = parseInt(v, 10); if (v !== "" && !isNaN(n)) scores[inp.getAttribute("data-slot")] = n;
+    });
+    var carryInp = document.querySelector('.vcarry[data-code="' + cssq(code) + '"]');
+    var carry = carryInp ? (parseInt(carryInp.value, 10) || 0) : (parseInt(row.carry || 0, 10) || 0);
+    row.scores = scores; row.carry = carry;
+    var tot = vocaTotal(row), przN = VOCA_THRESHOLDS.filter(function (t) { return tot >= t; }).length;
+    var tc = document.querySelector('.vtot[data-code="' + cssq(code) + '"]'); if (tc) tc.innerHTML = "<b>" + tot + "</b>";
+    var pc = document.querySelector('.vprize[data-code="' + cssq(code) + '"]'); if (pc) pc.innerHTML = przN ? '<span class="rbadge">' + przN + '개</span>' : '<span style="opacity:.4;">–</span>';
+    fetch(GBASE + "/vocacare-cell?admin=" + encodeURIComponent(admin), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: code, month: month, scores: scores, carry: carry })
+    }).then(r => r.ok ? r.json() : null).then(function (d) {
+      if (d && d.ok) { $("vmsg").textContent = "저장됨 ✓"; $("vmsg").className = "verdict ok"; }
+      else { $("vmsg").textContent = "저장 실패" + (d && d.error ? ": " + d.error : ""); $("vmsg").className = "verdict no"; }
+    }).catch(function () { $("vmsg").textContent = "저장 실패 — 네트워크"; $("vmsg").className = "verdict no"; });
+  }
+  function vocaSync() {
+    var m = $("vmonth").value;
+    if (!m) { $("vmsg").textContent = "월을 선택하세요."; $("vmsg").className = "verdict no"; return; }
+    var students = (rosterRows || []).filter(function (r) { return (r.month || "미지정") === m && /CARE/i.test(r.membership || ""); })
+      .map(function (r) { return { code: r.code, name: r.name, level: r.level, days: r.days, membership: r.membership, start_time: r.class_time }; });
+    if (!students.length) { $("vmsg").textContent = "이 달 명단에 Care/Premium 학생이 없어요(먼저 코드 관리에서 명단 업로드)."; $("vmsg").className = "verdict no"; return; }
+    $("vmsg").textContent = "불러오는 중…"; $("vmsg").className = "verdict";
+    fetch(GBASE + "/vocacare-add?admin=" + encodeURIComponent(admin) + "&month=" + encodeURIComponent(m), {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ students: students })
+    }).then(r => r.ok ? r.json() : null).then(function (d) {
+      if (d && d.ok) { $("vmsg").textContent = "명단에서 " + (d.count || students.length) + "명 반영(이월 포함)"; vocaRows = null; loadVoca(); }
+      else { $("vmsg").textContent = "불러오기 실패" + (d && d.error ? ": " + d.error : ""); $("vmsg").className = "verdict no"; }
+    }).catch(function () { $("vmsg").textContent = "불러오기 실패 — 네트워크"; $("vmsg").className = "verdict no"; });
+  }
+
   /* ---------- 모의고사 리포트 (어드민 풀 리포트) ---------- */
   const GBASE = ((window.NEO_GRADER || {}).url || "").replace(/\/+$/, "");
   function mkFiltered() {
@@ -1163,8 +1323,12 @@
   $("tab-roster").addEventListener("click", () => switchTab("roster"));
   $("tab-prog").addEventListener("click", () => switchTab("prog"));
   $("tab-mock").addEventListener("click", () => switchTab("mock"));
+  $("tab-voca").addEventListener("click", () => switchTab("voca"));
   $("rrefresh").addEventListener("click", () => { rosterRows = null; loadRoster(); });
   $("rmonth").addEventListener("change", renderRoster);
+  $("vmonth").addEventListener("change", () => { vocaRows = null; loadVoca(); });
+  $("vrefresh").addEventListener("click", () => { vocaRows = null; loadVoca(); });
+  $("vsync").addEventListener("click", vocaSync);
   $("mksearch").addEventListener("input", renderMock);
   $("prefresh").addEventListener("click", loadProg);
   $("psearch").addEventListener("input", renderProg);
@@ -1189,7 +1353,7 @@
   $("bulkdel").addEventListener("click", bulkDelete);
   $("csvexport").addEventListener("click", exportCsv);
   $("logout").addEventListener("click", () => {
-    ["neo_admin", "neo_code", "neo_auth_ok", "neo_role"].forEach(k => sessionStorage.removeItem(k));
+    ["neo_admin", "neo_admin_level", "neo_code", "neo_auth_ok", "neo_role"].forEach(k => sessionStorage.removeItem(k));
     location.href = "login.html";
   });
 
