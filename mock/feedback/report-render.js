@@ -15,6 +15,14 @@
   }
   function attr(s) { return esc(s).replace(/'/g, "&#39;"); }
   function txt(s) { return esc(s).replace(/\n/g, "<br>"); }   /* 줄바꿈 보존 */
+  /* AI 텍스트: HTML은 이스케이프하되 교정 강조용 <strong>·**볼드**만 볼드로 살린다.
+     (모델이 fix/after 등에서 바뀐 부분을 <strong>로 감싸는데, 그냥 esc 하면 태그가 글자로 보인다.) */
+  function rich(s) {
+    var h = txt(s);
+    h = h.replace(/&lt;(\/?)strong&gt;/gi, "<$1strong>");
+    h = h.replace(/\*\*([^*<>\n]{1,180})\*\*/g, "<strong>$1</strong>");
+    return h;
+  }
   /* 0.5 단위 반올림 표시 (4.25→4.5, 4.24→4.0). 밴드 계산이 아니라 화면 표기용. */
   function half5(x) { return (Math.round((Number(x) || 0) * 2) / 2).toFixed(1); }
 
@@ -52,20 +60,20 @@
       "<span class='fb-sub'>" + esc(subtitle) + "</span></div><span class='fb-chip'>" + esc(d.student || "Student") + "</span></div>";
   }
   function overall(d) {
-    return "<div class='fb-say'><div class='fb-say-h'>💬 Task " + (TASKNUM[taskKey(d.task)] || "") + " 총평</div><p>" + txt(d.overall_ko) + "</p></div>";
+    return "<div class='fb-say'><div class='fb-say-h'>💬 Task " + (TASKNUM[taskKey(d.task)] || "") + " 총평</div><p>" + rich(d.overall_ko) + "</p></div>";
   }
   /* 항목별 평가 rows (Writing Why Score & Speaking 루브릭 공용): label + 색상 verdict 칩 + 설명 */
   /* why_score/rubric_bars 는 grader 버전에 따라 형태가 다르다:
      - 문자열(근거 한 줄)  - {label_ko, verdict, verdict_text, detail_ko/note_ko}  - {label_ko, score} */
   function whyRows(list) {
     return "<ul class='fb-why'>" + (list || []).map(function (r) {
-      if (typeof r === "string") return "<li><span class='fb-det'>" + txt(r) + "</span></li>";
+      if (typeof r === "string") return "<li><span class='fb-det'>" + rich(r) + "</span></li>";
       var label = r.label_ko || r.category || r.label || "";
       var lab = label ? "<b>" + esc(label) + (r.label_en ? " <span class='fb-en'>(" + esc(r.label_en) + ")</span>" : "") + "</b> " : "";
       var badge = "";
       if (r.verdict) badge = "<span class='fb-verd " + (VER[r.verdict] || "v-fair") + "'>" + esc(r.verdict_text || VTXT[r.verdict] || "") + "</span>";
       else if (r.score != null) { var sv = Number(r.score) >= 3.5 ? "v-good" : (Number(r.score) >= 2.5 ? "v-fair" : "v-bad"); badge = "<span class='fb-verd " + sv + "'>" + half5(r.score) + "/5</span>"; }
-      var det = txt(r.detail_ko || r.note_ko || r.meaning_ko || r.comment || "");
+      var det = rich(r.detail_ko || r.note_ko || r.meaning_ko || r.comment || "");
       return "<li>" + lab + badge + (det ? "<br><span class='fb-det'>" + det + "</span>" : "") + "</li>";
     }).join("") + "</ul>";
   }
@@ -82,20 +90,20 @@
   function tipBox(d) {
     var t = d.tip_ko;
     if (!t) return "";
-    if (typeof t === "string") return "<div class='fb-tip'><div class='fb-tip-h'>🎯 팁</div><div class='fb-tip-b'>" + esc(t) + "</div></div>";
-    if (t.headline_ko) return "<div class='fb-tip'><div class='fb-tip-h'>🎯 " + esc(t.headline_ko) + "</div><div class='fb-tip-b'>" + esc(t.body_ko || "") + "</div></div>";
+    if (typeof t === "string") return "<div class='fb-tip'><div class='fb-tip-h'>🎯 팁</div><div class='fb-tip-b'>" + rich(t) + "</div></div>";
+    if (t.headline_ko) return "<div class='fb-tip'><div class='fb-tip-h'>🎯 " + esc(t.headline_ko) + "</div><div class='fb-tip-b'>" + rich(t.body_ko || "") + "</div></div>";
     // {article_usage, reason_consequence, ...} 처럼 키:값 → 각 값을 한 줄씩
-    var lines = Object.keys(t).map(function (k) { return t[k] ? "<div class='fb-tip-b'>• " + esc(t[k]) + "</div>" : ""; }).join("");
+    var lines = Object.keys(t).map(function (k) { return t[k] ? "<div class='fb-tip-b'>• " + rich(t[k]) + "</div>" : ""; }).join("");
     return lines ? "<div class='fb-tip'><div class='fb-tip-h'>🎯 팁</div>" + lines + "</div>" : "";
   }
   function clinic(list) {
     if (!list || !list.length) return "";
     var cards = list.map(function (c) {
       var sv = c.severity === "yellow" ? "cl-y" : "cl-r";
-      var wrong = c.wrong || c.error || "", explain = c.explain_ko || c.explain || c.note_ko || "", fix = c.fix || c.fix_en || "";
+      var wrong = c.wrong || c.error || "", explain = c.explain_ko || c.explain || c.note_ko || c.why_ko || "", fix = c.fix || c.fix_en || "";
       return "<div class='fb-clcard " + sv + "'>" + (c.title_ko ? "<div class='fb-cl-t'>" + esc(c.title_ko) + "</div>" : "") +
-        (wrong ? "<p class='fb-en fb-strike'>" + esc(wrong) + "</p>" : "") + (explain ? "<p class='fb-cl-x'>" + esc(explain) + "</p>" : "") +
-        (fix ? "<p class='fb-en fb-fix'>→ " + esc(fix) + "</p>" : "") + "</div>";
+        (wrong ? "<p class='fb-en fb-strike'>" + rich(wrong) + "</p>" : "") + (explain ? "<p class='fb-cl-x'>" + rich(explain) + "</p>" : "") +
+        (fix ? "<p class='fb-en fb-fix'>→ " + rich(fix) + "</p>" : "") + "</div>";
     }).join("");
     return cards;
   }
@@ -103,10 +111,10 @@
     if (!list || !list.length) return "";
     var cards = list.map(function (c, i) {
       var fx = c.fixes || (c.after ? [c.after] : []);
-      var fixes = fx.map(function (f) { return "<p class='fb-en fb-fix'>→ " + esc(f) + "</p>"; }).join("");
-      var wrong = c.wrong || c.before || "", explain = c.explain_ko || c.tip || c.note_ko || "";
+      var fixes = fx.map(function (f) { return "<p class='fb-en fb-fix'>→ " + rich(f) + "</p>"; }).join("");
+      var wrong = c.wrong || c.before || "", explain = c.explain_ko || c.tip || c.note_ko || c.why_ko || "";
       return "<div class='fb-upcard " + UPCOL[i % UPCOL.length] + "'>" + (c.title_ko ? "<div class='fb-up-t'>" + esc(c.title_ko) + "</div>" : "") +
-        (wrong ? "<p class='fb-en fb-strike'>" + esc(wrong) + "</p>" : "") + (explain ? "<p class='fb-cl-x'>" + esc(explain) + "</p>" : "") + fixes + "</div>";
+        (wrong ? "<p class='fb-en fb-strike'>" + rich(wrong) + "</p>" : "") + (explain ? "<p class='fb-cl-x'>" + rich(explain) + "</p>" : "") + fixes + "</div>";
     }).join("");
     return cards;
   }
@@ -180,9 +188,9 @@
           x.description_ko || x.consequence_check || x.comment_ko || "";
         var vb = x.verdict ? " <span class='fb-verd v-fair'>" + esc(x.verdict) + "</span>" : "";
         return "<div class='fb-dd " + (x.kind === "strategy" ? "dd-s" : "dd-l") + "'>" + (title ? "<div class='fb-dd-t'>" + esc(title) + vb + "</div>" : "") +
-          (x.problem_en ? "<p class='fb-en fb-strike'>" + esc(x.problem_en) + "</p>" : "") +
-          (analysis ? "<p class='fb-cl-x'>" + txt(analysis) + "</p>" : "") + (x.fix_en ? "<p class='fb-en fb-fix'>→ " + esc(x.fix_en) + "</p>" : "") +
-          (x.note_ko ? "<p class='fb-cl-x'>" + txt(x.note_ko) + "</p>" : "") + "</div>";
+          (x.problem_en ? "<p class='fb-en fb-strike'>" + rich(x.problem_en) + "</p>" : "") +
+          (analysis ? "<p class='fb-cl-x'>" + rich(analysis) + "</p>" : "") + (x.fix_en ? "<p class='fb-en fb-fix'>→ " + rich(x.fix_en) + "</p>" : "") +
+          (x.note_ko ? "<p class='fb-cl-x'>" + rich(x.note_ko) + "</p>" : "") + "</div>";
       }).join("");
       out += sect("Deep dive", dd);
     }
@@ -205,7 +213,7 @@
       return "<div class='fb-sent'><div class='fb-sent-h'><span class='fb-sent-n'>" + esc(n) + "</span>" + vb + "</div>" +
         "<p class='fb-en fb-sent-o'>원문: " + esc(orig) + "</p>" +
         (heard ? "<p class='fb-en fb-sent-s'>발화: " + heard + "</p>" : "") +
-        (s.note_ko ? "<p class='fb-cl-x'>" + esc(s.note_ko) + "</p>" : "") +
+        (s.note_ko ? "<p class='fb-cl-x'>" + rich(s.note_ko) + "</p>" : "") +
         recPlayer(s.audio, "문장 " + n + " 내 녹음") + "</div>";
     }).join("");
     var errs = (d.error_patterns || []).map(function (e) {
@@ -244,7 +252,7 @@
         scoreChip(q.score_0_5) + "<span class='fb-qt'>" + esc(q.question || "") + "</span></div>" +
         recPlayer(q.audio, "Q" + (q.n || i + 1) + " 내 녹음") +
         "<div class='fb-orig' style='margin-top:10px'><span class='fb-orig-tag'>Transcript</span><p class='fb-en fb-orig-b'>" + segs(q.transcript_segments) + "</p></div>" +
-        (q.note_ko ? "<p class='fb-cl-x' style='margin-top:8px'>" + txt(q.note_ko) + "</p>" : "") +
+        (q.note_ko ? "<p class='fb-cl-x' style='margin-top:8px'>" + rich(q.note_ko) + "</p>" : "") +
         lf + clinic(q.grammar_clinic) + upgrades(q.upgrades) + mdl + "</div>";
     }).join("");
     var half = (Math.round(comp * 2) / 2).toFixed(1);   /* 종합은 0.5 단위 */
