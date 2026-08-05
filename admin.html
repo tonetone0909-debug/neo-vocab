@@ -92,7 +92,29 @@
   .vnotif { border:3px solid var(--neo-ink); background:var(--neo-acid); box-shadow:var(--sh-1);
     padding:10px 14px; margin:0 0 12px; font-weight:700; font-size:14px; }
   .vnotif .vn-close { float:right; cursor:pointer; font-weight:900; }
+  .vowe { border:3px solid var(--neo-ink); background:#FFE58A; box-shadow:var(--sh-1);
+    padding:9px 14px; margin:0 0 12px; font-weight:800; font-size:14px; }
   .vsub { font-weight:900; font-size:16px; margin:18px 0 8px; letter-spacing:-0.01em; }
+  /* 점수칸 포커스 시 행·열 하이라이트 */
+  table.vtable td.vhl-col, table.vtable tr.vhl-row > td { background:#FFF7B0 !important; }
+  table.vtable tr.vhl-row > td.vsl-l, table.vtable td.vhl-col.vsl-l { background:#FFF07A !important; }
+  /* 보카케어 서브뷰 토글 */
+  .vviewtabs { display:inline-flex; border:3px solid var(--neo-ink); border-radius:8px; overflow:hidden; }
+  .vviewtabs button { border:0; padding:8px 14px; font-weight:800; font-size:13px; background:var(--neo-card); cursor:pointer; }
+  .vviewtabs button.on { background:var(--neo-ink); color:var(--neo-paper); }
+  .vviewtabs button + button { border-left:3px solid var(--neo-ink); }
+  /* 상품 현황 매트릭스 */
+  table.vtable td.vpz { padding:4px 6px; }
+  table.vtable td.vpz.reached { background:color-mix(in srgb, var(--neo-acid) 30%, var(--neo-card)); }
+  table.vtable td.vpz.owed { background:#FFE58A; }
+  table.vtable td.vpz.locked { background:color-mix(in srgb, var(--neo-ink) 8%, var(--neo-card)); }
+  table.vtable td.vpz .vgiv { width:18px; height:18px; accent-color:var(--neo-ink); cursor:pointer; }
+  table.vtable td.vpz .vlock { opacity:.3; font-weight:900; }
+  table.vtable thead th.vpz-h { font-size:11px; line-height:1.15; white-space:normal; min-width:56px; max-width:64px; }
+  table.vtable thead th.vpz-h b { display:block; font-size:13px; }
+  .vbadge2 { display:inline-block; padding:2px 7px; border:2px solid var(--neo-ink); border-radius:999px;
+    font-size:12px; font-weight:700; white-space:nowrap; }
+  .vbadge-owe { background:#FFE58A; } .vbadge-ok { background:var(--neo-acid); } .vbadge-none { background:var(--neo-card); opacity:.5; }
 </style>
 </head>
 <body>
@@ -224,7 +246,11 @@
         <button class="btn btn-sm btn-known" id="vsync" style="flex:0 0 auto;">명단에서 Care/Premium 불러오기</button>
         <button class="btn btn-sm btn-ghost" id="vrefresh" style="flex:0 0 auto;">새로고침 ↻</button>
       </div>
-      <div class="sc-l" style="opacity:.7;margin:2px 0 8px;">점수 칸(1A~9B)에 입력하면 자동 저장 · 합계=누적+점수합 · 상품은 합계로 자동 표시 (내부 관리용)</div>
+      <div style="margin:6px 0 8px;"><div class="vviewtabs">
+        <button id="vtab-scores" class="on">성적표</button>
+        <button id="vtab-prizes">상품 현황</button>
+      </div></div>
+      <div class="sc-l" id="vhint" style="opacity:.7;margin:2px 0 8px;">점수 칸에 입력하면 자동 저장 · 합계=누적+점수합 · 상품은 합계로 자동 표시 (내부 관리용)</div>
       <div class="verdict" id="vmsg" style="min-height:18px;"></div>
       <div id="vlist"></div>
     </div>
@@ -1165,6 +1191,12 @@
     return t;
   }
   function przCount(tot) { return VOCA_THRESHOLDS.filter(function (t) { return tot >= t; }).length; }
+  /* 상품 지급여부는 scores.__given = {"200":1,...} 예약키에 저장(서버 스키마 무변경). */
+  function givenMap(r) { var g = (r.scores || {}).__given; return (g && typeof g === "object") ? g : {}; }
+  function rowOwed(r) { var tot = vocaTotal(r), g = givenMap(r), n = 0; VOCA_REWARDS.forEach(function (x) { if (tot >= x.pt && !g[String(x.pt)]) n++; }); return n; }
+  function listOwed(list) { var n = 0; (list || []).forEach(function (r) { n += rowOwed(r); }); return n; }
+  function vocaClasses(list) { return { reg: list.filter(function (r) { return !isMTWT(r); }), mt: list.filter(isMTWT) }; }
+  var vocaView = "scores";
   var vocaNotifs = [];
   function loadVoca() {
     if (!GBASE) { $("vlist").innerHTML = '<p class="lead no">채점 서버(NEO_GRADER)가 설정되지 않았어요.</p>'; return; }
@@ -1189,8 +1221,18 @@
     sel.innerHTML = months.length ? months.map(function (m) { return '<option value="' + esc(m) + '">' + esc(monthLabel(m)) + '</option>'; }).join("") : '<option value="">데이터 없음</option>';
     if (months.indexOf(prev) >= 0) sel.value = prev;
   }
-  function przBadge(przN) {
-    return przN ? '<span class="rbadge" title="' + esc(VOCA_REWARDS.slice(0, przN).map(function (x) { return x.pt + " " + x.name; }).join(" · ")) + '">' + przN + '개 (' + VOCA_REWARDS[przN - 1].pt + ')</span>' : '<span style="opacity:.4;">–</span>';
+  function przSummary(r) {
+    var tot = vocaTotal(r), reached = przCount(tot), g = givenMap(r), given = 0;
+    VOCA_REWARDS.forEach(function (x) { if (tot >= x.pt && g[String(x.pt)]) given++; });
+    if (!reached) return '<span class="vbadge2 vbadge-none">–</span>';
+    var cls = (reached - given) > 0 ? "vbadge-owe" : "vbadge-ok";
+    return '<span class="vbadge2 ' + cls + '" title="도달 ' + reached + ' · 지급 ' + given + '">지급 ' + given + ' / 도달 ' + reached + '</span>';
+  }
+  function updateOweBanner() {
+    var el = $("vowe"); if (!el) return;
+    var n = listOwed(vocaRows || []);
+    if (!n) { el.style.display = "none"; el.textContent = ""; return; }
+    el.style.display = ""; el.textContent = "⚠️ 미지급 상품 " + n + "건 — ‘상품 현황’ 뷰에서 지급 체크하세요.";
   }
   function pushVocaNotif(name, code, pt, reward) {
     vocaNotifs.unshift({ name: name, code: code, pt: pt, reward: reward });
@@ -1225,9 +1267,64 @@
         '<td><input class="vcarry" data-code="' + esc(r.code) + '" inputmode="numeric" value="' + (parseInt(r.carry || 0, 10) || 0) + '"></td>' +
         cells +
         '<td class="vtot" data-code="' + esc(r.code) + '"><b>' + tot + '</b></td>' +
-        '<td class="vprize" data-code="' + esc(r.code) + '">' + przBadge(przN) + '</td></tr>';
+        '<td class="vprize" data-code="' + esc(r.code) + '">' + przSummary(r) + '</td></tr>';
     }).join("");
     return head + body + '</tbody></table></div>';
+  }
+  /* 상품 현황 매트릭스 — 행=학생, 열=12상품. 도달 시 체크박스, 미지급이면 노란칸. */
+  function prizeTableHTML(title, rows) {
+    if (!rows.length) return "";
+    var head = '<div class="vsub">' + esc(title) + ' <span style="font-weight:700;font-size:13px;opacity:.6;">(' + rows.length + '명)</span></div>' +
+      '<div class="vscroll"><table class="vtable"><thead><tr>' +
+      '<th class="vsl-l" style="text-align:left;min-width:120px;">이름</th><th>합계</th>' +
+      VOCA_REWARDS.map(function (x) { return '<th class="vpz-h"><b>' + x.pt + '</b>' + esc(x.name) + '</th>'; }).join("") +
+      '</tr></thead><tbody>';
+    var body = rows.map(function (r) {
+      var tot = vocaTotal(r), g = givenMap(r);
+      var cells = VOCA_REWARDS.map(function (x) {
+        var reached = tot >= x.pt, given = !!g[String(x.pt)];
+        var cls = !reached ? "locked" : (given ? "reached" : "owed");
+        var inner = reached
+          ? '<input type="checkbox" class="vgiv" data-code="' + esc(r.code) + '" data-pt="' + x.pt + '"' + (given ? " checked" : "") + '>'
+          : '<span class="vlock">·</span>';
+        return '<td class="vpz ' + cls + '" data-code="' + esc(r.code) + '" data-pt="' + x.pt + '">' + inner + '</td>';
+      }).join("");
+      return '<tr><td class="vsl-l">' + esc(r.name || "") + '<span class="mk-code">' + esc(r.code || "") + '</span></td>' +
+        '<td class="vtot"><b>' + tot + '</b></td>' + cells + '</tr>';
+    }).join("");
+    return head + body + '</tbody></table></div>';
+  }
+  function bindGiven(m) {
+    Array.from(document.querySelectorAll(".vgiv")).forEach(function (cb) {
+      cb.addEventListener("change", function () { saveGiven(cb.getAttribute("data-code"), parseInt(cb.getAttribute("data-pt"), 10), cb.checked, m); });
+    });
+  }
+  function saveGiven(code, pt, checked, month) {
+    var row = (vocaRows || []).filter(function (r) { return r.code === code; })[0];
+    if (!row) return;
+    var sc = row.scores || {};
+    var g = (sc.__given && typeof sc.__given === "object") ? sc.__given : {};
+    if (checked) g[String(pt)] = 1; else delete g[String(pt)];
+    sc.__given = g; row.scores = sc;
+    var td = document.querySelector('.vpz[data-code="' + cssq(code) + '"][data-pt="' + pt + '"]');
+    if (td) { var reached = vocaTotal(row) >= pt; td.classList.toggle("owed", reached && !checked); td.classList.toggle("reached", reached && checked); }
+    updateOweBanner();
+    fetch(GBASE + "/vocacare-cell?admin=" + encodeURIComponent(admin), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: code, month: month, scores: sc, carry: parseInt(row.carry || 0, 10) || 0 })
+    }).then(r => r.ok ? r.json() : null).then(function (d) {
+      if (d && d.ok) { $("vmsg").textContent = "지급현황 저장됨 ✓"; $("vmsg").className = "verdict ok"; }
+      else { $("vmsg").textContent = "저장 실패" + (d && d.error ? ": " + d.error : ""); $("vmsg").className = "verdict no"; }
+    }).catch(function () { $("vmsg").textContent = "저장 실패 — 네트워크"; $("vmsg").className = "verdict no"; });
+  }
+  function setVocaView(v) {
+    vocaView = v;
+    $("vtab-scores").className = v === "scores" ? "on" : "";
+    $("vtab-prizes").className = v === "prizes" ? "on" : "";
+    $("vhint").textContent = v === "prizes"
+      ? "상품 도달 시 체크박스 활성 · 지급했으면 체크 · 노란칸 = 도달했는데 미지급"
+      : "점수 칸에 입력하면 자동 저장 · 합계=누적+점수합 · 상품칸은 지급/도달 요약";
+    if (vocaRows) renderVoca();
   }
   function renderVoca() {
     var m = $("vmonth").value;
@@ -1236,16 +1333,20 @@
       $("vlist").innerHTML = '<p class="lead">이 달 성적표가 없어요. ' + (adminLevel === "admin" ? "‘명단에서 Care/Premium 불러오기’를 누르거나, 코드 관리에서 그 달 명단을 업로드하세요." : "관리자가 명단을 올리면 여기에 떠요.") + '</p>';
       $("vmsg").textContent = ""; return;
     }
-    var reg = list.filter(function (r) { return !isMTWT(r); });
-    var mt = list.filter(isMTWT);
-    $("vlist").innerHTML = '<div class="vnotif" id="vnotif" style="display:none;"></div>' +
-      vocaTableHTML("일반반", VOCA_SLOTS_REG, reg) +
-      vocaTableHTML("월화수목반", VOCA_SLOTS_MTWT, mt);
+    var c = vocaClasses(list);
+    var banner = '<div class="vnotif" id="vnotif" style="display:none;"></div><div class="vowe" id="vowe" style="display:none;"></div>';
+    if (vocaView === "prizes") {
+      $("vlist").innerHTML = banner + prizeTableHTML("오전오후반", c.reg) + prizeTableHTML("저녁반", c.mt);
+      bindGiven(m);
+    } else {
+      $("vlist").innerHTML = banner + vocaTableHTML("오전오후반", VOCA_SLOTS_REG, c.reg) + vocaTableHTML("저녁반", VOCA_SLOTS_MTWT, c.mt);
+      Array.from(document.querySelectorAll(".vcell, .vcarry")).forEach(function (inp) {
+        inp.addEventListener("change", function () { saveVocaRow(inp.getAttribute("data-code"), m); });
+      });
+    }
     renderVocaNotif();
+    updateOweBanner();
     $("vmsg").textContent = monthLabel(m) + " · " + list.length + "명";
-    Array.from(document.querySelectorAll(".vcell, .vcarry")).forEach(function (inp) {
-      inp.addEventListener("change", function () { saveVocaRow(inp.getAttribute("data-code"), m); });
-    });
   }
   function saveVocaRow(code, month) {
     var row = (vocaRows || []).filter(function (r) { return r.code === code; })[0];
@@ -1255,12 +1356,14 @@
     Array.from(document.querySelectorAll('.vcell[data-code="' + cssq(code) + '"]')).forEach(function (inp) {
       var v = inp.value.trim(), n = parseInt(v, 10); if (v !== "" && !isNaN(n)) scores[inp.getAttribute("data-slot")] = n;
     });
+    if (row.scores && row.scores.__given) scores.__given = row.scores.__given;   // 상품 지급기록 보존
     var carryInp = document.querySelector('.vcarry[data-code="' + cssq(code) + '"]');
     var carry = carryInp ? (parseInt(carryInp.value, 10) || 0) : (parseInt(row.carry || 0, 10) || 0);
     row.scores = scores; row.carry = carry;
     var tot = vocaTotal(row), przN = przCount(tot);
     var tc = document.querySelector('.vtot[data-code="' + cssq(code) + '"]'); if (tc) tc.innerHTML = "<b>" + tot + "</b>";
-    var pc = document.querySelector('.vprize[data-code="' + cssq(code) + '"]'); if (pc) pc.innerHTML = przBadge(przN);
+    var pc = document.querySelector('.vprize[data-code="' + cssq(code) + '"]'); if (pc) pc.innerHTML = przSummary(row);
+    updateOweBanner();
     if (przN > oldPrz) {   // 새 상품 임계 돌파 → 어드민 알림
       for (var i = oldPrz; i < przN; i++) pushVocaNotif(row.name || code, code, VOCA_REWARDS[i].pt, VOCA_REWARDS[i].name);
     }
@@ -1405,6 +1508,22 @@
   $("vmonth").addEventListener("change", () => { vocaRows = null; loadVoca(); });
   $("vrefresh").addEventListener("click", () => { vocaRows = null; loadVoca(); });
   $("vsync").addEventListener("click", vocaSync);
+  $("vtab-scores").addEventListener("click", () => setVocaView("scores"));
+  $("vtab-prizes").addEventListener("click", () => setVocaView("prizes"));
+  // 점수칸 포커스 시 해당 행·열 하이라이트 (표별로 한정)
+  $("vlist").addEventListener("focusin", function (e) {
+    var inp = e.target;
+    if (!inp || !inp.classList || !(inp.classList.contains("vcell") || inp.classList.contains("vcarry"))) return;
+    var td = inp.closest("td"), tr = inp.closest("tr"), tbl = inp.closest("table");
+    if (!td || !tr || !tbl) return;
+    var idx = td.cellIndex;
+    tr.classList.add("vhl-row");
+    Array.from(tbl.querySelectorAll("tr")).forEach(function (row) { var c = row.children[idx]; if (c) c.classList.add("vhl-col"); });
+  });
+  $("vlist").addEventListener("focusout", function () {
+    Array.from($("vlist").querySelectorAll(".vhl-col")).forEach(function (c) { c.classList.remove("vhl-col"); });
+    Array.from($("vlist").querySelectorAll(".vhl-row")).forEach(function (c) { c.classList.remove("vhl-row"); });
+  });
   $("mksearch").addEventListener("input", renderMock);
   $("prefresh").addEventListener("click", loadProg);
   $("psearch").addEventListener("input", renderProg);
