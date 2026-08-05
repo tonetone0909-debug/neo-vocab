@@ -202,7 +202,11 @@
     //  setAnswer 가 매번 onPhase→paint 를 다시 부르므로 정답을 고르면 즉시 활성화된다.)
     if (info.sec === "L" && eng) {
       var pcur = eng.progress()[info.cursor];
-      if (pcur && !pcur.answered) nextBtn.disabled = true;
+      // 오디오를 '들은 뒤'에만 조기 스킵을 막는다. 오디오 재생 전엔 문항 타이머가
+      // 아직 안 걸려(engine.armIfReady) nextQ 자동이동이 없으므로, 여기서 잠그면
+      // 자동재생이 막힌 첫 문항(예: 모듈2 첫 리스닝)에서 학생이 갇힌다.
+      var heard = pcur && info.played && info.played[pcur.gid];
+      if (pcur && !pcur.answered && heard) nextBtn.disabled = true;
     }
     nextBtn.textContent = last ? "Submit" : "Next";
     nextBtn.dataset.submit = last ? "1" : "";

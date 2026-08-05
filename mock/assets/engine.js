@@ -425,7 +425,8 @@
       secTotal: f.sec === "done" ? 0 : this.moduleTotal(),
       gt: (this.curGroup() || {}).t || "",   // 현재 그룹 유형 (Review 노출 판단)
       paused: !!this.st.paused,
-      path: this.st.path
+      path: this.st.path,
+      played: this.st.played   // {gid:1} — 오디오를 실제로 들은 그룹. 리스닝 Next 게이트 판단용
     };
   };
 
