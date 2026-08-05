@@ -355,6 +355,11 @@
 
   /* 실제 단계 시작 — 여기서부터 시간이 흐른다. */
   Engine.prototype.begin = function () {
+    // 스테일 일시정지 해제. begin 은 '시간이 흐르기 시작하는' 지점이라 여기 도달했으면
+    // 일시정지 상태일 수 없다. 진짜 일시정지는 Resume 오버레이의 resume() 으로만 풀린다.
+    // (일시정지 중 새로고침·종료하면 st.paused 가 남고, 다음 파트의 startTimer 가
+    //  `if(paused) return` 으로 마감시각을 안 걸어 모듈이 타이머 없이 스킵되던 버그 차단.)
+    if (this.st.paused) { this.st.paused = null; }
     if (!this.st.entered) this.st.entered = {};
     if (!this.st.entered[this.phaseKey()]) this.st.entered[this.phaseKey()] = now();
     this.st.cursor = Math.min(this.st.cursor, this.steps().length - 1);
@@ -598,8 +603,11 @@
       // 문항별·그룹별 구간은 모듈 예산이 없다. 진입 시각부터 잰다.
       this.st.spent[k] = Math.round((now() - (this.st.entered[k] || now())) / 1000);
     } else {
+      // 마감시각이 안 걸린 채 제출되면(예: 스테일 일시정지로 startTimer 가 스킵된 경우)
+      // budget - (d-now) 가 NaN → spent 가 null 로 저장돼 서버에 흘러간다. 그 방어.
       var d = this.st.deadlines[k];
-      this.st.spent[k] = Math.round((this.budget() - Math.max(0, d - now())) / 1000);
+      this.st.spent[k] = (d === undefined) ? 0
+        : Math.round((this.budget() - Math.max(0, d - now())) / 1000);
     }
     this.st.autoSubmitted = this.st.autoSubmitted || {};
     if (auto) this.st.autoSubmitted[k] = 1;
