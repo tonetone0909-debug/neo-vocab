@@ -71,6 +71,28 @@
   /* 코드 관리 — 월별 명단 포함 배지 */
   .rbadge { display:inline-block; padding:2px 7px; border:2px solid var(--neo-ink); border-radius:999px;
     font-size:12px; font-weight:700; background:var(--neo-acid); white-space:nowrap; }
+  /* 보카케어 성적표 — 상하/좌우 스크롤 + 헤더/이름칸 고정 */
+  .vscroll { overflow:scroll; max-height:70vh; border:3px solid var(--neo-ink); box-shadow:var(--sh-2); background:var(--neo-card); position:relative; }
+  .vscroll::-webkit-scrollbar { width:14px; height:14px; }
+  .vscroll::-webkit-scrollbar-track { background:var(--neo-paper); border-left:2px solid var(--neo-ink); border-top:2px solid var(--neo-ink); }
+  .vscroll::-webkit-scrollbar-thumb { background:var(--neo-ink); border:3px solid var(--neo-paper); border-radius:8px; }
+  .vscroll { scrollbar-width:auto; scrollbar-color: var(--neo-ink) var(--neo-paper); }
+  table.vtable { border-collapse:separate; border-spacing:0; }
+  table.vtable th, table.vtable td { border-right:2px solid var(--neo-ink); border-bottom:2px solid var(--neo-ink); padding:7px 9px; white-space:nowrap; text-align:center; }
+  table.vtable thead th { position:sticky; top:0; z-index:3; background:var(--neo-ink); color:var(--neo-paper); font-size:13px; font-weight:700; letter-spacing:0.03em; }
+  table.vtable th.vsl-l, table.vtable td.vsl-l { position:sticky; left:0; z-index:2; text-align:left; }
+  table.vtable td.vsl-l { background:var(--neo-card); font-weight:700; font-size:14px; box-shadow:2px 0 0 var(--neo-ink); }
+  table.vtable thead th.vsl-l { z-index:4; box-shadow:2px 0 0 var(--neo-paper); }
+  table.vtable td.vsl-l .mk-code { display:block; font-family:var(--font-mono); font-size:10px; letter-spacing:0.03em; opacity:.55; font-weight:500; }
+  table.vtable tbody tr:nth-child(even) td { background:color-mix(in srgb, var(--neo-paper) 60%, var(--neo-card)); }
+  table.vtable tbody tr:nth-child(even) td.vsl-l { background:color-mix(in srgb, var(--neo-paper) 60%, var(--neo-card)); }
+  table.vtable td.vtot b { font-size:15px; }
+  .vcell, .vcarry { text-align:center; padding:4px; border:2px solid var(--neo-ink); border-radius:4px; font-weight:700; }
+  .vcell { width:42px; } .vcarry { width:56px; }
+  .vnotif { border:3px solid var(--neo-ink); background:var(--neo-acid); box-shadow:var(--sh-1);
+    padding:10px 14px; margin:0 0 12px; font-weight:700; font-size:14px; }
+  .vnotif .vn-close { float:right; cursor:pointer; font-weight:900; }
+  .vsub { font-weight:900; font-size:16px; margin:18px 0 8px; letter-spacing:-0.01em; }
 </style>
 </head>
 <body>
@@ -552,7 +574,16 @@
     neoConfirm("코드 '" + code + "'를 삭제할까요?\n이 코드를 쓰던 학생은 더이상 앱을 못 써요.", { danger: true }).then(ok => {
       if (!ok) return;
       api("action=del&admin=" + encodeURIComponent(admin) + "&code=" + encodeURIComponent(code)).then(d => {
-        if (d && d.ok) load();
+        if (d && d.ok) {
+          // 월별 명단·보카케어·모의고사 배정도 함께 삭제(#8)
+          if (GBASE) {
+            fetch(GBASE + "/purge-code?admin=" + encodeURIComponent(admin), {
+              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: code })
+            }).catch(() => {});
+          }
+          rosterRows = null; vocaRows = null;
+          load();
+        }
       }).catch(() => {});
     });
   }
@@ -1032,7 +1063,7 @@
   }
   function loadRoster() {
     if (!GBASE) { $("rlist").innerHTML = '<p class="lead no">채점 서버(NEO_GRADER)가 설정되지 않았어요.</p>'; return; }
-    if (rosterRows) { renderRoster(); return; }
+    if (rosterRows) { buildMonthOptions(); renderRoster(); return; }   // 캐시로 재진입해도 월 목록·표 바로 렌더
     $("rlist").innerHTML = '<div class="mk-loading"><div class="neo-spin"></div><span>명단 불러오는 중…</span></div>';
     var status = 0;
     Promise.all([
@@ -1111,37 +1142,92 @@
   }
 
   /* ---------- 보카케어 성적표 ---------- */
-  var VOCA_SLOTS = ["1A","1B","2A","2B","3A","3B","4A","4B","5A","5B","6A","6B","7A","7B","8A","8B","9A","9B"];
-  var VOCA_THRESHOLDS = [200,300,400,500,600,700,800,900,1000,1200,1400,1550];
+  // 일반반: Day 11~18 (11A~18B, 16칸) · 월화수목반: Day 5~8 (5A~8B, 8칸)
+  var VOCA_SLOTS_REG  = ["11A","11B","12A","12B","13A","13B","14A","14B","15A","15B","16A","16B","17A","17B","18A","18B"];
+  var VOCA_SLOTS_MTWT = ["5A","5B","6A","6B","7A","7B","8A","8B"];
+  // 상품(care.html REWARDS 미러) — 임계값 넘으면 자동 O
+  var VOCA_REWARDS = [
+    { pt: 200, name: "커피 쿠폰" }, { pt: 300, name: "커피 쿠폰" },
+    { pt: 400, name: "스타벅스 기프티콘" }, { pt: 500, name: "커피 쿠폰" },
+    { pt: 600, name: "커피 쿠폰" }, { pt: 700, name: "치킨 기프티콘" },
+    { pt: 800, name: "커피 쿠폰" }, { pt: 900, name: "커피 쿠폰" },
+    { pt: 1000, name: "배달의민족 기프티콘" }, { pt: 1200, name: "TOEFL 응시료 지원" },
+    { pt: 1400, name: "TOEFL 응시료 지원" }, { pt: 1550, name: "TOEFL 응시료 지원" }
+  ];
+  var VOCA_THRESHOLDS = VOCA_REWARDS.map(function (r) { return r.pt; });
   var vocaRows = null;
   function cssq(s) { return String(s).replace(/["\\]/g, "\\$&"); }
+  function isMTWT(r) { return String(r.days || "").replace(/[^월화수목금토일]/g, "") === "월화수목"; }
+  function vocaSlots(r) { return isMTWT(r) ? VOCA_SLOTS_MTWT : VOCA_SLOTS_REG; }
   function vocaTotal(r) {
     var t = parseInt(r.carry || 0, 10) || 0, sc = r.scores || {};
-    VOCA_SLOTS.forEach(function (s) { var v = parseInt(sc[s], 10); if (!isNaN(v)) t += v; });
+    vocaSlots(r).forEach(function (s) { var v = parseInt(sc[s], 10); if (!isNaN(v)) t += v; });
     return t;
   }
+  function przCount(tot) { return VOCA_THRESHOLDS.filter(function (t) { return tot >= t; }).length; }
+  var vocaNotifs = [];
   function loadVoca() {
     if (!GBASE) { $("vlist").innerHTML = '<p class="lead no">채점 서버(NEO_GRADER)가 설정되지 않았어요.</p>'; return; }
     $("vsync").style.display = (adminLevel === "admin") ? "" : "none";   // 불러오기는 명단 접근되는 전체 어드민만
     $("vlist").innerHTML = '<div class="mk-loading"><div class="neo-spin"></div><span>성적표 불러오는 중…</span></div>';
     var pre = (adminLevel === "admin") ? loadRosterData() : Promise.resolve();
     pre.then(function () {
-      var month = $("vmonth").value;
+      var month = $("vmonth").value;   // 비어 있으면 서버가 가장 최근 달을 돌려줌(#9)
       return fetch(GBASE + "/vocacare?admin=" + encodeURIComponent(admin) + (month ? "&month=" + encodeURIComponent(month) : ""), { cache: "no-store" })
         .then(r => r.ok ? r.json() : null).then(function (d) {
           var extra = (rosterRows || []).map(function (r) { return r.month || "미지정"; });
           var months = ((d && d.months) || []).concat(extra).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).sort().reverse();
-          buildVMonths(months);
+          buildVMonths(months, (d && d.month) || month || months[0] || "");
           vocaRows = (d && d.rows) || [];
           renderVoca();
           if (d && d.error) { $("vmsg").textContent = "오류: " + d.error; $("vmsg").className = "verdict no"; } else { $("vmsg").className = "verdict"; }
         });
     }).catch(function () { $("vlist").innerHTML = '<p class="lead no">불러오지 못했어요.</p>'; });
   }
-  function buildVMonths(months) {
-    var sel = $("vmonth"), prev = sel.value;
+  function buildVMonths(months, want) {
+    var sel = $("vmonth"), prev = want || sel.value;
     sel.innerHTML = months.length ? months.map(function (m) { return '<option value="' + esc(m) + '">' + esc(monthLabel(m)) + '</option>'; }).join("") : '<option value="">데이터 없음</option>';
     if (months.indexOf(prev) >= 0) sel.value = prev;
+  }
+  function przBadge(przN) {
+    return przN ? '<span class="rbadge" title="' + esc(VOCA_REWARDS.slice(0, przN).map(function (x) { return x.pt + " " + x.name; }).join(" · ")) + '">' + przN + '개 (' + VOCA_REWARDS[przN - 1].pt + ')</span>' : '<span style="opacity:.4;">–</span>';
+  }
+  function pushVocaNotif(name, code, pt, reward) {
+    vocaNotifs.unshift({ name: name, code: code, pt: pt, reward: reward });
+    if (vocaNotifs.length > 30) vocaNotifs.pop();
+    renderVocaNotif();
+  }
+  function renderVocaNotif() {
+    var el = $("vnotif"); if (!el) return;
+    if (!vocaNotifs.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+    el.style.display = "";
+    el.innerHTML = '<span class="vn-close" onclick="this.parentNode.style.display=\'none\'">✕</span>' +
+      '🎁 상품 도달 알림 (' + vocaNotifs.length + ')<br>' +
+      vocaNotifs.map(function (n) { return '· <b>' + esc(n.name) + '</b> — ' + n.pt + '점 달성 → ' + esc(n.reward); }).join('<br>');
+  }
+  function vocaTableHTML(title, slots, rows) {
+    if (!rows.length) return "";
+    var head = '<div class="vsub">' + esc(title) + ' <span style="font-weight:700;font-size:13px;opacity:.6;">(' + rows.length + '명)</span></div>' +
+      '<div class="vscroll"><table class="vtable"><thead><tr>' +
+      '<th class="vsl-l" style="text-align:left;min-width:120px;">이름</th><th>레벨</th><th>요일</th><th>멤버쉽</th><th>시간</th><th>누적</th>' +
+      slots.map(function (s) { return '<th>' + s + '</th>'; }).join("") +
+      '<th>합계</th><th>상품</th></tr></thead><tbody>';
+    var body = rows.map(function (r) {
+      var sc = r.scores || {};
+      var cells = slots.map(function (s) {
+        return '<td><input class="vcell" data-code="' + esc(r.code) + '" data-slot="' + s + '" inputmode="numeric" value="' + (sc[s] != null ? esc(sc[s]) : "") + '"></td>';
+      }).join("");
+      var tot = vocaTotal(r), przN = przCount(tot);
+      return '<tr>' +
+        '<td class="vsl-l">' + esc(r.name || "") + '<span class="mk-code">' + esc(r.code || "") + '</span></td>' +
+        '<td>' + esc(r.level || "") + '</td><td>' + esc(r.days || "") + '</td>' +
+        '<td>' + esc(r.membership || "") + '</td><td>' + esc(r.start_time || "") + '</td>' +
+        '<td><input class="vcarry" data-code="' + esc(r.code) + '" inputmode="numeric" value="' + (parseInt(r.carry || 0, 10) || 0) + '"></td>' +
+        cells +
+        '<td class="vtot" data-code="' + esc(r.code) + '"><b>' + tot + '</b></td>' +
+        '<td class="vprize" data-code="' + esc(r.code) + '">' + przBadge(przN) + '</td></tr>';
+    }).join("");
+    return head + body + '</tbody></table></div>';
   }
   function renderVoca() {
     var m = $("vmonth").value;
@@ -1150,26 +1236,12 @@
       $("vlist").innerHTML = '<p class="lead">이 달 성적표가 없어요. ' + (adminLevel === "admin" ? "‘명단에서 Care/Premium 불러오기’를 누르거나, 코드 관리에서 그 달 명단을 업로드하세요." : "관리자가 명단을 올리면 여기에 떠요.") + '</p>';
       $("vmsg").textContent = ""; return;
     }
-    var head = '<div class="mkscroll"><table class="mktable cmtable" style="min-width:1180px;"><thead><tr>' +
-      '<th>이름<span class="th-en">NAME</span></th><th style="text-align:center;">레벨</th><th style="text-align:center;">요일</th><th style="text-align:center;">멤버쉽</th><th style="text-align:center;">시간</th>' +
-      '<th style="text-align:center;">누적</th>' + VOCA_SLOTS.map(function (s) { return '<th style="text-align:center;">' + s + '</th>'; }).join("") +
-      '<th style="text-align:center;">합계</th><th style="text-align:center;">상품</th></tr></thead><tbody>';
-    var body = list.map(function (r) {
-      var sc = r.scores || {};
-      var cells = VOCA_SLOTS.map(function (s) {
-        return '<td class="mk-cell"><input class="vcell" data-code="' + esc(r.code) + '" data-slot="' + s + '" inputmode="numeric" value="' + (sc[s] != null ? esc(sc[s]) : "") + '" style="width:42px;text-align:center;padding:4px;border:2px solid var(--neo-ink);border-radius:4px;"></td>';
-      }).join("");
-      var tot = vocaTotal(r), przN = VOCA_THRESHOLDS.filter(function (t) { return tot >= t; }).length;
-      return '<tr>' +
-        '<td class="mk-name">' + esc(r.name || "") + '<span class="mk-code">' + esc(r.code || "") + '</span></td>' +
-        '<td class="mk-cell">' + esc(r.level || "") + '</td><td class="mk-cell">' + esc(r.days || "") + '</td>' +
-        '<td class="mk-cell">' + esc(r.membership || "") + '</td><td class="mk-cell">' + esc(r.start_time || "") + '</td>' +
-        '<td class="mk-cell"><input class="vcarry" data-code="' + esc(r.code) + '" inputmode="numeric" value="' + (parseInt(r.carry || 0, 10) || 0) + '" style="width:56px;text-align:center;padding:4px;border:2px solid var(--neo-ink);border-radius:4px;"></td>' +
-        cells +
-        '<td class="mk-cell vtot" data-code="' + esc(r.code) + '"><b>' + tot + '</b></td>' +
-        '<td class="mk-cell vprize" data-code="' + esc(r.code) + '">' + (przN ? '<span class="rbadge">' + przN + '개</span>' : '<span style="opacity:.4;">–</span>') + '</td></tr>';
-    }).join("");
-    $("vlist").innerHTML = head + body + '</tbody></table></div>';
+    var reg = list.filter(function (r) { return !isMTWT(r); });
+    var mt = list.filter(isMTWT);
+    $("vlist").innerHTML = '<div class="vnotif" id="vnotif" style="display:none;"></div>' +
+      vocaTableHTML("일반반", VOCA_SLOTS_REG, reg) +
+      vocaTableHTML("월화수목반", VOCA_SLOTS_MTWT, mt);
+    renderVocaNotif();
     $("vmsg").textContent = monthLabel(m) + " · " + list.length + "명";
     Array.from(document.querySelectorAll(".vcell, .vcarry")).forEach(function (inp) {
       inp.addEventListener("change", function () { saveVocaRow(inp.getAttribute("data-code"), m); });
@@ -1178,6 +1250,7 @@
   function saveVocaRow(code, month) {
     var row = (vocaRows || []).filter(function (r) { return r.code === code; })[0];
     if (!row) return;
+    var oldPrz = przCount(vocaTotal(row));   // 저장 전 상품 개수 → 임계 돌파 감지(#6)
     var scores = {};
     Array.from(document.querySelectorAll('.vcell[data-code="' + cssq(code) + '"]')).forEach(function (inp) {
       var v = inp.value.trim(), n = parseInt(v, 10); if (v !== "" && !isNaN(n)) scores[inp.getAttribute("data-slot")] = n;
@@ -1185,9 +1258,12 @@
     var carryInp = document.querySelector('.vcarry[data-code="' + cssq(code) + '"]');
     var carry = carryInp ? (parseInt(carryInp.value, 10) || 0) : (parseInt(row.carry || 0, 10) || 0);
     row.scores = scores; row.carry = carry;
-    var tot = vocaTotal(row), przN = VOCA_THRESHOLDS.filter(function (t) { return tot >= t; }).length;
+    var tot = vocaTotal(row), przN = przCount(tot);
     var tc = document.querySelector('.vtot[data-code="' + cssq(code) + '"]'); if (tc) tc.innerHTML = "<b>" + tot + "</b>";
-    var pc = document.querySelector('.vprize[data-code="' + cssq(code) + '"]'); if (pc) pc.innerHTML = przN ? '<span class="rbadge">' + przN + '개</span>' : '<span style="opacity:.4;">–</span>';
+    var pc = document.querySelector('.vprize[data-code="' + cssq(code) + '"]'); if (pc) pc.innerHTML = przBadge(przN);
+    if (przN > oldPrz) {   // 새 상품 임계 돌파 → 어드민 알림
+      for (var i = oldPrz; i < przN; i++) pushVocaNotif(row.name || code, code, VOCA_REWARDS[i].pt, VOCA_REWARDS[i].name);
+    }
     fetch(GBASE + "/vocacare-cell?admin=" + encodeURIComponent(admin), {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: code, month: month, scores: scores, carry: carry })
