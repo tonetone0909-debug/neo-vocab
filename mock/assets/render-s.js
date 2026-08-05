@@ -240,7 +240,7 @@
   }
 
   function playQuestion(ctx, g, it, last, ui, stream) {
-    ui.note.textContent = "Listen to the question.";
+    ui.note.textContent = "Get ready…";      // 화면이 이 문항으로 바뀐 걸 먼저 보여준다
     ui.panel.classList.add("waiting");
 
     var au = new Audio(it.audio);
@@ -262,8 +262,15 @@
       ui.note.textContent = "Audio unavailable. Moving to your response.";
       setTimeout(afterAudio, 400);
     });
-    var p = au.play();
-    if (p && p.catch) p.catch(function () { setTimeout(afterAudio, 400); });
+    // 화면이 이 문항으로 실제 전환된 뒤 1.5초 있다가 음원 재생.
+    // (전환 전에 소리부터 나서 '화면은 그대로인데 음원만 재생'되던 문제 해결.)
+    var myLive = sLive;
+    sTimeout(function () {
+      if (sLive !== myLive) return;           // 그새 다른 화면으로 넘어갔으면 재생 안 함
+      ui.note.textContent = "Listen to the question.";
+      var p = au.play();
+      if (p && p.catch) p.catch(function () { setTimeout(afterAudio, 400); });
+    }, 1500);
   }
 
   function startRecording(ctx, g, it, last, ui, stream) {

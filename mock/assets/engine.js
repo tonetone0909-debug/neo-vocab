@@ -66,10 +66,32 @@
     var self = this;
     return NEO_EXAMDB.getSession(this.code, this.sid).then(function (snap) {
       self.st = (snap && !snap.done) ? snap : self.freshState();
+      self.regrantIfStale();     // 이탈 중 모듈 시간이 만료된 채 복귀하면 모듈이 통째로 스킵되는 것 방지
       self.installGuard();
       self.enter();
       return !!(snap && !snap.done);
     });
+  };
+
+  /* 복구 시, 지금 들어갈 모듈타임 파트(Reading 라우터/모듈2)의 마감이 '이미' 지났으면
+   * 그 파트 시간을 1회 재부여한다. 안 그러면 복구 직후 첫 tick 이 곧장 submitPhase 를 불러
+   * 모듈 화면이 한 프레임만 뜨고 다음 섹션으로 넘어간다(예: Reading 모듈2 → 리스닝으로 스킵).
+   * - 문항별(리스닝)/그룹별(라이팅)은 각 문항·태스크 만료가 정상 동작이라 건드리지 않는다.
+   * - 마감이 아직 미래면(짧은 새로고침) 그대로 흐르게 둔다 → 벽시계 이탈시간 소진(anti-cheat) 유지.
+   * - 파트당 1회로 제한해 '만료 후 복구' 무한 리셋 악용을 막는다. */
+  Engine.prototype.regrantIfStale = function () {
+    if (this.free) return;
+    if (this.isPerQ() || this.isPerGroup()) return;
+    var k = this.timerKey();
+    var d = this.st.deadlines[k];
+    if (d === undefined) return;                 // 아직 시작 안 한 파트 — 정상 진입에서 새로 건다
+    if (d > now()) return;                        // 시간 남음 — 그대로 흐르게 둠
+    if (this.st.spent[k] !== undefined) return;   // 이미 제출된 파트
+    this.st.regranted = this.st.regranted || {};
+    if (this.st.regranted[k]) return;             // 파트당 1회만
+    this.st.regranted[k] = 1;
+    delete this.st.deadlines[k];                  // startTimer 가 새 now()+budget() 로 다시 건다
+    this.save();
   };
 
   /* ---- 타이머 ---------------------------------------------------- */
